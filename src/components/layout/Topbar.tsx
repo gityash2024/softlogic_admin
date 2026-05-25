@@ -1,0 +1,113 @@
+import { useLocation } from 'react-router-dom';
+import { CalendarDays, Menu, ShieldCheck } from 'lucide-react';
+import { useAuthStore } from '@/lib/auth-store';
+import { ROLE_LABEL } from '@/types/api';
+import { Button } from '@/components/ui/button';
+
+const PATH_TO_TITLE: Record<string, { title: string; subtitle: string }> = {
+  '/dashboard': {
+    title: 'Dashboard',
+    subtitle: 'Executive overview, growth signals, and workspace health',
+  },
+  '/users': { title: 'Users', subtitle: 'Provision accounts and control access' },
+  '/content': {
+    title: 'Content',
+    subtitle: 'Review canvases, live sessions, and generated exports',
+  },
+  '/organizations': {
+    title: 'Organizations',
+    subtitle: 'Manage partners, customers, branding, and AI settings',
+  },
+  '/subscriptions': {
+    title: 'Subscriptions',
+    subtitle: 'Track plan state, terms, and seat allocation',
+  },
+  '/activity': {
+    title: 'Activity',
+    subtitle: 'Audit trail for administrative changes',
+  },
+  '/license': {
+    title: 'License',
+    subtitle: 'Workspace subscription reference and billing history',
+  },
+  '/settings': { title: 'Settings', subtitle: 'Personal profile and locale' },
+};
+
+interface TopbarProps {
+  onMenuClick: () => void;
+}
+
+export function Topbar({ onMenuClick }: TopbarProps) {
+  const location = useLocation();
+  const { user } = useAuthStore();
+  const meta = PATH_TO_TITLE[location.pathname] ??
+    (location.pathname.startsWith('/users/')
+      ? { title: 'User Form', subtitle: 'Create or edit account access' }
+      : location.pathname.startsWith('/organizations/')
+        ? {
+            title: 'Organization Form',
+            subtitle: 'Configure workspace identity and hierarchy',
+          }
+        : location.pathname.startsWith('/subscriptions/')
+          ? {
+              title: 'Subscription Form',
+              subtitle: 'Manage plan state, ownership, and seat allocation',
+            }
+          : {
+    title: 'Admin Console',
+    subtitle: 'SoftLogic workspace operations',
+          });
+
+  return (
+    <header className="sticky top-0 z-30 border-b border-line/80 bg-white/90 px-4 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="shrink-0 lg:hidden"
+            onClick={onMenuClick}
+          >
+            <Menu className="h-4 w-4" />
+          </Button>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="truncate text-lg font-bold text-ink-900 sm:text-xl">
+                {meta.title}
+              </h1>
+              <span className="hidden rounded-full border border-brand-primary/15 bg-brand-primary/10 px-2 py-0.5 text-xs font-semibold text-brand-primary sm:inline-flex">
+                Live
+              </span>
+            </div>
+            <p className="truncate text-xs text-ink-500 sm:text-sm">
+              {meta.subtitle}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <div className="hidden items-center gap-2 rounded-lg border border-line bg-white px-3 py-2 text-xs font-medium text-ink-500 shadow-sm md:flex">
+            <CalendarDays className="h-4 w-4 text-brand-primary" />
+            {new Date().toLocaleDateString(undefined, {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric',
+            })}
+          </div>
+          <div className="hidden items-center gap-2 rounded-lg border border-line bg-white px-3 py-2 shadow-sm sm:flex">
+            <ShieldCheck className="h-4 w-4 text-brand-orange" />
+            <div className="text-right">
+              <p className="max-w-[150px] truncate text-xs font-semibold text-ink-900">
+                {user?.name ?? 'Administrator'}
+              </p>
+              <p className="text-[11px] text-ink-500">
+                {user?.role ? ROLE_LABEL[user.role] : 'Admin'}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
