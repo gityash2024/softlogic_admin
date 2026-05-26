@@ -92,11 +92,11 @@ export function LoginScreen() {
             </p>
           </div>
 
-          <div className="relative z-10 mt-8 flex min-h-0 flex-1 items-end justify-end">
+          <div className="relative z-10 mt-5 flex min-h-0 flex-1 items-end justify-start pl-8">
             <img
               src={signinVisual}
               alt="SoftLogic whiteboard preview"
-              className="pointer-events-none max-h-[38vh] w-[58%] max-w-[560px] object-contain opacity-95"
+              className="pointer-events-none max-h-[28vh] w-[46%] max-w-[430px] object-contain opacity-95"
             />
           </div>
 
