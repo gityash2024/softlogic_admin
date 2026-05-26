@@ -449,8 +449,8 @@ export function SubscriptionsPage() {
                 return (
                   <TableRow key={s.id}>
                     <TableCell>
-                      <div className="min-w-[220px]">
-                        <p className="text-sm font-semibold text-ink-900">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-ink-900">
                           {scopeName}
                         </p>
                         <p className="text-xs text-ink-500">{scopeKind}</p>
@@ -462,7 +462,7 @@ export function SubscriptionsPage() {
                       </p>
                     </TableCell>
                     <TableCell>
-                      <div className="w-48 space-y-1">
+                      <div className="w-full max-w-48 space-y-1">
                         <Progress value={pct} />
                         <p className="text-xs text-ink-500">
                           {s.seatUsage}/{s.seatLimit} seats
@@ -475,7 +475,7 @@ export function SubscriptionsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <p className="min-w-[170px] text-sm text-ink-700">
+                      <p className="text-sm leading-5 text-ink-700">
                         {formatDate(s.startDate)} - {formatDate(s.endDate)}
                       </p>
                     </TableCell>

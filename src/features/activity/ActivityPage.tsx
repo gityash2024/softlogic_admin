@@ -315,7 +315,7 @@ export function ActivityPage() {
               {entries.map((entry) => (
                 <TableRow key={entry.id}>
                   <TableCell>
-                    <div className="flex min-w-[220px] items-center gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
                       <Avatar className="h-8 w-8">
                         <AvatarFallback>
                           {initials(entry.actorUser?.name ?? entry.actorUser?.email)}
@@ -343,12 +343,12 @@ export function ActivityPage() {
                     </p>
                   </TableCell>
                   <TableCell>
-                    <p className="min-w-[220px] text-sm text-ink-700">
+                    <p className="text-sm leading-5 text-ink-700">
                       {entry.summary ?? '-'}
                     </p>
                   </TableCell>
                   <TableCell>
-                    <p className="min-w-[150px] text-xs text-ink-500">
+                    <p className="text-xs leading-5 text-ink-500">
                       {formatDateTime(entry.createdAt)}
                     </p>
                   </TableCell>

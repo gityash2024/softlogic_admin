@@ -402,7 +402,7 @@ export function UsersPage() {
                 return (
                   <TableRow key={u.id}>
                     <TableCell>
-                      <div className="flex min-w-[220px] items-center gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
                         <Avatar className="h-9 w-9">
                           <AvatarFallback>
                             {initials(u.name ?? u.email)}
@@ -422,7 +422,7 @@ export function UsersPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <p className="min-w-[160px] text-sm text-ink-900">
+                      <p className="truncate text-sm text-ink-900">
                         {u.primaryOrganization?.name ?? (
                           <span className="text-ink-400">Unassigned</span>
                         )}

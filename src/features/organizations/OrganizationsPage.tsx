@@ -456,7 +456,7 @@ export function OrganizationsPage() {
               {organizations.map((org) => (
                 <TableRow key={org.id}>
                   <TableCell>
-                    <div className="flex min-w-[240px] items-center gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border border-line bg-surface-variant">
                         {org.logoUrl ? (
                           <img

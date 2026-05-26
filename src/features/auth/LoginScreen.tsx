@@ -70,8 +70,8 @@ export function LoginScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F7FB] p-3 sm:p-4">
-      <div className="grid min-h-[calc(100vh-24px)] overflow-hidden rounded-[28px] border border-line bg-white shadow-2xl lg:grid-cols-[1.08fr_0.92fr]">
+    <div className="h-screen overflow-hidden bg-[#F5F7FB] p-3 sm:p-4">
+      <div className="grid h-full min-h-0 overflow-hidden rounded-[28px] border border-line bg-white shadow-2xl lg:grid-cols-[1.08fr_0.92fr]">
         <aside className="relative hidden overflow-hidden bg-brand-navy px-8 py-8 text-white lg:flex lg:flex-col">
           <BlueprintBackdrop />
           <div className="relative z-10 flex items-center">

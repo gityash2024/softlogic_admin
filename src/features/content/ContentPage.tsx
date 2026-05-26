@@ -696,7 +696,7 @@ function CanvasTable({
         {rows.map((canvas) => (
           <TableRow key={canvas.id}>
             <TableCell>
-              <div className="flex min-w-[260px] items-center gap-3">
+              <div className="flex min-w-0 items-center gap-3">
                 <PreviewTile thumbnail={canvas.thumbnail} icon="canvas" />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-ink-900">
@@ -716,7 +716,7 @@ function CanvasTable({
               />
             </TableCell>
             <TableCell>
-              <p className="min-w-[180px] text-sm text-ink-700">
+              <p className="truncate text-sm text-ink-700">
                 {canvas.organization?.name ?? '-'}
               </p>
             </TableCell>
@@ -726,13 +726,13 @@ function CanvasTable({
               </Badge>
             </TableCell>
             <TableCell>
-              <div className="min-w-[160px] text-xs text-ink-500">
+              <div className="text-xs leading-5 text-ink-500">
                 {canvas._count.slides} slides, {canvas._count.liveSessions} sessions,{' '}
                 {canvas._count.exports} exports
               </div>
             </TableCell>
             <TableCell>
-              <p className="min-w-[150px] text-xs text-ink-500">
+              <p className="text-xs leading-5 text-ink-500">
                 {formatDateTime(canvas.updatedAt)}
               </p>
             </TableCell>
@@ -768,7 +768,7 @@ function LiveSessionsTable({
         {rows.map((session) => (
           <TableRow key={session.id}>
             <TableCell>
-              <div className="flex min-w-[260px] items-center gap-3">
+              <div className="flex min-w-0 items-center gap-3">
                 <PreviewTile thumbnail={session.canvas?.thumbnail} icon="session" />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-ink-900">
@@ -793,18 +793,18 @@ function LiveSessionsTable({
               </Badge>
             </TableCell>
             <TableCell>
-              <div className="min-w-[180px] text-xs text-ink-500">
+              <div className="text-xs leading-5 text-ink-500">
                 {session._count.participants} participants,{' '}
                 {session._count.messages} messages, {session._count.mediaAssets} media
               </div>
             </TableCell>
             <TableCell>
-              <p className="min-w-[150px] text-xs text-ink-500">
+              <p className="text-xs leading-5 text-ink-500">
                 {formatDateTime(session.startedAt)}
               </p>
             </TableCell>
             <TableCell>
-              <p className="min-w-[150px] text-xs text-ink-500">
+              <p className="text-xs leading-5 text-ink-500">
                 {formatDateTime(session.endedAt)}
               </p>
             </TableCell>
@@ -841,7 +841,7 @@ function ExportsTable({
         {rows.map((record) => (
           <TableRow key={record.id}>
             <TableCell>
-              <div className="flex min-w-[260px] items-center gap-3">
+              <div className="flex min-w-0 items-center gap-3">
                 <PreviewTile thumbnail={record.canvas?.thumbnail} icon="export" />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-ink-900">
@@ -872,7 +872,7 @@ function ExportsTable({
               <p className="text-sm text-ink-700">{formatBytes(record.fileSize)}</p>
             </TableCell>
             <TableCell>
-              <p className="min-w-[150px] text-xs text-ink-500">
+              <p className="text-xs leading-5 text-ink-500">
                 {formatDateTime(record.completedAt)}
               </p>
             </TableCell>
@@ -932,7 +932,7 @@ function UserCell({
   role?: string | null;
 }) {
   return (
-    <div className="flex min-w-[220px] items-center gap-3">
+    <div className="flex min-w-0 items-center gap-3">
       <Avatar className="h-8 w-8">
         <AvatarFallback>{initials(name ?? email ?? 'User')}</AvatarFallback>
       </Avatar>

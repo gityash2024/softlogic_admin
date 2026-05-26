@@ -89,8 +89,8 @@ export default {
       keyframes: {
         'fade-in': { from: { opacity: '0' }, to: { opacity: '1' } },
         'slide-up': {
-          from: { opacity: '0', transform: 'translateY(8px)' },
-          to: { opacity: '1', transform: 'translateY(0)' },
+          from: { opacity: '0', transform: 'translate(-50%, calc(-50% + 8px))' },
+          to: { opacity: '1', transform: 'translate(-50%, -50%)' },
         },
       },
       animation: {
