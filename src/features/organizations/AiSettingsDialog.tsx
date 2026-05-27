@@ -28,6 +28,10 @@ import type { AdminOrganization } from '@/types/api';
 
 interface AiSettings {
   geminiApiKey?: string;
+  geminiTextModel?: string;
+  geminiImageModel?: string;
+  geminiTtsModel?: string;
+  // Legacy fields are read only for old saved organization settings.
   textModel?: string;
   imageModel?: string;
   ttsModel?: string;
@@ -89,19 +93,37 @@ function readAiSettings(org: AdminOrganization | null | undefined): AiSettings {
 function withDefaults(ai: AiSettings): AiSettings {
   return {
     geminiApiKey: ai.geminiApiKey ?? '',
-    textModel:
-      ai.textModel && ai.textModel.trim().length > 0
+    geminiTextModel:
+      ai.geminiTextModel && ai.geminiTextModel.trim().length > 0
+        ? ai.geminiTextModel.trim()
+        : ai.textModel && ai.textModel.trim().length > 0
         ? ai.textModel.trim()
         : DEFAULT_TEXT_MODEL,
-    imageModel:
-      ai.imageModel && ai.imageModel.trim().length > 0
+    geminiImageModel:
+      ai.geminiImageModel && ai.geminiImageModel.trim().length > 0
+        ? ai.geminiImageModel.trim()
+        : ai.imageModel && ai.imageModel.trim().length > 0
         ? ai.imageModel.trim()
         : DEFAULT_IMAGE_MODEL,
-    ttsModel:
-      ai.ttsModel && ai.ttsModel.trim().length > 0
+    geminiTtsModel:
+      ai.geminiTtsModel && ai.geminiTtsModel.trim().length > 0
+        ? ai.geminiTtsModel.trim()
+        : ai.ttsModel && ai.ttsModel.trim().length > 0
         ? ai.ttsModel.trim()
         : DEFAULT_TTS_MODEL,
     deepgramApiKey: ai.deepgramApiKey ?? '',
+  };
+}
+
+function normalizeAiSettingsForSave(values: AiSettings): AiSettings {
+  return {
+    geminiApiKey: values.geminiApiKey?.trim() ?? '',
+    geminiTextModel:
+      values.geminiTextModel?.trim() || DEFAULT_TEXT_MODEL,
+    geminiImageModel:
+      values.geminiImageModel?.trim() || DEFAULT_IMAGE_MODEL,
+    geminiTtsModel: values.geminiTtsModel?.trim() || DEFAULT_TTS_MODEL,
+    deepgramApiKey: values.deepgramApiKey?.trim() ?? '',
   };
 }
 
@@ -122,9 +144,9 @@ export function AiSettingsDialog({ open, onOpenChange, organization }: Props) {
     if (open) reset(withDefaults(readAiSettings(organization)));
   }, [open, organization, reset]);
 
-  const textModel = watch('textModel');
-  const imageModel = watch('imageModel');
-  const ttsModel = watch('ttsModel');
+  const textModel = watch('geminiTextModel');
+  const imageModel = watch('geminiImageModel');
+  const ttsModel = watch('geminiTtsModel');
   const geminiApiKey = watch('geminiApiKey') ?? '';
   const deepgramApiKey = watch('deepgramApiKey') ?? '';
 
@@ -147,7 +169,7 @@ export function AiSettingsDialog({ open, onOpenChange, organization }: Props) {
       return organizationsApi.update(organization.id, {
         settings: {
           ...(organization.settings as Record<string, unknown>),
-          ai: values,
+          ai: normalizeAiSettingsForSave(values),
         },
       });
     },
@@ -234,7 +256,7 @@ export function AiSettingsDialog({ open, onOpenChange, organization }: Props) {
               </label>
               <Select
                 value={textModel}
-                onValueChange={(v) => setValue('textModel', v)}
+                onValueChange={(v) => setValue('geminiTextModel', v)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select" />
@@ -254,7 +276,7 @@ export function AiSettingsDialog({ open, onOpenChange, organization }: Props) {
               </label>
               <Select
                 value={imageModel}
-                onValueChange={(v) => setValue('imageModel', v)}
+                onValueChange={(v) => setValue('geminiImageModel', v)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select" />
@@ -282,7 +304,7 @@ export function AiSettingsDialog({ open, onOpenChange, organization }: Props) {
               </label>
               <Select
                 value={ttsModel}
-                onValueChange={(v) => setValue('ttsModel', v)}
+                onValueChange={(v) => setValue('geminiTtsModel', v)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select" />

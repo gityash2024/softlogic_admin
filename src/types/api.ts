@@ -57,6 +57,10 @@ export interface OrganizationSummary {
 
 export interface OrganizationAiSettings {
   geminiApiKey?: string;
+  geminiTextModel?: string;
+  geminiImageModel?: string;
+  geminiTtsModel?: string;
+  // Legacy keys can exist on older organization settings payloads.
   textModel?: string;
   imageModel?: string;
   ttsModel?: string;
