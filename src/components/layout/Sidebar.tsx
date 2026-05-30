@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { supportApi } from '@/services/support.api';
 import {
   LayoutDashboard,
   Users,
@@ -7,6 +9,8 @@ import {
   CreditCard,
   Files,
   Activity as ActivityIcon,
+  HelpCircle,
+  Inbox,
   KeyRound,
   Settings,
   LogOut,
@@ -15,6 +19,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react';
+import type { UserRole } from '@/types/api';
 import { cn, initials } from '@/lib/utils';
 import { useAuthStore } from '@/lib/auth-store';
 import { authApi } from '@/services/auth.api';
@@ -31,7 +36,7 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 
-const NAV_ITEMS = [
+const BASE_NAV_ITEMS = [
   {
     to: '/dashboard',
     label: 'Dashboard',
@@ -62,7 +67,6 @@ const NAV_ITEMS = [
     label: 'Activity',
     description: 'Audit trail',
     icon: ActivityIcon,
-    onlyFor: ['SUPER_ADMIN'] as const,
   },
   {
     to: '/license',
@@ -77,6 +81,42 @@ const NAV_ITEMS = [
     icon: Settings,
   },
 ];
+
+const SUPPORT_INBOX_ITEM = {
+  to: '/support',
+  label: 'Support Inbox',
+  description: 'Org admin requests',
+  icon: Inbox,
+};
+
+const HELP_ITEM = {
+  to: '/help',
+  label: 'Help',
+  description: 'Ask the SoftLogic team',
+  icon: HelpCircle,
+};
+
+const getNavItems = (role: UserRole | undefined) => {
+  let items = [...BASE_NAV_ITEMS];
+  // Customer/Org admins manage a single workspace, so they don't get the
+  // Organizations directory — their own org details are shown read-only in
+  // Settings. Super admins and partner admins (who resell to customers) keep it.
+  if (role === 'CUSTOMER_ADMIN' || role === 'ADMIN') {
+    items = items.filter((item) => item.to !== '/organizations');
+  }
+  // Insert role-specific entry just before the License item for visual grouping.
+  const insertAt = items.findIndex((item) => item.to === '/license');
+  const supportEntry =
+    role === 'SUPER_ADMIN'
+      ? SUPPORT_INBOX_ITEM
+      : role === 'PARTNER_ADMIN' || role === 'CUSTOMER_ADMIN' || role === 'ADMIN'
+      ? HELP_ITEM
+      : null;
+  if (supportEntry) {
+    items.splice(insertAt >= 0 ? insertAt : items.length, 0, supportEntry);
+  }
+  return items;
+};
 
 interface SidebarProps {
   open: boolean;
@@ -95,6 +135,22 @@ export function Sidebar({
   const { user, tokens, clear } = useAuthStore();
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const navItems = getNavItems(user?.role);
+  const showSupportBadge =
+    user?.role === 'SUPER_ADMIN' ||
+    user?.role === 'PARTNER_ADMIN' ||
+    user?.role === 'CUSTOMER_ADMIN' ||
+    user?.role === 'ADMIN';
+  const supportRoute =
+    user?.role === 'SUPER_ADMIN' ? '/support' : '/help';
+  const unreadQuery = useQuery({
+    queryKey: ['support', 'unread-count', user?.role],
+    queryFn: supportApi.unreadCount,
+    enabled: showSupportBadge,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+  });
+  const unreadCount = unreadQuery.data ?? 0;
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -126,7 +182,7 @@ export function Sidebar({
       )}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex h-screen w-[292px] flex-col overflow-hidden border-r border-white/10 bg-brand-navy text-white shadow-2xl transition-[width,transform] duration-300 ease-out lg:static lg:z-auto lg:translate-x-0 lg:shadow-none',
+          'fixed inset-y-0 left-0 z-50 flex h-dvh w-[292px] flex-col overflow-hidden border-r border-white/10 bg-brand-navy text-white shadow-2xl transition-[width,transform] duration-300 ease-out lg:static lg:z-auto lg:translate-x-0 lg:shadow-none',
           collapsed ? 'lg:w-[88px]' : 'lg:w-[292px]',
           open ? 'translate-x-0' : '-translate-x-full',
         )}
@@ -188,11 +244,7 @@ export function Sidebar({
           )}
         >
           <ul className="space-y-0.5">
-            {NAV_ITEMS.filter(
-              (item) =>
-                !item.onlyFor ||
-                (user && (item.onlyFor as readonly string[]).includes(user.role)),
-            ).map((item) => (
+            {navItems.map((item) => (
               <li key={item.to}>
                 <NavLink
                   to={item.to}
@@ -229,7 +281,21 @@ export function Sidebar({
                           collapsed && 'lg:w-0 lg:opacity-0',
                         )}
                       >
-                        <span className="block font-semibold">{item.label}</span>
+                        <span className="flex items-center gap-2 font-semibold">
+                          {item.label}
+                          {item.to === supportRoute && unreadCount > 0 && (
+                            <span
+                              className={cn(
+                                'inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold leading-none',
+                                isActive
+                                  ? 'bg-brand-orange text-white'
+                                  : 'bg-brand-orange text-white',
+                              )}
+                            >
+                              {unreadCount > 99 ? '99+' : unreadCount}
+                            </span>
+                          )}
+                        </span>
                         <span
                           className={cn(
                             'block truncate text-xs',
@@ -239,6 +305,9 @@ export function Sidebar({
                           {item.description}
                         </span>
                       </span>
+                      {collapsed && item.to === supportRoute && unreadCount > 0 && (
+                        <span className="absolute right-1 top-1 hidden h-2 w-2 rounded-full bg-brand-orange ring-2 ring-brand-navy lg:block" />
+                      )}
                     </>
                   )}
                 </NavLink>

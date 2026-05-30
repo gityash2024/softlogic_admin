@@ -2,6 +2,7 @@ import type { UserRole } from '@/types/api';
 
 const RANK: Record<UserRole, number> = {
   STUDENT: 1,
+  PARENT: 1,
   TEACHER: 2,
   CUSTOMER_ADMIN: 3,
   PARTNER_ADMIN: 4,
@@ -13,12 +14,12 @@ export function manageableRoles(actorRole: UserRole | undefined): UserRole[] {
   if (!actorRole) return [];
   switch (actorRole) {
     case 'SUPER_ADMIN':
-      return ['SUPER_ADMIN', 'PARTNER_ADMIN', 'CUSTOMER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT'];
+      return ['SUPER_ADMIN', 'PARTNER_ADMIN', 'CUSTOMER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT', 'PARENT'];
     case 'PARTNER_ADMIN':
-      return ['CUSTOMER_ADMIN', 'TEACHER', 'STUDENT'];
+      return ['CUSTOMER_ADMIN', 'TEACHER', 'STUDENT', 'PARENT'];
     case 'CUSTOMER_ADMIN':
     case 'ADMIN':
-      return ['TEACHER', 'STUDENT'];
+      return ['TEACHER', 'STUDENT', 'PARENT'];
     default:
       return [];
   }

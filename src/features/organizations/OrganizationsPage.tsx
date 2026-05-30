@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  ArchiveX,
   Building2,
   Image as ImageIcon,
   Pencil,
@@ -12,6 +13,7 @@ import {
   Sliders,
   Trash2,
   Upload,
+  UsersRound,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -71,6 +73,11 @@ function kindVariant(kind: OrganizationKind) {
   return 'info' as const;
 }
 
+function organizationStatusLabel(organization: AdminOrganization) {
+  if (organization.deletedAt) return 'Archived';
+  return organization.status === 'ACTIVE' ? 'Active' : 'Inactive';
+}
+
 function hasAiSettings(org: AdminOrganization) {
   const ai = (org.settings as Record<string, unknown> | undefined)?.ai;
   return Boolean(ai && typeof ai === 'object' && Object.keys(ai).length > 0);
@@ -85,6 +92,7 @@ export function OrganizationsPage() {
   const [exporting, setExporting] = useState<AdminExportFormat | null>(null);
   const [aiTarget, setAiTarget] = useState<AdminOrganization | null>(null);
   const [logoRemoval, setLogoRemoval] = useState<AdminOrganization | null>(null);
+  const [archiveAction, setArchiveAction] = useState<AdminOrganization | null>(null);
   const [statusAction, setStatusAction] = useState<{
     organization: AdminOrganization;
     status: OrganizationStatus;
@@ -230,6 +238,19 @@ export function OrganizationsPage() {
     onError: (err) => toast.error(extractApiError(err)),
   });
 
+  const archiveOrganization = useMutation({
+    mutationFn: (id: string) => organizationsApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organizations'] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
+      toast.success('Organization archived and license usage released');
+      setArchiveAction(null);
+    },
+    onError: (err) => toast.error(extractApiError(err)),
+  });
+
   const handleExport = async (format: AdminExportFormat) => {
     setExporting(format);
     try {
@@ -339,6 +360,7 @@ export function OrganizationsPage() {
                 <SelectItem value="ALL">All statuses</SelectItem>
                 <SelectItem value="ACTIVE">Active</SelectItem>
                 <SelectItem value="INACTIVE">Inactive</SelectItem>
+                <SelectItem value="ARCHIVED">Archived</SelectItem>
               </SelectContent>
             </Select>
             <Select
@@ -482,8 +504,16 @@ export function OrganizationsPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={org.status === 'ACTIVE' ? 'success' : 'warning'}>
-                      {org.status === 'ACTIVE' ? 'Active' : 'Inactive'}
+                    <Badge
+                      variant={
+                        org.deletedAt
+                          ? 'default'
+                          : org.status === 'ACTIVE'
+                            ? 'success'
+                            : 'warning'
+                      }
+                    >
+                      {organizationStatusLabel(org)}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -508,6 +538,7 @@ export function OrganizationsPage() {
                       <Button
                         size="icon"
                         variant="ghost"
+                        disabled={Boolean(org.deletedAt)}
                         title={
                           org.status === 'ACTIVE'
                             ? 'Deactivate organization'
@@ -529,6 +560,7 @@ export function OrganizationsPage() {
                       <Button
                         size="icon"
                         variant="ghost"
+                        disabled={Boolean(org.deletedAt)}
                         title="AI settings"
                         onClick={() => setAiTarget(org)}
                       >
@@ -537,6 +569,7 @@ export function OrganizationsPage() {
                       <Button
                         size="icon"
                         variant="ghost"
+                        disabled={Boolean(org.deletedAt)}
                         title="Upload logo"
                         onClick={() => fileInputs.current[org.id]?.click()}
                       >
@@ -559,12 +592,44 @@ export function OrganizationsPage() {
                         <Button
                           size="icon"
                           variant="ghost"
+                          disabled={Boolean(org.deletedAt)}
                           title="Remove logo"
                           onClick={() => setLogoRemoval(org)}
                         >
                           <Trash2 className="h-4 w-4 text-danger" />
                         </Button>
                       )}
+                      {actor?.role === 'SUPER_ADMIN' && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          disabled={org.kind === 'INTERNAL' || Boolean(org.deletedAt)}
+                          title={
+                            org.deletedAt
+                              ? 'Organization is already archived'
+                              : org.kind === 'INTERNAL'
+                              ? 'Internal SoftLogic organizations cannot be deleted'
+                              : 'Delete organization'
+                          }
+                          onClick={() => setArchiveAction(org)}
+                        >
+                          <ArchiveX className="h-4 w-4 text-danger" />
+                        </Button>
+                      )}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        title="Open organization users"
+                        onClick={() =>
+                          navigate(
+                            `/users?organizationId=${org.id}${
+                              org.deletedAt ? '&status=ARCHIVED' : ''
+                            }`,
+                          )
+                        }
+                      >
+                        <UsersRound className="h-4 w-4 text-brand-primary" />
+                      </Button>
                       <Button
                         size="icon"
                         variant="ghost"
@@ -620,6 +685,19 @@ export function OrganizationsPage() {
         loading={removeLogo.isPending}
         onConfirm={() => {
           if (logoRemoval) removeLogo.mutate(logoRemoval.id);
+        }}
+      />
+      <ConfirmationDialog
+        open={!!archiveAction}
+        onOpenChange={(open) => !open && setArchiveAction(null)}
+        title="Delete this organization?"
+        description={`${archiveAction?.name ?? 'This organization'} will be archived. All organization users lose access, active/trial subscriptions are canceled, license usage is released, and hardware/storage/AI access is disabled. Billing, whiteboards, sessions, exports, and audit history stay preserved.`}
+        confirmLabel="Delete organization"
+        tone="danger"
+        loading={archiveOrganization.isPending}
+        onConfirm={() => {
+          if (!archiveAction) return;
+          archiveOrganization.mutate(archiveAction.id);
         }}
       />
       <ConfirmationDialog

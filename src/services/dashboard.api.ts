@@ -27,6 +27,7 @@ const roleLabels: Record<UserRole, string> = {
   CUSTOMER_ADMIN: 'Customer Admin',
   ADMIN: 'Admin',
   TEACHER: 'Teacher',
+  PARENT: 'Parent',
   STUDENT: 'Student',
 };
 
@@ -49,6 +50,7 @@ const organizationStatusLabels: Record<OrganizationStatus, string> = {
 const subscriptionStatusLabels: Record<SubscriptionStatus, string> = {
   ACTIVE: 'Active',
   TRIAL: 'Trial',
+  PENDING_APPROVAL: 'Pending Approval',
   EXPIRED: 'Expired',
   CANCELED: 'Canceled',
 };
@@ -148,6 +150,7 @@ async function buildFallbackOverview(): Promise<DashboardOverview> {
           'PARTNER_ADMIN',
           'CUSTOMER_ADMIN',
           'TEACHER',
+          'PARENT',
           'STUDENT',
         ],
         roleLabels,

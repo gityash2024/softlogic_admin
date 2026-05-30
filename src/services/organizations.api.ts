@@ -3,8 +3,11 @@ import { downloadAdminExport, getAdminItem, getAdminList, type AdminExportFormat
 import type {
   AdminOrganization,
   ApiResponse,
+  BrandingMode,
   OrganizationKind,
   OrganizationStatus,
+  OrganizationStorageProvider,
+  OrganizationStorageStatus,
 } from '@/types/api';
 
 export interface CreateOrganizationPayload {
@@ -12,6 +15,20 @@ export interface CreateOrganizationPayload {
   slug?: string;
   kind?: OrganizationKind;
   parentOrganizationId?: string | null;
+  brandingMode?: BrandingMode;
+  studentLoginEnabled?: boolean;
+  parentLoginEnabled?: boolean;
+  sessionOnlyJoinEnabled?: boolean;
+  teacherOnlyMode?: boolean;
+  supportEmail?: string | null;
+  supportPhone?: string | null;
+  storageProviders?: OrganizationStorageProvider[];
+  defaultStorageProvider?: OrganizationStorageProvider | null;
+  storageProvider?: OrganizationStorageProvider | null;
+  storageStatus?: OrganizationStorageStatus;
+  brandName?: string | null;
+  brandPrimaryColor?: string | null;
+  brandAccentColor?: string | null;
 }
 
 export interface UpdateOrganizationPayload {
@@ -19,6 +36,29 @@ export interface UpdateOrganizationPayload {
   slug?: string;
   status?: OrganizationStatus;
   settings?: Record<string, unknown>;
+  brandingMode?: BrandingMode;
+  studentLoginEnabled?: boolean;
+  parentLoginEnabled?: boolean;
+  sessionOnlyJoinEnabled?: boolean;
+  teacherOnlyMode?: boolean;
+  supportEmail?: string | null;
+  supportPhone?: string | null;
+  storageProviders?: OrganizationStorageProvider[];
+  defaultStorageProvider?: OrganizationStorageProvider | null;
+  storageProvider?: OrganizationStorageProvider | null;
+  storageStatus?: OrganizationStorageStatus;
+  brandName?: string | null;
+  brandPrimaryColor?: string | null;
+  brandAccentColor?: string | null;
+}
+
+export interface UpsertOrganizationStoragePayload {
+  provider: OrganizationStorageProvider;
+  status: OrganizationStorageStatus;
+  externalAccountEmail?: string | null;
+  rootFolderId?: string | null;
+  encryptedTokens?: string | null;
+  lastError?: string | null;
 }
 
 export const organizationsApi = {
@@ -43,6 +83,10 @@ export const organizationsApi = {
     );
     return res.data.data;
   },
+  delete: async (id: string) => {
+    const res = await api.delete<ApiResponse<unknown>>(`/admin/organizations/${id}`);
+    return res.data.data;
+  },
   uploadLogo: async (id: string, file: File) => {
     const formData = new FormData();
     formData.append('logo', file);
@@ -56,6 +100,13 @@ export const organizationsApi = {
   removeLogo: async (id: string) => {
     const res = await api.delete<ApiResponse<AdminOrganization>>(
       `/admin/organizations/${id}/logo`,
+    );
+    return res.data.data;
+  },
+  upsertStorage: async (id: string, payload: UpsertOrganizationStoragePayload) => {
+    const res = await api.put<ApiResponse<unknown>>(
+      `/admin/organizations/${id}/storage`,
+      payload,
     );
     return res.data.data;
   },

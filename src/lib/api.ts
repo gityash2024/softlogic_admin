@@ -12,9 +12,12 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const tokens = useAuthStore.getState().tokens;
-  if (tokens?.accessToken) {
-    config.headers.Authorization = `Bearer ${tokens.accessToken}`;
+  const state = useAuthStore.getState();
+  // While impersonating, send the short-lived "view as" token; otherwise the
+  // admin's own access token. Normal (non-impersonating) behavior is unchanged.
+  const accessToken = state.impersonation?.accessToken ?? state.tokens?.accessToken;
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
   }
   return config;
 });
@@ -56,6 +59,14 @@ api.interceptors.response.use(
 
     const isAuthEndpoint = original.url?.includes('/auth/');
     if (error.response.status === 401 && !original._retry && !isAuthEndpoint) {
+      const state = useAuthStore.getState();
+      // An impersonation token cannot be refreshed (no refresh token is issued
+      // for "view as"). On 401, exit impersonation — the admin's own session is
+      // still intact in the store — and surface the error instead of refreshing.
+      if (state.impersonation) {
+        state.stopImpersonation();
+        throw error;
+      }
       original._retry = true;
       if (!refreshPromise) refreshPromise = performRefresh();
       const newToken = await refreshPromise;

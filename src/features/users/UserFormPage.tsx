@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -12,7 +12,12 @@ import { organizationsApi } from '@/services/organizations.api';
 import { useAuthStore } from '@/lib/auth-store';
 import { manageableRoles } from '@/lib/role-access';
 import { extractApiError } from '@/lib/api';
-import { ROLE_LABEL, type UserRole } from '@/types/api';
+import {
+  ROLE_LABEL,
+  type AdminOrganization,
+  type AdminUser,
+  type UserRole,
+} from '@/types/api';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ConfirmSubmitDialog, type ConfirmRow } from '@/components/ui/confirm-submit-dialog';
 
 const schema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -33,18 +39,14 @@ const schema = z.object({
   status: z.string().optional(),
   timezone: z.string().optional(),
   language: z.string().optional(),
+  linkedStudentIds: z.array(z.string()).optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
 
 export function UserFormPage() {
-  const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = Boolean(id);
-  const { user: actor } = useAuthStore();
-  const queryClient = useQueryClient();
-  const allowedRoles = manageableRoles(actor?.role);
-
   const userQuery = useQuery({
     queryKey: ['users', id],
     queryFn: () => usersApi.get(id!),
@@ -55,68 +57,216 @@ export function UserFormPage() {
     queryFn: organizationsApi.all,
   });
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: {
+  // Gate the form mount on the data being ready so useForm captures correct
+  // defaults on its first (and only) call. Without this, useForm initializes
+  // with empty/loading values and Controller-wrapped Radix Selects do not
+  // reliably sync to the later `values` prop update.
+  if (isEdit && (userQuery.isLoading || !userQuery.data)) {
+    return <div className="flex h-64 items-center justify-center"><Spinner className="h-7 w-7 text-brand-primary" /></div>;
+  }
+  if (orgsQuery.isLoading || !orgsQuery.data) {
+    return <div className="flex h-64 items-center justify-center"><Spinner className="h-7 w-7 text-brand-primary" /></div>;
+  }
+
+  return (
+    <UserFormEditor
+      userId={id ?? null}
+      isEdit={isEdit}
+      userData={userQuery.data ?? null}
+      organizations={orgsQuery.data}
+    />
+  );
+}
+
+interface UserFormEditorProps {
+  userId: string | null;
+  isEdit: boolean;
+  userData: AdminUser | null;
+  organizations: AdminOrganization[];
+}
+
+function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEditorProps) {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { user: actor } = useAuthStore();
+  const queryClient = useQueryClient();
+  const allowedRoles = manageableRoles(actor?.role);
+  const defaultRole = allowedRoles.includes('TEACHER')
+    ? 'TEACHER'
+    : (allowedRoles[0] ?? 'TEACHER');
+  const isSuperAdmin = actor?.role === 'SUPER_ADMIN';
+  const ownOrganizationId = actor?.primaryOrganization?.id ?? null;
+  // Org/customer admins manage a single workspace, so their own org is
+  // pre-selected and the picker is locked. Partner admins resell to many
+  // customers, so they keep a (backend-scoped) picker. Super admins are
+  // unchanged: full picker including "Unassigned".
+  const lockOrganization =
+    actor?.role === 'CUSTOMER_ADMIN' || actor?.role === 'ADMIN';
+  const initialOrganizationId =
+    searchParams.get('organizationId') ??
+    (isSuperAdmin ? 'NONE' : ownOrganizationId ?? 'NONE');
+
+  const defaultValues: FormValues = useMemo(() => {
+    if (userData) {
+      return {
+        email: userData.email,
+        name: userData.name ?? '',
+        role: userData.role,
+        organizationId: userData.primaryOrganizationId ?? 'NONE',
+        status: userData.status,
+        timezone: userData.timezone,
+        language: userData.language,
+        linkedStudentIds: [],
+      };
+    }
+    return {
       email: '',
       name: '',
-      role: 'STUDENT',
-      organizationId: 'NONE',
+      role: defaultRole,
+      organizationId: initialOrganizationId,
       status: 'ACTIVE',
       timezone: 'UTC',
       language: 'en',
-    },
-  });
+      linkedStudentIds: [],
+    };
+    // defaults are captured once at mount; further changes are handled via setValue.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  useEffect(() => {
-    if (!userQuery.data) return;
-    reset({
-      email: userQuery.data.email,
-      name: userQuery.data.name ?? '',
-      role: userQuery.data.role,
-      organizationId: userQuery.data.primaryOrganizationId ?? 'NONE',
-      status: userQuery.data.status,
-      timezone: userQuery.data.timezone,
-      language: userQuery.data.language,
-    });
-  }, [reset, userQuery.data]);
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    control,
+    formState: { errors },
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues,
+  });
 
   const createMutation = useMutation({
     mutationFn: usersApi.create,
-    onSuccess: () => {
+    onSuccess: (user) => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
       toast.success('User created');
-      navigate('/users');
+      navigate(
+        user.primaryOrganizationId
+          ? `/users?organizationId=${user.primaryOrganizationId}`
+          : '/users',
+      );
     },
     onError: (error) => toast.error(extractApiError(error)),
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ userId, payload }: { userId: string; payload: UpdateUserPayload }) =>
-      usersApi.update(userId, payload),
-    onSuccess: () => {
+    mutationFn: ({ userId: targetId, payload }: { userId: string; payload: UpdateUserPayload }) =>
+      usersApi.update(targetId, payload),
+    onSuccess: (user) => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
       toast.success('User updated');
-      navigate('/users');
+      navigate(
+        user.primaryOrganizationId
+          ? `/users?organizationId=${user.primaryOrganizationId}`
+          : '/users',
+      );
     },
     onError: (error) => toast.error(extractApiError(error)),
   });
 
   const submitting = createMutation.isPending || updateMutation.isPending;
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingValues, setPendingValues] = useState<FormValues | null>(null);
   const role = watch('role');
   const organizationId = watch('organizationId');
   const status = watch('status');
+  const linkedStudentIds = watch('linkedStudentIds') ?? [];
+  const selectedOrganization = useMemo(
+    () => organizations.find((org) => org.id === organizationId) ?? null,
+    [organizationId, organizations],
+  );
+  const usersQuery = useQuery({
+    queryKey: ['users', 'student-options', organizationId],
+    queryFn: () =>
+      usersApi.list({
+        perPage: 100,
+        organizationId: organizationId === 'NONE' ? undefined : organizationId,
+        role: 'STUDENT',
+      }),
+    enabled: organizationId !== 'NONE',
+  });
+  const activeSubscription = selectedOrganization?.subscriptions?.find(
+    (subscription) =>
+      subscription.status === 'ACTIVE' || subscription.status === 'TRIAL',
+  );
+  const studentOptions = useMemo(
+    () =>
+      (usersQuery.data?.data ?? []).filter(
+        (item) =>
+          item.role === 'STUDENT' &&
+          item.status === 'ACTIVE' &&
+          item.primaryOrganizationId === organizationId,
+      ),
+    [organizationId, usersQuery.data],
+  );
+
+  const remainingForRole = (candidateRole: UserRole) => {
+    if (!activeSubscription) return 0;
+    if (['TEACHER', 'STUDENT', 'PARENT'].includes(candidateRole)) {
+      return Math.max(
+        activeSubscription.seatLimit - activeSubscription.seatUsage,
+        0,
+      );
+    }
+    return Number.MAX_SAFE_INTEGER;
+  };
+
+  const isRoleDisabled = (candidateRole: UserRole) => {
+    if (!['TEACHER', 'STUDENT', 'PARENT'].includes(candidateRole)) return false;
+    if (!selectedOrganization) return true;
+    if (
+      selectedOrganization.teacherOnlyMode &&
+      (candidateRole === 'STUDENT' || candidateRole === 'PARENT')
+    ) {
+      return true;
+    }
+    if (candidateRole === 'STUDENT' && !selectedOrganization.studentLoginEnabled) {
+      return true;
+    }
+    if (candidateRole === 'PARENT' && !selectedOrganization.parentLoginEnabled) {
+      return true;
+    }
+    return !isEdit && remainingForRole(candidateRole) <= 0;
+  };
+
+  useEffect(() => {
+    if (!selectedOrganization) return;
+    if (
+      (role === 'STUDENT' || role === 'PARENT') &&
+      isRoleDisabled(role as UserRole) &&
+      allowedRoles.includes('TEACHER')
+    ) {
+      setValue('role', 'TEACHER');
+    }
+  }, [allowedRoles, role, selectedOrganization, setValue]);
+
+  const toggleLinkedStudent = (studentId: string, checked: boolean) => {
+    const next = checked
+      ? Array.from(new Set([...linkedStudentIds, studentId]))
+      : linkedStudentIds.filter((id) => id !== studentId);
+    setValue('linkedStudentIds', next);
+  };
 
   const onSubmit = (values: FormValues) => {
+    setPendingValues(values);
+    setConfirmOpen(true);
+  };
+
+  const runSubmit = () => {
+    const values = pendingValues;
+    if (!values) return;
     const payload = {
       email: values.email,
       name: values.name,
@@ -128,10 +278,11 @@ export function UserFormPage() {
           : null,
       timezone: values.timezone || 'UTC',
       language: values.language || 'en',
+      linkedStudentIds: values.role === 'PARENT' ? values.linkedStudentIds ?? [] : [],
     };
-    if (isEdit && id) {
+    if (isEdit && userId) {
       updateMutation.mutate({
-        userId: id,
+        userId,
         payload: {
           name: payload.name,
           role: payload.role,
@@ -139,6 +290,7 @@ export function UserFormPage() {
           organizationId: payload.organizationId,
           timezone: payload.timezone,
           language: payload.language,
+          linkedStudentIds: payload.linkedStudentIds,
         },
       });
     } else {
@@ -146,9 +298,28 @@ export function UserFormPage() {
     }
   };
 
-  if (isEdit && userQuery.isLoading) {
-    return <div className="flex h-64 items-center justify-center"><Spinner className="h-7 w-7 text-brand-primary" /></div>;
-  }
+  const buildRows = (v: FormValues): ConfirmRow[] => {
+    const orgName =
+      v.organizationId && v.organizationId !== 'NONE'
+        ? organizations.find((o) => o.id === v.organizationId)?.name ?? v.organizationId
+        : 'Unassigned';
+    const rows: ConfirmRow[] = [
+      { label: 'Email', value: v.email },
+      { label: 'Full name', value: v.name },
+      { label: 'Role', value: ROLE_LABEL[v.role as UserRole] },
+      { label: 'Status', value: v.status === 'DISABLED' ? 'Disabled' : 'Active' },
+      { label: 'Organization', value: orgName },
+      { label: 'Timezone', value: v.timezone || 'UTC' },
+      { label: 'Language', value: v.language || 'en' },
+    ];
+    if (v.role === 'PARENT') {
+      rows.push({
+        label: 'Linked students',
+        value: `${(v.linkedStudentIds ?? []).length} selected`,
+      });
+    }
+    return rows;
+  };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
@@ -192,38 +363,111 @@ export function UserFormPage() {
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Role</label>
-              <Select value={role} onValueChange={(value) => setValue('role', value)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {allowedRoles.map((allowedRole) => (
-                    <SelectItem key={allowedRole} value={allowedRole}>{ROLE_LABEL[allowedRole]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Controller
+                control={control}
+                name="role"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {allowedRoles.map((allowedRole) => (
+                        <SelectItem
+                          key={allowedRole}
+                          value={allowedRole}
+                          disabled={isRoleDisabled(allowedRole)}
+                        >
+                          {ROLE_LABEL[allowedRole]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Status</label>
-              <Select value={status} onValueChange={(value) => setValue('status', value)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ACTIVE">Active</SelectItem>
-                  <SelectItem value="DISABLED">Disabled</SelectItem>
-                </SelectContent>
-              </Select>
+              <Controller
+                control={control}
+                name="status"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ACTIVE">Active</SelectItem>
+                      <SelectItem value="DISABLED">Disabled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Organization</label>
-              <Select value={organizationId} onValueChange={(value) => setValue('organizationId', value)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="NONE">Unassigned</SelectItem>
-                  {orgsQuery.data?.map((org) => (
-                    <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Controller
+                control={control}
+                name="organizationId"
+                render={({ field }) => (
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={lockOrganization}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {isSuperAdmin && <SelectItem value="NONE">Unassigned</SelectItem>}
+                      {organizations.map((org) => (
+                        <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
           </div>
+          {role === 'PARENT' && (
+            <div className="rounded-lg border border-line bg-surface-variant px-4 py-4">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-ink-900">Linked students</h3>
+                  <p className="text-sm text-ink-500">
+                    Parent access is limited to active students in the same organization.
+                  </p>
+                </div>
+                <span className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  {linkedStudentIds.length} selected
+                </span>
+              </div>
+              <div className="mt-3 grid max-h-56 gap-2 overflow-auto pr-1 sm:grid-cols-2">
+                {studentOptions.map((student) => (
+                  <label
+                    key={student.id}
+                    className="flex items-center gap-2 rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink-700"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={linkedStudentIds.includes(student.id)}
+                      onChange={(event) =>
+                        toggleLinkedStudent(student.id, event.target.checked)
+                      }
+                      className="h-4 w-4 rounded border-line text-brand-primary"
+                    />
+                    <span className="min-w-0">
+                      <span className="block truncate font-semibold text-ink-900">
+                        {student.name ?? student.email}
+                      </span>
+                      <span className="block truncate text-xs text-ink-500">
+                        {student.email}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+                {studentOptions.length === 0 && (
+                  <p className="rounded-lg border border-dashed border-line bg-white px-3 py-3 text-sm text-ink-500">
+                    No active students are available in this organization.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </Card>
 
         <Card className="space-y-4 px-6 py-5">
@@ -234,6 +478,19 @@ export function UserFormPage() {
             <h3 className="font-bold text-ink-900">Access Context</h3>
             <p className="mt-1 text-sm leading-6 text-ink-500">
               Role controls admin capabilities. Organization assignment scopes dashboards, exports, and operational access.
+            </p>
+          </div>
+          <div className="grid gap-2 rounded-lg border border-line bg-surface-variant px-3 py-3 text-sm text-ink-700">
+            <p className="font-semibold text-ink-900">
+              {selectedOrganization?.name ?? 'No organization selected'}
+            </p>
+            <p>
+              Seats {activeSubscription?.seatUsage ?? 0}/
+              {activeSubscription?.seatLimit ?? 0}
+            </p>
+            <p className="text-xs text-ink-500">
+              Student login {selectedOrganization?.studentLoginEnabled ? 'enabled' : 'disabled'} · Parent login{' '}
+              {selectedOrganization?.parentLoginEnabled ? 'enabled' : 'disabled'}
             </p>
           </div>
           <div className="grid gap-3">
@@ -248,6 +505,17 @@ export function UserFormPage() {
           </div>
         </Card>
       </div>
+
+      <ConfirmSubmitDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title={isEdit ? 'Save user changes?' : 'Create this user?'}
+        description="Review the details below before saving."
+        rows={pendingValues ? buildRows(pendingValues) : []}
+        confirmLabel={isEdit ? 'Save changes' : 'Create user'}
+        loading={submitting}
+        onConfirm={runSubmit}
+      />
     </form>
   );
 }

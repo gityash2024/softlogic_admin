@@ -1,6 +1,7 @@
 export type UserRole =
   | 'STUDENT'
   | 'TEACHER'
+  | 'PARENT'
   | 'CUSTOMER_ADMIN'
   | 'PARTNER_ADMIN'
   | 'ADMIN'
@@ -11,7 +12,12 @@ export type UserStatus = 'ACTIVE' | 'DISABLED';
 export type OrganizationKind = 'INTERNAL' | 'PARTNER' | 'CUSTOMER';
 export type OrganizationStatus = 'ACTIVE' | 'INACTIVE';
 
-export type SubscriptionStatus = 'ACTIVE' | 'EXPIRED' | 'CANCELED' | 'TRIAL';
+export type SubscriptionStatus = 'ACTIVE' | 'EXPIRED' | 'CANCELED' | 'TRIAL' | 'PENDING_APPROVAL';
+export type BrandingMode = 'SOFTLOGIC' | 'SOFTLOGIC_PARTNER' | 'WHITE_LABEL' | 'MULTI_BRAND';
+export type OrganizationStorageProvider = 'GOOGLE_DRIVE' | 'DROPBOX' | 'ONEDRIVE';
+export type OrganizationStorageStatus = 'NOT_CONFIGURED' | 'PENDING' | 'CONNECTED' | 'INVALID';
+export type PaymentProvider = 'MANUAL';
+export type PaymentProviderMode = 'TEST' | 'LIVE';
 export type LiveSessionStatus = 'SCHEDULED' | 'LIVE' | 'ENDED' | 'CANCELLED';
 export type ExportStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 export type ExportFormat = 'PDF' | 'PNG' | 'JPG' | 'SVG';
@@ -50,6 +56,20 @@ export interface OrganizationSummary {
   slug: string;
   kind: OrganizationKind;
   status: OrganizationStatus;
+  brandingMode: BrandingMode;
+  brandName: string | null;
+  brandPrimaryColor: string | null;
+  brandAccentColor: string | null;
+  studentLoginEnabled: boolean;
+  parentLoginEnabled: boolean;
+  sessionOnlyJoinEnabled: boolean;
+  teacherOnlyMode: boolean;
+  supportEmail: string | null;
+  supportPhone: string | null;
+  storageProviders: OrganizationStorageProvider[];
+  defaultStorageProvider: OrganizationStorageProvider | null;
+  storageProvider: OrganizationStorageProvider | null;
+  storageStatus: OrganizationStorageStatus;
   logoUrl: string | null;
   parentOrganizationId: string | null;
   aiSettings?: OrganizationAiSettings | null;
@@ -105,6 +125,7 @@ export interface AdminUser {
   lastLoginAt: string | null;
   invitedById: string | null;
   primaryOrganizationId: string | null;
+  archivedEmail?: string | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -118,13 +139,37 @@ export interface AdminOrganization {
   slug: string;
   kind: OrganizationKind;
   status: OrganizationStatus;
+  brandingMode: BrandingMode;
+  brandName: string | null;
+  brandPrimaryColor: string | null;
+  brandAccentColor: string | null;
+  studentLoginEnabled: boolean;
+  parentLoginEnabled: boolean;
+  sessionOnlyJoinEnabled: boolean;
+  teacherOnlyMode: boolean;
+  supportEmail: string | null;
+  supportPhone: string | null;
+  archivedSlug?: string | null;
+  archivedSupportEmail?: string | null;
+  storageProviders: OrganizationStorageProvider[];
+  defaultStorageProvider: OrganizationStorageProvider | null;
+  storageProvider: OrganizationStorageProvider | null;
+  storageStatus: OrganizationStorageStatus;
   logoUrl: string | null;
   logoPublicId: string | null;
   settings: Record<string, unknown>;
   parentOrganizationId: string | null;
   createdAt: string;
   updatedAt: string;
+  deletedAt?: string | null;
   parentOrganization: AdminOrganization | null;
+  primaryAdminUser?: {
+    id: string;
+    email: string;
+    name: string | null;
+    role: UserRole;
+  } | null;
+  setupEmailSent?: boolean | null;
   subscriptions: SubscriptionRecord[];
   _count: {
     memberships: number;
@@ -137,8 +182,10 @@ export interface SubscriptionRecord {
   id: string;
   organizationId: string | null;
   userId: string | null;
+  createdById?: string | null;
   planName: string;
   status: SubscriptionStatus;
+  brandingMode: BrandingMode;
   seatLimit: number;
   seatUsage: number;
   startDate: string;
@@ -152,6 +199,70 @@ export interface SubscriptionRecord {
     name: string | null;
     role: UserRole;
   } | null;
+  createdBy?: {
+    id: string;
+    email: string;
+    name: string | null;
+    role: UserRole;
+  } | null;
+}
+
+export interface HardwareActivationRecord {
+  id: string;
+  activationKeyId: string;
+  userId: string | null;
+  organizationId: string;
+  deviceFingerprintHash: string;
+  deviceLabel: string | null;
+  devicePlatform: string | null;
+  deviceModel: string | null;
+  deviceOsVersion: string | null;
+  deviceMeta: Record<string, unknown>;
+  firstBoundAt: string | null;
+  lastVerifiedAt: string | null;
+  status: 'ACTIVE' | 'RESET_REQUESTED' | 'RESET' | 'DISABLED';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface HardwareActivationKeyRecord {
+  id: string;
+  organizationId: string;
+  subscriptionId: string | null;
+  activationKey: string | null;
+  label: string | null;
+  status: 'AVAILABLE' | 'BOUND' | 'DISABLED' | 'EXPIRED';
+  assignedUserId: string | null;
+  assignedUser?: {
+    id: string;
+    email: string;
+    name: string | null;
+  } | null;
+  expiresAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  activations: HardwareActivationRecord[];
+  boundActivation?: HardwareActivationRecord | null;
+}
+
+export interface SubscriptionDetailRecord extends SubscriptionRecord {
+  hardwareActivationKeys: HardwareActivationKeyRecord[];
+}
+
+export interface OrganizationLicenseDetailRecord {
+  organization: {
+    id: string;
+    name: string;
+    status: OrganizationStatus;
+    primaryAdminUserId: string | null;
+    primaryAdminUser: {
+      id: string;
+      email: string;
+      name: string | null;
+    } | null;
+  };
+  subscriptions: SubscriptionRecord[];
+  hardwareActivationKeys: HardwareActivationKeyRecord[];
 }
 
 export interface AuditLogEntry {
@@ -344,7 +455,22 @@ export const ROLE_LABEL: Record<UserRole, string> = {
   CUSTOMER_ADMIN: 'Customer Admin',
   ADMIN: 'Admin',
   TEACHER: 'Teacher',
+  PARENT: 'Parent',
   STUDENT: 'Student',
+};
+
+export const BRANDING_MODE_LABEL: Record<BrandingMode, string> = {
+  SOFTLOGIC: 'SoftLogic',
+  SOFTLOGIC_PARTNER: 'SoftLogic Partner',
+  WHITE_LABEL: 'White-label',
+  MULTI_BRAND: 'Multi-brand',
+};
+
+export const STORAGE_STATUS_LABEL: Record<OrganizationStorageStatus, string> = {
+  NOT_CONFIGURED: 'Not configured',
+  PENDING: 'Pending',
+  CONNECTED: 'Connected',
+  INVALID: 'Invalid',
 };
 
 export const ORG_KIND_LABEL: Record<OrganizationKind, string> = {
@@ -358,6 +484,7 @@ export const SUBSCRIPTION_STATUS_LABEL: Record<SubscriptionStatus, string> = {
   EXPIRED: 'Expired',
   CANCELED: 'Canceled',
   TRIAL: 'Trial',
+  PENDING_APPROVAL: 'Pending Approval',
 };
 
 export const LIVE_SESSION_STATUS_LABEL: Record<LiveSessionStatus, string> = {
@@ -372,4 +499,104 @@ export const EXPORT_STATUS_LABEL: Record<ExportStatus, string> = {
   PROCESSING: 'Processing',
   COMPLETED: 'Completed',
   FAILED: 'Failed',
+};
+
+export type SupportCategory =
+  | 'REQUEST_SEATS'
+  | 'EXTEND_SUBSCRIPTION'
+  | 'RESET_DEVICE'
+  | 'BILLING'
+  | 'ACTIVATION_ISSUE'
+  | 'TECHNICAL'
+  | 'USER_MANAGEMENT'
+  | 'GENERAL';
+
+export type SupportThreadStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+export type SupportPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+export type SupportEventType =
+  | 'STATUS_CHANGE'
+  | 'ACTION_APPLIED'
+  | 'PRIORITY_CHANGE'
+  | 'REPLIED';
+
+export interface SupportThreadAuthor {
+  id: string;
+  name: string | null;
+  email: string;
+  role: UserRole;
+}
+
+export interface SupportMessageRecord {
+  id: string;
+  threadId: string;
+  authorUserId: string;
+  body: string;
+  editedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  author: SupportThreadAuthor;
+}
+
+export interface SupportThreadEventRecord {
+  id: string;
+  threadId: string;
+  actorUserId: string;
+  type: SupportEventType;
+  payload: Record<string, unknown>;
+  createdAt: string;
+  actor: SupportThreadAuthor;
+}
+
+export interface SupportThreadOrganization {
+  id: string;
+  name: string;
+  slug: string;
+  status: OrganizationStatus;
+}
+
+export interface SupportThreadRecord {
+  id: string;
+  organizationId: string;
+  openedByUserId: string;
+  category: SupportCategory;
+  subject: string;
+  status: SupportThreadStatus;
+  priority: SupportPriority;
+  requestedAction: Record<string, unknown> | null;
+  resolvedByUserId: string | null;
+  resolvedAt: string | null;
+  closedAt: string | null;
+  lastActivityAt: string;
+  createdAt: string;
+  updatedAt: string;
+  organization: SupportThreadOrganization;
+  openedBy: SupportThreadAuthor;
+  resolvedBy: SupportThreadAuthor | null;
+  messages?: SupportMessageRecord[];
+  events?: SupportThreadEventRecord[];
+}
+
+export const SUPPORT_CATEGORY_LABEL: Record<SupportCategory, string> = {
+  REQUEST_SEATS: 'Request more seats',
+  EXTEND_SUBSCRIPTION: 'Extend subscription',
+  RESET_DEVICE: 'Reset activation device',
+  BILLING: 'Billing question',
+  ACTIVATION_ISSUE: 'Activation issue',
+  TECHNICAL: 'Technical issue',
+  USER_MANAGEMENT: 'User management',
+  GENERAL: 'General question',
+};
+
+export const SUPPORT_STATUS_LABEL: Record<SupportThreadStatus, string> = {
+  OPEN: 'Open',
+  IN_PROGRESS: 'In progress',
+  RESOLVED: 'Resolved',
+  CLOSED: 'Closed',
+};
+
+export const SUPPORT_PRIORITY_LABEL: Record<SupportPriority, string> = {
+  LOW: 'Low',
+  NORMAL: 'Normal',
+  HIGH: 'High',
+  URGENT: 'Urgent',
 };

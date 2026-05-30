@@ -1,0 +1,228 @@
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { Eye } from 'lucide-react';
+
+import { supportApi } from '@/services/support.api';
+import { organizationsApi } from '@/services/organizations.api';
+import { formatDate } from '@/lib/utils';
+import {
+  SUPPORT_CATEGORY_LABEL,
+  SUPPORT_PRIORITY_LABEL,
+  SUPPORT_STATUS_LABEL,
+  type SupportCategory,
+  type SupportPriority,
+  type SupportThreadStatus,
+} from '@/types/api';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Spinner } from '@/components/ui/spinner';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
+
+function statusVariant(status: SupportThreadStatus) {
+  switch (status) {
+    case 'OPEN':
+      return 'info' as const;
+    case 'IN_PROGRESS':
+      return 'warning' as const;
+    case 'RESOLVED':
+      return 'success' as const;
+    case 'CLOSED':
+    default:
+      return 'default' as const;
+  }
+}
+
+export function SupportInboxPage() {
+  const navigate = useNavigate();
+  const [status, setStatus] = useState<SupportThreadStatus | 'ALL'>('OPEN');
+  const [category, setCategory] = useState<SupportCategory | 'ALL'>('ALL');
+  const [priority, setPriority] = useState<SupportPriority | 'ALL'>('ALL');
+  const [organizationId, setOrganizationId] = useState<string | 'ALL'>('ALL');
+
+  const organizationsQuery = useQuery({
+    queryKey: ['organizations', 'all'],
+    queryFn: organizationsApi.all,
+  });
+
+  const threadsQuery = useQuery({
+    queryKey: ['support', 'threads', 'all', status, category, priority, organizationId],
+    queryFn: () =>
+      supportApi.list({
+        status: status === 'ALL' ? undefined : status,
+        category: category === 'ALL' ? undefined : category,
+        priority: priority === 'ALL' ? undefined : priority,
+        organizationId: organizationId === 'ALL' ? undefined : organizationId,
+        perPage: 100,
+      }),
+  });
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h2 className="text-2xl font-black text-ink-900">Support Inbox</h2>
+        <p className="text-sm text-ink-500">
+          Requests opened by organization admins. Apply inline changes (seats, expiry, device
+          resets) without leaving the thread.
+        </p>
+      </div>
+
+      <Card className="space-y-4 px-6 py-5">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+              Status
+            </label>
+            <Select value={status} onValueChange={(value) => setStatus(value as SupportThreadStatus | 'ALL')}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All</SelectItem>
+                <SelectItem value="OPEN">Open</SelectItem>
+                <SelectItem value="IN_PROGRESS">In progress</SelectItem>
+                <SelectItem value="RESOLVED">Resolved</SelectItem>
+                <SelectItem value="CLOSED">Closed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+              Category
+            </label>
+            <Select value={category} onValueChange={(value) => setCategory(value as SupportCategory | 'ALL')}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All</SelectItem>
+                {Object.entries(SUPPORT_CATEGORY_LABEL).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+              Priority
+            </label>
+            <Select value={priority} onValueChange={(value) => setPriority(value as SupportPriority | 'ALL')}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All</SelectItem>
+                {Object.entries(SUPPORT_PRIORITY_LABEL).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+              Organization
+            </label>
+            <Select value={organizationId} onValueChange={(value) => setOrganizationId(value)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All organizations</SelectItem>
+                {organizationsQuery.data?.map((org) => (
+                  <SelectItem key={org.id} value={org.id}>
+                    {org.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {threadsQuery.isLoading ? (
+          <div className="flex h-40 items-center justify-center">
+            <Spinner className="h-6 w-6 text-brand-primary" />
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Subject</TableHead>
+                <TableHead>Organization</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Priority</TableHead>
+                <TableHead>Last activity</TableHead>
+                <TableHead className="text-right">Open</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {threadsQuery.data?.data.map((thread) => (
+                <TableRow key={thread.id}>
+                  <TableCell>
+                    <Link
+                      to={`/support/${thread.id}`}
+                      className="text-sm font-semibold text-ink-900 hover:underline"
+                    >
+                      {thread.subject}
+                    </Link>
+                    <p className="text-xs text-ink-500">
+                      Opened {formatDate(thread.createdAt)} by{' '}
+                      {thread.openedBy.name ?? thread.openedBy.email}
+                    </p>
+                  </TableCell>
+                  <TableCell>{thread.organization.name}</TableCell>
+                  <TableCell>{SUPPORT_CATEGORY_LABEL[thread.category]}</TableCell>
+                  <TableCell>
+                    <Badge variant={statusVariant(thread.status)}>
+                      {SUPPORT_STATUS_LABEL[thread.status]}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="default">{SUPPORT_PRIORITY_LABEL[thread.priority]}</Badge>
+                  </TableCell>
+                  <TableCell>{formatDate(thread.lastActivityAt)}</TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => navigate(`/support/${thread.id}`)}
+                      title="Open"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {(threadsQuery.data?.data.length ?? 0) === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className="py-10 text-center text-sm text-ink-500">
+                    No threads match these filters.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        )}
+      </Card>
+    </div>
+  );
+}

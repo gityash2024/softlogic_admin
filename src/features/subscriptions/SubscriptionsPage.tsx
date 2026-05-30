@@ -3,12 +3,15 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Ban,
+  CheckCircle2,
   Clock3,
   CreditCard,
+  Eye,
   Pencil,
   Plus,
   RotateCcw,
   Search,
+  XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -18,6 +21,7 @@ import { usersApi } from '@/services/users.api';
 import type { AdminExportFormat, AdminListQuery } from '@/services/admin-api';
 import { extractApiError } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
+import { useAuthStore } from '@/lib/auth-store';
 import {
   SUBSCRIPTION_STATUS_LABEL,
   type SubscriptionRecord,
@@ -31,6 +35,14 @@ import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { Progress } from '@/components/ui/progress';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -72,6 +84,8 @@ function statusVariant(s: SubscriptionRecord['status']) {
       return 'warning' as const;
     case 'CANCELED':
       return 'danger' as const;
+    case 'PENDING_APPROVAL':
+      return 'warning' as const;
   }
 }
 
@@ -79,11 +93,16 @@ export function SubscriptionsPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const queryClient = useQueryClient();
+  const { user: actor } = useAuthStore();
+  const isSuperAdmin = actor?.role === 'SUPER_ADMIN';
   const [exporting, setExporting] = useState<AdminExportFormat | null>(null);
   const [statusAction, setStatusAction] = useState<{
     subscription: SubscriptionRecord;
     status: SubscriptionStatus;
   } | null>(null);
+  const [approveTarget, setApproveTarget] = useState<SubscriptionRecord | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<SubscriptionRecord | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
 
   const page = numberParam(params.get('page'), 1);
   const search = params.get('search') ?? '';
@@ -223,6 +242,30 @@ export function SubscriptionsPage() {
     onError: (err) => toast.error(extractApiError(err)),
   });
 
+  const approveMutation = useMutation({
+    mutationFn: (subId: string) => subscriptionsApi.approve(subId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
+      toast.success('Subscription approved');
+      setApproveTarget(null);
+    },
+    onError: (err) => toast.error(extractApiError(err)),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: ({ subId, reason }: { subId: string; reason: string }) =>
+      subscriptionsApi.reject(subId, reason || null),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
+      toast.success('Subscription rejected');
+      setRejectTarget(null);
+      setRejectReason('');
+    },
+    onError: (err) => toast.error(extractApiError(err)),
+  });
+
   const handleExport = async (format: AdminExportFormat) => {
     setExporting(format);
     try {
@@ -314,6 +357,7 @@ export function SubscriptionsPage() {
                 <SelectItem value="ALL">All statuses</SelectItem>
                 <SelectItem value="ACTIVE">Active</SelectItem>
                 <SelectItem value="TRIAL">Trial</SelectItem>
+                <SelectItem value="PENDING_APPROVAL">Pending Approval</SelectItem>
                 <SelectItem value="EXPIRED">Expired</SelectItem>
                 <SelectItem value="CANCELED">Canceled</SelectItem>
               </SelectContent>
@@ -481,49 +525,84 @@ export function SubscriptionsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
-                        {s.status === 'CANCELED' || s.status === 'EXPIRED' ? (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            title="Reactivate subscription"
-                            onClick={() =>
-                              setStatusAction({ subscription: s, status: 'ACTIVE' })
-                            }
-                          >
-                            <RotateCcw className="h-4 w-4 text-success" />
-                          </Button>
-                        ) : (
+                        {isSuperAdmin && s.status === 'PENDING_APPROVAL' && (
                           <>
                             <Button
                               size="icon"
                               variant="ghost"
-                              title="Mark expired"
-                              onClick={() =>
-                                setStatusAction({ subscription: s, status: 'EXPIRED' })
-                              }
+                              title="Approve subscription"
+                              onClick={() => setApproveTarget(s)}
                             >
-                              <Clock3 className="h-4 w-4 text-warning" />
+                              <CheckCircle2 className="h-4 w-4 text-success" />
                             </Button>
                             <Button
                               size="icon"
                               variant="ghost"
-                              title="Cancel subscription"
-                              onClick={() =>
-                                setStatusAction({ subscription: s, status: 'CANCELED' })
-                              }
+                              title="Reject subscription"
+                              onClick={() => {
+                                setRejectTarget(s);
+                                setRejectReason('');
+                              }}
                             >
-                              <Ban className="h-4 w-4 text-danger" />
+                              <XCircle className="h-4 w-4 text-danger" />
                             </Button>
                           </>
                         )}
+                        {isSuperAdmin &&
+                          s.status !== 'PENDING_APPROVAL' &&
+                          (s.status === 'CANCELED' || s.status === 'EXPIRED' ? (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              title="Reactivate subscription"
+                              onClick={() =>
+                                setStatusAction({ subscription: s, status: 'ACTIVE' })
+                              }
+                            >
+                              <RotateCcw className="h-4 w-4 text-success" />
+                            </Button>
+                          ) : (
+                            <>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                title="Mark expired"
+                                onClick={() =>
+                                  setStatusAction({ subscription: s, status: 'EXPIRED' })
+                                }
+                              >
+                                <Clock3 className="h-4 w-4 text-warning" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                title="Cancel subscription"
+                                onClick={() =>
+                                  setStatusAction({ subscription: s, status: 'CANCELED' })
+                                }
+                              >
+                                <Ban className="h-4 w-4 text-danger" />
+                              </Button>
+                            </>
+                          ))}
                         <Button
                           size="icon"
                           variant="ghost"
-                          title="Edit subscription"
-                          onClick={() => navigate(`/subscriptions/${s.id}/edit`)}
+                          title="View details"
+                          onClick={() => navigate(`/subscriptions/${s.id}/details`)}
                         >
-                          <Pencil className="h-4 w-4 text-ink-500" />
+                          <Eye className="h-4 w-4 text-ink-500" />
                         </Button>
+                        {isSuperAdmin && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            title="Edit subscription"
+                            onClick={() => navigate(`/subscriptions/${s.id}/edit`)}
+                          >
+                            <Pencil className="h-4 w-4 text-ink-500" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -597,6 +676,76 @@ export function SubscriptionsPage() {
           });
         }}
       />
+
+      <ConfirmationDialog
+        open={!!approveTarget}
+        onOpenChange={(open) => !open && setApproveTarget(null)}
+        title="Approve subscription?"
+        description={`${approveTarget?.planName ?? 'This subscription'} will become active and its seats will be made available. The admin who requested it will be emailed.`}
+        confirmLabel="Approve"
+        tone="success"
+        loading={approveMutation.isPending}
+        onConfirm={() => {
+          if (approveTarget) approveMutation.mutate(approveTarget.id);
+        }}
+      />
+
+      <Dialog
+        open={!!rejectTarget}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRejectTarget(null);
+            setRejectReason('');
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject subscription?</DialogTitle>
+            <DialogDescription>
+              {rejectTarget?.planName ?? 'This subscription'} will be canceled. The admin who
+              requested it will be emailed with your reason.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+              Reason (optional)
+            </label>
+            <textarea
+              value={rejectReason}
+              onChange={(event) => setRejectReason(event.target.value)}
+              rows={3}
+              maxLength={500}
+              placeholder="Shared with the requester in the rejection email"
+              className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink-900 outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setRejectTarget(null);
+                setRejectReason('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={rejectMutation.isPending}
+              onClick={() => {
+                if (rejectTarget)
+                  rejectMutation.mutate({ subId: rejectTarget.id, reason: rejectReason });
+              }}
+            >
+              {rejectMutation.isPending ? <Spinner className="h-4 w-4" /> : null}
+              Reject subscription
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

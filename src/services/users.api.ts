@@ -10,6 +10,7 @@ export interface CreateUserPayload {
   organizationId?: string | null;
   timezone?: string;
   language?: string;
+  linkedStudentIds?: string[];
 }
 
 export interface UpdateUserPayload {
@@ -19,6 +20,35 @@ export interface UpdateUserPayload {
   organizationId?: string | null;
   timezone?: string;
   language?: string;
+  linkedStudentIds?: string[];
+}
+
+export interface ResendInviteResult {
+  sent: boolean;
+  email: string;
+}
+
+export interface ForceLogoutResult {
+  revoked: boolean;
+}
+
+export interface BulkInviteUser {
+  email: string;
+  name?: string;
+  role: UserRole;
+  organizationId?: string;
+}
+
+export interface BulkInviteRowResult {
+  email: string;
+  status: 'created' | 'failed';
+  error?: string;
+}
+
+export interface BulkInviteResult {
+  createdCount: number;
+  failedCount: number;
+  results: BulkInviteRowResult[];
 }
 
 export const usersApi = {
@@ -33,6 +63,29 @@ export const usersApi = {
   },
   update: async (id: string, payload: UpdateUserPayload) => {
     const res = await api.put<ApiResponse<AdminUser>>(`/admin/users/${id}`, payload);
+    return res.data.data;
+  },
+  delete: async (id: string) => {
+    const res = await api.delete<ApiResponse<unknown>>(`/admin/users/${id}`);
+    return res.data.data;
+  },
+  resendInvite: async (id: string) => {
+    const res = await api.post<ApiResponse<ResendInviteResult>>(
+      `/admin/users/${id}/resend-invite`,
+    );
+    return res.data.data;
+  },
+  forceLogout: async (id: string) => {
+    const res = await api.post<ApiResponse<ForceLogoutResult>>(
+      `/admin/users/${id}/force-logout`,
+    );
+    return res.data.data;
+  },
+  bulkInvite: async (users: BulkInviteUser[]) => {
+    const res = await api.post<ApiResponse<BulkInviteResult>>(
+      '/admin/users/bulk-invite',
+      { users },
+    );
     return res.data.data;
   },
 };
