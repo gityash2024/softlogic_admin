@@ -65,15 +65,35 @@ const TTS_MODELS = [
   'gemini-3.1-pro-tts-preview',
 ];
 
-const DEFAULT_TEXT_MODEL = 'gemini-2.5-flash';
+const DEFAULT_TEXT_MODEL = 'gemini-3.5-flash';
 const DEFAULT_IMAGE_MODEL = 'imagen-4.0-generate-001';
 const DEFAULT_TTS_MODEL = 'gemini-2.5-flash-preview-tts';
 
-// Image: only the default model is supported on Google's free tier; others are
-// surfaced for visibility but disabled with an "(Unsupported)" label, matching
-// the Flutter dropdown behaviour.
+// Only one model per type is enabled/supported; all others are surfaced for
+// visibility but disabled with an "(Unsupported)" label and the supported one
+// is auto-selected.
+function isTextModelCapable(model: string) {
+  return model === DEFAULT_TEXT_MODEL;
+}
+
 function isImageModelCapable(model: string) {
   return model === DEFAULT_IMAGE_MODEL;
+}
+
+function isTtsModelCapable(model: string) {
+  return model === DEFAULT_TTS_MODEL;
+}
+
+// Coerce a persisted/legacy value to the single allowed model so the dropdown
+// always auto-selects it, even for organizations saved with an older model.
+function coerceCapable(
+  value: string | undefined,
+  legacy: string | undefined,
+  isCapable: (m: string) => boolean,
+  fallback: string,
+) {
+  const current = (value ?? '').trim() || (legacy ?? '').trim();
+  return current && isCapable(current) ? current : fallback;
 }
 
 // Like Flutter's _modelOptions: if the persisted value isn't in the supported
@@ -93,24 +113,24 @@ function readAiSettings(org: AdminOrganization | null | undefined): AiSettings {
 function withDefaults(ai: AiSettings): AiSettings {
   return {
     geminiApiKey: ai.geminiApiKey ?? '',
-    geminiTextModel:
-      ai.geminiTextModel && ai.geminiTextModel.trim().length > 0
-        ? ai.geminiTextModel.trim()
-        : ai.textModel && ai.textModel.trim().length > 0
-        ? ai.textModel.trim()
-        : DEFAULT_TEXT_MODEL,
-    geminiImageModel:
-      ai.geminiImageModel && ai.geminiImageModel.trim().length > 0
-        ? ai.geminiImageModel.trim()
-        : ai.imageModel && ai.imageModel.trim().length > 0
-        ? ai.imageModel.trim()
-        : DEFAULT_IMAGE_MODEL,
-    geminiTtsModel:
-      ai.geminiTtsModel && ai.geminiTtsModel.trim().length > 0
-        ? ai.geminiTtsModel.trim()
-        : ai.ttsModel && ai.ttsModel.trim().length > 0
-        ? ai.ttsModel.trim()
-        : DEFAULT_TTS_MODEL,
+    geminiTextModel: coerceCapable(
+      ai.geminiTextModel,
+      ai.textModel,
+      isTextModelCapable,
+      DEFAULT_TEXT_MODEL,
+    ),
+    geminiImageModel: coerceCapable(
+      ai.geminiImageModel,
+      ai.imageModel,
+      isImageModelCapable,
+      DEFAULT_IMAGE_MODEL,
+    ),
+    geminiTtsModel: coerceCapable(
+      ai.geminiTtsModel,
+      ai.ttsModel,
+      isTtsModelCapable,
+      DEFAULT_TTS_MODEL,
+    ),
     deepgramApiKey: ai.deepgramApiKey ?? '',
   };
 }
@@ -262,11 +282,19 @@ export function AiSettingsDialog({ open, onOpenChange, organization }: Props) {
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent>
-                  {textOptions.map((m) => (
-                    <SelectItem key={m} value={m}>
-                      {m}
-                    </SelectItem>
-                  ))}
+                  {textOptions.map((m) => {
+                    const capable = isTextModelCapable(m);
+                    return (
+                      <SelectItem
+                        key={m}
+                        value={m}
+                        disabled={!capable}
+                        className={!capable ? 'text-ink-400' : undefined}
+                      >
+                        {capable ? m : `${m} (Unsupported)`}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -310,11 +338,19 @@ export function AiSettingsDialog({ open, onOpenChange, organization }: Props) {
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent>
-                  {ttsOptions.map((m) => (
-                    <SelectItem key={m} value={m}>
-                      {m}
-                    </SelectItem>
-                  ))}
+                  {ttsOptions.map((m) => {
+                    const capable = isTtsModelCapable(m);
+                    return (
+                      <SelectItem
+                        key={m}
+                        value={m}
+                        disabled={!capable}
+                        className={!capable ? 'text-ink-400' : undefined}
+                      >
+                        {capable ? m : `${m} (Unsupported)`}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
