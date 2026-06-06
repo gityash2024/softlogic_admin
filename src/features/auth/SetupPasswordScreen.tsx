@@ -19,7 +19,7 @@ const schema = z
   .object({
     password: z
       .string()
-      .min(12, 'Password must be at least 12 characters')
+      .min(1, 'Password is required')
       .regex(/[A-Za-z]/, 'Include at least one letter')
       .regex(/[0-9]/, 'Include at least one number'),
     confirmPassword: z.string().min(1, 'Confirm your password'),

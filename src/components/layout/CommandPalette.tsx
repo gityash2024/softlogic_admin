@@ -13,13 +13,15 @@ import {
   Inbox,
   KeyRound,
   Settings,
+  Download,
+  GraduationCap,
   Search,
   CornerDownLeft,
   ArrowUp,
   ArrowDown,
   type LucideIcon,
 } from 'lucide-react';
-import type { UserRole } from '@/types/api';
+import { isAdminRole, type UserRole } from '@/types/api';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/lib/auth-store';
 import { usersApi } from '@/services/users.api';
@@ -34,6 +36,7 @@ const BASE_NAV_ITEMS: NavCommand[] = [
   { kind: 'nav', to: '/subscriptions', label: 'Subscriptions', hint: 'Plans and seats', icon: CreditCard },
   { kind: 'nav', to: '/activity', label: 'Activity', hint: 'Audit trail', icon: ActivityIcon },
   { kind: 'nav', to: '/license', label: 'License', hint: 'Billing reference', icon: KeyRound },
+  { kind: 'nav', to: '/downloads', label: 'Downloads', hint: 'APK and EXE', icon: Download },
   { kind: 'nav', to: '/settings', label: 'Settings', hint: 'Profile and locale', icon: Settings },
 ];
 
@@ -56,6 +59,12 @@ const HELP_ITEM: NavCommand = {
 // Mirrors Sidebar.getNavItems so the palette surfaces the same destinations,
 // including role-specific Support/Help entries, without altering the sidebar.
 function getNavCommands(role: UserRole | undefined): NavCommand[] {
+  if (role === 'TEACHER' || role === 'STUDENT' || role === 'PARENT') {
+    return [
+      { kind: 'nav', to: '/portal', label: 'Portal', hint: 'Role workspace', icon: GraduationCap },
+      { kind: 'nav', to: '/downloads', label: 'Downloads', hint: 'APK and EXE', icon: Download },
+    ];
+  }
   const items = [...BASE_NAV_ITEMS];
   const insertAt = items.findIndex((item) => item.to === '/license');
   const supportEntry =
@@ -98,6 +107,7 @@ const matches = (query: string, ...fields: (string | null | undefined)[]) => {
 export function CommandPalette() {
   const navigate = useNavigate();
   const role = useAuthStore((state) => state.user?.role);
+  const canSearchAdminRecords = isAdminRole(role);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
@@ -130,19 +140,19 @@ export function CommandPalette() {
   const usersQuery = useQuery({
     queryKey: ['command-palette', 'users'],
     queryFn: usersApi.all,
-    enabled: open && hasQuery,
+    enabled: open && hasQuery && canSearchAdminRecords,
     staleTime: 60_000,
   });
   const orgsQuery = useQuery({
     queryKey: ['command-palette', 'organizations'],
     queryFn: organizationsApi.all,
-    enabled: open && hasQuery,
+    enabled: open && hasQuery && canSearchAdminRecords,
     staleTime: 60_000,
   });
   const subscriptionsQuery = useQuery({
     queryKey: ['command-palette', 'subscriptions'],
     queryFn: subscriptionsApi.all,
-    enabled: open && hasQuery,
+    enabled: open && hasQuery && canSearchAdminRecords,
     staleTime: 60_000,
   });
 

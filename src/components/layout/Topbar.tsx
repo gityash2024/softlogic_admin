@@ -30,6 +30,66 @@ const PATH_TO_TITLE: Record<string, { title: string; subtitle: string }> = {
     title: 'License',
     subtitle: 'Workspace subscription reference and billing history',
   },
+  '/portal': {
+    title: 'Role Portal',
+    subtitle: 'Boards, sessions, materials, and role-scoped controls',
+  },
+  '/teacher/dashboard': {
+    title: 'Teacher Dashboard',
+    subtitle: 'Teaching overview, live sessions, and board activity',
+  },
+  '/teacher/boards': {
+    title: 'Teacher Boards',
+    subtitle: 'Manage your own whiteboards and app editing workflow',
+  },
+  '/teacher/sessions': {
+    title: 'Teacher Sessions',
+    subtitle: 'Control live sessions, join codes, and invites',
+  },
+  '/teacher/materials': {
+    title: 'Teacher Materials',
+    subtitle: 'Review captures, recordings, imports, and board materials',
+  },
+  '/student/dashboard': {
+    title: 'Student Dashboard',
+    subtitle: 'Learning overview, live access, and read-only boards',
+  },
+  '/student/join': {
+    title: 'Join Session',
+    subtitle: 'Enter a live-class session code',
+  },
+  '/student/previous': {
+    title: 'Previous Sessions',
+    subtitle: 'Review your session history',
+  },
+  '/student/boards': {
+    title: 'Student Boards',
+    subtitle: 'Read-only boards from allowed sessions',
+  },
+  '/student/progress': {
+    title: 'Student Progress',
+    subtitle: 'Recent activity, sessions, and learning materials',
+  },
+  '/parent/dashboard': {
+    title: 'Parent Dashboard',
+    subtitle: 'Linked-student progress and session overview',
+  },
+  '/parent/linked-students': {
+    title: 'Linked Students',
+    subtitle: 'Student scope for this parent account',
+  },
+  '/parent/sessions-boards': {
+    title: 'Sessions & Boards',
+    subtitle: 'Read-only session and board history for linked students',
+  },
+  '/parent/reports': {
+    title: 'Parent Reports',
+    subtitle: 'Progress signals and recent linked-student activity',
+  },
+  '/downloads': {
+    title: 'Downloads',
+    subtitle: 'SoftLogic Whiteboard Android and Windows installers',
+  },
   '/settings': { title: 'Settings', subtitle: 'Personal profile and locale' },
 };
 
@@ -54,7 +114,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
               subtitle: 'Manage plan state, ownership, and seat allocation',
             }
           : {
-    title: 'Admin Console',
+    title: 'SoftLogic Console',
     subtitle: 'SoftLogic workspace operations',
           });
 

@@ -77,6 +77,7 @@ export interface OrganizationSummary {
 
 export interface OrganizationAiSettings {
   geminiApiKey?: string;
+  geminiApiKeys?: string[];
   geminiTextModel?: string;
   geminiImageModel?: string;
   geminiTtsModel?: string;
@@ -131,6 +132,14 @@ export interface AdminUser {
   deletedAt: string | null;
   primaryOrganization: OrganizationSummary | null;
   subscription: SubscriptionRecord | null;
+  linkedStudentIds?: string[];
+  linkedStudents?: Array<{
+    id: string;
+    email: string;
+    name: string | null;
+    status: UserStatus;
+    primaryOrganizationId: string | null;
+  }>;
 }
 
 export interface AdminOrganization {
@@ -155,6 +164,7 @@ export interface AdminOrganization {
   defaultStorageProvider: OrganizationStorageProvider | null;
   storageProvider: OrganizationStorageProvider | null;
   storageStatus: OrganizationStorageStatus;
+  storageConnections?: OrganizationStorageConnection[];
   logoUrl: string | null;
   logoPublicId: string | null;
   settings: Record<string, unknown>;
@@ -176,6 +186,21 @@ export interface AdminOrganization {
     canvases: number;
     subscriptions: number;
   };
+}
+
+export interface OrganizationStorageConnection {
+  id: string;
+  organizationId: string;
+  provider: OrganizationStorageProvider;
+  status: OrganizationStorageStatus;
+  externalAccountEmail: string | null;
+  rootFolderId: string | null;
+  connectedById: string | null;
+  validatedAt: string | null;
+  disconnectedAt: string | null;
+  lastError: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface SubscriptionRecord {

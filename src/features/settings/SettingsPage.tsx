@@ -3,13 +3,22 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Building2, Eye, EyeOff, LogOut, Save, ShieldCheck } from 'lucide-react';
+import {
+  Building2,
+  Eye,
+  EyeOff,
+  Laptop,
+  LogOut,
+  Save,
+  ShieldCheck,
+  Trash2,
+} from 'lucide-react';
 
 import { useAuthStore } from '@/lib/auth-store';
 import { usersApi } from '@/services/users.api';
-import { authApi } from '@/services/auth.api';
+import { authApi, type AuthLoginSession } from '@/services/auth.api';
 import { extractApiError } from '@/lib/api';
 import {
   BRANDING_MODE_LABEL,
@@ -25,14 +34,14 @@ import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { initials } from '@/lib/utils';
+import { formatDateTime, initials } from '@/lib/utils';
 
 const passwordSchema = z
   .object({
     currentPassword: z.string().min(1, 'Enter your current password'),
     newPassword: z
       .string()
-      .min(12, 'Password must be at least 12 characters')
+      .min(1, 'Password is required')
       .regex(/[A-Za-z]/, 'Include at least one letter')
       .regex(/[0-9]/, 'Include at least one number'),
     confirmNewPassword: z.string().min(1, 'Confirm your new password'),
@@ -51,6 +60,34 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
       <dd className="mt-1 text-sm font-medium text-ink-900">{value}</dd>
     </div>
   );
+}
+
+function describeSessionDevice(session: AuthLoginSession) {
+  const info = session.deviceInfo ?? {};
+  const clientType = typeof info.clientType === 'string' ? info.clientType : '';
+  const label =
+    typeof info.label === 'string' && info.label.trim()
+      ? info.label
+      : typeof info.deviceLabel === 'string' && info.deviceLabel.trim()
+        ? info.deviceLabel
+        : typeof info.device === 'string' && info.device.trim()
+          ? info.device
+          : clientType === 'flutter_app'
+            ? 'SoftLogic Whiteboard app'
+            : clientType === 'web_panel'
+              ? 'SoftLogic web panel'
+              : 'Unknown device';
+  const platform =
+    typeof info.platform === 'string' && info.platform.trim()
+      ? info.platform
+      : typeof info.os === 'string' && info.os.trim()
+        ? info.os
+        : clientType === 'flutter_app'
+          ? 'App'
+          : clientType === 'web_panel'
+            ? 'Browser'
+            : 'Unknown platform';
+  return { label, platform };
 }
 
 export function SettingsPage() {
@@ -84,6 +121,20 @@ export function SettingsPage() {
     onSuccess: () => {
       toast.success('Password updated');
       resetPassword();
+    },
+    onError: (err) => toast.error(extractApiError(err)),
+  });
+
+  const sessionsQuery = useQuery({
+    queryKey: ['auth', 'sessions'],
+    queryFn: authApi.sessions,
+  });
+
+  const revokeSessionMutation = useMutation({
+    mutationFn: authApi.revokeSession,
+    onSuccess: () => {
+      toast.success('Login session revoked');
+      queryClient.invalidateQueries({ queryKey: ['auth', 'sessions'] });
     },
     onError: (err) => toast.error(extractApiError(err)),
   });
@@ -132,7 +183,7 @@ export function SettingsPage() {
         <div className="border-b border-line px-6 py-5">
           <h2 className="text-lg font-semibold text-ink-900">Personal profile</h2>
           <p className="text-sm text-ink-500">
-            How your name and locale appear across the admin panel
+            How your name and locale appear across the SoftLogic web panel
           </p>
         </div>
         <form
@@ -199,7 +250,7 @@ export function SettingsPage() {
           <div className="border-b border-line px-6 py-5">
             <h2 className="text-lg font-semibold text-ink-900">Security</h2>
             <p className="text-sm text-ink-500">
-              Change the password you use to sign in to the admin panel
+              Change the password you use to sign in to the SoftLogic web panel
             </p>
           </div>
           <form
@@ -285,6 +336,96 @@ export function SettingsPage() {
               </Button>
             </div>
           </form>
+        </Card>
+
+        <Card>
+          <div className="border-b border-line px-6 py-5">
+            <h2 className="text-lg font-semibold text-ink-900">
+              Login sessions / Devices
+            </h2>
+            <p className="text-sm text-ink-500">
+              Review where your account is signed in across the SoftLogic web panel and whiteboard app.
+            </p>
+          </div>
+          <div className="space-y-3 px-6 py-5">
+            {sessionsQuery.isLoading ? (
+              <div className="flex items-center gap-2 text-sm text-ink-500">
+                <Spinner className="h-4 w-4 text-brand-primary" />
+                Loading login sessions...
+              </div>
+            ) : sessionsQuery.isError ? (
+              <p className="rounded-lg border border-dashed border-danger/40 bg-danger/5 px-3 py-3 text-sm text-danger">
+                Unable to load login sessions. Refresh this page or sign in again
+                to repair the current browser session.
+              </p>
+            ) : sessionsQuery.data?.length ? (
+              sessionsQuery.data.map((session) => {
+                const device = describeSessionDevice(session);
+                return (
+                  <div
+                    key={session.id}
+                    className="flex flex-col gap-3 rounded-lg border border-line bg-surface-variant px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
+                        <Laptop className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate text-sm font-semibold text-ink-900">
+                            {device.label}
+                          </p>
+                          {session.isCurrent && (
+                            <span className="rounded-full bg-brand-primary/10 px-2 py-0.5 text-[11px] font-semibold text-brand-primary">
+                              Current
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-xs text-ink-500">
+                          {device.platform} - IP {session.ipAddress ?? 'Unknown'}
+                        </p>
+                        <p className="mt-1 text-xs text-ink-400">
+                          Signed in {formatDateTime(session.createdAt)}
+                          {session.lastSeenAt
+                            ? ` - Last seen ${formatDateTime(session.lastSeenAt)}`
+                            : ''}{' '}
+                          - Expires{' '}
+                          {formatDateTime(session.expiresAt)}
+                        </p>
+                      </div>
+                    </div>
+                    {session.isCurrent ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setConfirmLogout(true)}
+                      >
+                        <LogOut className="h-4 w-4" />
+                        Sign out
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="text-danger"
+                        disabled={revokeSessionMutation.isPending}
+                        onClick={() => revokeSessionMutation.mutate(session.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Revoke
+                      </Button>
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              <p className="rounded-lg border border-dashed border-line px-3 py-3 text-sm text-ink-500">
+                No active login sessions were found.
+              </p>
+            )}
+          </div>
         </Card>
 
         {showOrgCard && org && (
@@ -400,8 +541,8 @@ export function SettingsPage() {
       <ConfirmationDialog
         open={confirmLogout}
         onOpenChange={setConfirmLogout}
-        title="Sign out of admin console?"
-        description="Your local session will be cleared on this device. You can sign back in with your administrator credentials."
+        title="Sign out of SoftLogic web panel?"
+        description="Your local session will be cleared on this device. You can sign back in with your account credentials."
         confirmLabel="Sign out"
         tone="warning"
         loading={loggingOut}

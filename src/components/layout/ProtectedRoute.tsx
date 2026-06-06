@@ -1,6 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/lib/auth-store';
-import { isAdminRole } from '@/types/api';
+import { isAdminRole, type UserRole } from '@/types/api';
 import { Spinner } from '@/components/ui/spinner';
 
 export function ProtectedRoute() {
@@ -19,9 +19,21 @@ export function ProtectedRoute() {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (!isAdminRole(user.role)) {
-    return <Navigate to="/forbidden" replace />;
-  }
+  return <Outlet />;
+}
 
+export function AdminRoute() {
+  const { user } = useAuthStore();
+  if (!user) return <Navigate to="/login" replace />;
+  if (!isAdminRole(user.role)) return <Navigate to="/portal" replace />;
+  return <Outlet />;
+}
+
+export function RoleRoute({ roles }: { roles: UserRole[] }) {
+  const { user } = useAuthStore();
+  if (!user) return <Navigate to="/login" replace />;
+  if (!roles.includes(user.role)) {
+    return <Navigate to={isAdminRole(user.role) ? '/dashboard' : '/portal'} replace />;
+  }
   return <Outlet />;
 }

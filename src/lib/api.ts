@@ -2,13 +2,36 @@ import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from './auth-store';
 import type { ApiResponse, AuthResponse } from '@/types/api';
 
+const sameOriginApiBaseUrl =
+  typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')
+    ? `${window.location.origin}/api/v1`
+    : undefined;
+
 const baseURL =
   import.meta.env.VITE_API_BASE_URL ??
+  sameOriginApiBaseUrl ??
   'https://softlogic-whiteboard-backend-testin.vercel.app/api/v1';
+
+const clientSessionId = (() => {
+  if (typeof window === 'undefined') return 'web-panel-server-session';
+  const key = 'softlogic.web.clientSessionId';
+  const existing = window.localStorage.getItem(key);
+  if (existing && existing.length >= 8) return existing;
+  const generated =
+    globalThis.crypto?.randomUUID?.() ??
+    `web-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  window.localStorage.setItem(key, generated);
+  return generated;
+})();
 
 export const api = axios.create({
   baseURL,
-  headers: { 'Content-Type': 'application/json' },
+  headers: {
+    'Content-Type': 'application/json',
+    'X-SoftLogic-Client': 'web_panel',
+    'X-SoftLogic-Client-Session-Id': clientSessionId,
+    'X-SoftLogic-Platform': 'Browser',
+  },
 });
 
 api.interceptors.request.use((config) => {
@@ -18,6 +41,11 @@ api.interceptors.request.use((config) => {
   const accessToken = state.impersonation?.accessToken ?? state.tokens?.accessToken;
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;
+  }
+  if (state.impersonation) {
+    delete config.headers['X-SoftLogic-Client-Session-Id'];
+  } else {
+    config.headers['X-SoftLogic-Client-Session-Id'] = clientSessionId;
   }
   return config;
 });
@@ -33,7 +61,14 @@ async function performRefresh(): Promise<string | null> {
     const res = await axios.post<ApiResponse<AuthResponse>>(
       `${baseURL}/auth/refresh`,
       { refreshToken },
-      { headers: { 'Content-Type': 'application/json' } },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-SoftLogic-Client': 'web_panel',
+          'X-SoftLogic-Client-Session-Id': clientSessionId,
+          'X-SoftLogic-Platform': 'Browser',
+        },
+      },
     );
     const payload = res.data?.data;
     if (!payload?.tokens) {
@@ -57,7 +92,17 @@ api.interceptors.response.use(
       | undefined;
     if (!original || !error.response) throw error;
 
-    const isAuthEndpoint = original.url?.includes('/auth/');
+    const url = original.url ?? '';
+    const isAuthEndpoint = url.includes('/auth/');
+    const isSessionAuthEndpoint =
+      url.includes('/auth/sessions') || url.includes('/auth/admin/password/change');
+    if (error.response.status === 401 && isSessionAuthEndpoint) {
+      useAuthStore.getState().clear();
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
+      throw error;
+    }
     if (error.response.status === 401 && !original._retry && !isAuthEndpoint) {
       const state = useAuthStore.getState();
       // An impersonation token cannot be refreshed (no refresh token is issued

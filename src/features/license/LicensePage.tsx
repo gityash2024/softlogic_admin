@@ -597,7 +597,7 @@ export function LicensePage() {
                   Hardware Activation Keys
                 </h3>
                 <p className="text-xs text-ink-500">
-                  Each key locks to the first device that activates it.
+                  Each key activates one board/device. Any active user in that organization can use the app on that activated device.
                 </p>
               </div>
 

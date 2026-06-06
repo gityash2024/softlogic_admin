@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Copy, Eye, EyeOff } from 'lucide-react';
+import { Copy, Eye, EyeOff, Plus, Trash2 } from 'lucide-react';
 
 import {
   Dialog,
@@ -28,6 +28,7 @@ import type { AdminOrganization } from '@/types/api';
 
 interface AiSettings {
   geminiApiKey?: string;
+  geminiApiKeys?: string[];
   geminiTextModel?: string;
   geminiImageModel?: string;
   geminiTtsModel?: string;
@@ -110,9 +111,23 @@ function readAiSettings(org: AdminOrganization | null | undefined): AiSettings {
   return (settings.ai as AiSettings) ?? {};
 }
 
+function normalizeGeminiKeys(ai: AiSettings): string[] {
+  const values = Array.isArray(ai.geminiApiKeys) ? ai.geminiApiKeys : [];
+  const keys = values
+    .map((key) => key?.toString().trim() ?? '')
+    .filter((key) => key.length > 0);
+  const legacy = ai.geminiApiKey?.trim() ?? '';
+  if (legacy && !keys.includes(legacy)) {
+    keys.unshift(legacy);
+  }
+  return keys;
+}
+
 function withDefaults(ai: AiSettings): AiSettings {
+  const geminiApiKeys = normalizeGeminiKeys(ai);
   return {
-    geminiApiKey: ai.geminiApiKey ?? '',
+    geminiApiKey: geminiApiKeys[0] ?? '',
+    geminiApiKeys: geminiApiKeys.length > 0 ? geminiApiKeys : [''],
     geminiTextModel: coerceCapable(
       ai.geminiTextModel,
       ai.textModel,
@@ -136,8 +151,16 @@ function withDefaults(ai: AiSettings): AiSettings {
 }
 
 function normalizeAiSettingsForSave(values: AiSettings): AiSettings {
+  const geminiApiKeys = Array.from(
+    new Set(
+      (values.geminiApiKeys ?? [])
+        .map((key) => key?.trim() ?? '')
+        .filter((key) => key.length > 0),
+    ),
+  );
   return {
-    geminiApiKey: values.geminiApiKey?.trim() ?? '',
+    geminiApiKey: geminiApiKeys[0] ?? '',
+    geminiApiKeys,
     geminiTextModel:
       values.geminiTextModel?.trim() || DEFAULT_TEXT_MODEL,
     geminiImageModel:
@@ -167,7 +190,7 @@ export function AiSettingsDialog({ open, onOpenChange, organization }: Props) {
   const textModel = watch('geminiTextModel');
   const imageModel = watch('geminiImageModel');
   const ttsModel = watch('geminiTtsModel');
-  const geminiApiKey = watch('geminiApiKey') ?? '';
+  const geminiApiKeys = watch('geminiApiKeys') ?? [''];
   const deepgramApiKey = watch('deepgramApiKey') ?? '';
 
   const textOptions = useMemo(
@@ -207,6 +230,30 @@ export function AiSettingsDialog({ open, onOpenChange, organization }: Props) {
     toast.success(`${label} copied`);
   };
 
+  const updateGeminiKeys = (keys: string[]) => {
+    const next = keys.length > 0 ? keys : [''];
+    setValue('geminiApiKeys', next, {
+      shouldDirty: true,
+      shouldTouch: true,
+    });
+    setValue('geminiApiKey', next[0]?.trim() ?? '', {
+      shouldDirty: true,
+      shouldTouch: true,
+    });
+  };
+
+  const addGeminiKeyRow = () => updateGeminiKeys([...geminiApiKeys, '']);
+
+  const removeGeminiKeyRow = (index: number) => {
+    updateGeminiKeys(geminiApiKeys.filter((_, keyIndex) => keyIndex !== index));
+  };
+
+  const setGeminiKeyAt = (index: number, value: string) => {
+    updateGeminiKeys(
+      geminiApiKeys.map((key, keyIndex) => (keyIndex === index ? value : key)),
+    );
+  };
+
   if (!organization) return null;
 
   return (
@@ -223,49 +270,94 @@ export function AiSettingsDialog({ open, onOpenChange, organization }: Props) {
           onSubmit={handleSubmit((values) => mutation.mutate(values))}
           className="space-y-4"
         >
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-              Gemini API key
-            </label>
-            <div className="relative">
-              <Input
-                type={revealedKeys.gemini ? 'text' : 'password'}
-                placeholder="AIzaSy..."
-                className="pr-20"
-                {...register('geminiApiKey')}
-              />
-              <div className="absolute right-1 top-1/2 flex -translate-y-1/2 gap-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() =>
-                    setRevealedKeys((state) => ({
-                      ...state,
-                      gemini: !state.gemini,
-                    }))
-                  }
-                  title={revealedKeys.gemini ? 'Hide Gemini key' : 'Show Gemini key'}
-                >
-                  {revealedKeys.gemini ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  disabled={!geminiApiKey}
-                  onClick={() => copyKey(geminiApiKey, 'Gemini API key')}
-                  title="Copy Gemini key"
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
+          <input type="hidden" {...register('geminiApiKey')} />
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                Gemini API keys
+              </label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addGeminiKeyRow}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add key
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {geminiApiKeys.map((keyValue, index) => {
+                const revealKey = `gemini-${index}`;
+                return (
+                  <div
+                    key={index}
+                    className="grid gap-2 rounded-lg border border-ink-100 bg-white p-2 sm:grid-cols-[1fr_auto]"
+                  >
+                    <div className="relative">
+                      <Input
+                        type={revealedKeys[revealKey] ? 'text' : 'password'}
+                        placeholder="AIzaSy..."
+                        className="pr-20"
+                        value={keyValue}
+                        onChange={(event) =>
+                          setGeminiKeyAt(index, event.target.value)
+                        }
+                      />
+                      <div className="absolute right-1 top-1/2 flex -translate-y-1/2 gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() =>
+                            setRevealedKeys((state) => ({
+                              ...state,
+                              [revealKey]: !state[revealKey],
+                            }))
+                          }
+                          title={
+                            revealedKeys[revealKey]
+                              ? 'Hide Gemini key'
+                              : 'Show Gemini key'
+                          }
+                        >
+                          {revealedKeys[revealKey] ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          disabled={!keyValue.trim()}
+                          onClick={() =>
+                            copyKey(keyValue, `Gemini API key ${index + 1}`)
+                          }
+                          title="Copy Gemini key"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10 text-red-600"
+                      disabled={geminiApiKeys.length === 1}
+                      onClick={() => removeGeminiKeyRow(index)}
+                      title="Remove Gemini key"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                );
+              })}
             </div>
           </div>
 

@@ -47,21 +47,22 @@ export function LoginScreen() {
     defaultValues: { email: '', password: '' },
   });
 
-  if (user && isAdminRole(user.role)) {
-    return <Navigate to="/dashboard" replace />;
+  if (user) {
+    return <Navigate to={isAdminRole(user.role) ? '/dashboard' : '/portal'} replace />;
   }
 
   const onSubmit = async (values: FormValues) => {
     setSubmitting(true);
     try {
-      const result = await authApi.adminLogin(values.email, values.password);
-      if (!isAdminRole(result.user.role)) {
-        toast.error('Your account does not have admin access.');
-        return;
+      let result;
+      try {
+        result = await authApi.adminLogin(values.email, values.password);
+      } catch (adminError) {
+        result = await authApi.portalLogin(values.email, values.password);
       }
       setSession(result);
       toast.success(`Welcome, ${result.user.name ?? result.user.email}`);
-      navigate('/dashboard', { replace: true });
+      navigate(isAdminRole(result.user.role) ? '/dashboard' : '/portal', { replace: true });
     } catch (error) {
       toast.error(extractApiError(error));
     } finally {
@@ -131,13 +132,13 @@ export function LoginScreen() {
                 />
               </div>
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-primary">
-                Admin Console
+                SoftLogic Portal
               </p>
               <h2 className="mt-3 text-3xl font-black text-ink-900">
                 Sign in securely
               </h2>
               <p className="mt-2 text-sm leading-6 text-ink-500">
-                Administrator credentials are required to open this workspace.
+                Sign in with your admin, teacher, student, or parent account.
               </p>
             </div>
 
@@ -155,7 +156,7 @@ export function LoginScreen() {
                     id="email"
                     type="email"
                     autoComplete="username"
-                    placeholder="admin@softlogicwhiteboard.com"
+                    placeholder="you@example.com"
                     className="h-12 rounded-lg bg-[#F7F9FC] pl-10"
                     {...register('email')}
                   />
@@ -225,8 +226,8 @@ export function LoginScreen() {
             </form>
 
             <div className="mt-7 rounded-lg border border-line bg-surface-variant px-4 py-3 text-xs leading-5 text-ink-500">
-              Access is restricted to SoftLogic administrator roles. Contact a
-              workspace owner if your account needs elevated permissions.
+              Access follows your assigned role and organization permissions.
+              Contact a workspace owner if your account needs changes.
             </div>
           </div>
         </main>

@@ -504,7 +504,7 @@ export function SubscriptionDetailPage() {
         <div className="border-b border-line px-6 py-4">
           <h3 className="text-base font-semibold text-ink-900">Active devices</h3>
           <p className="text-xs text-ink-500">
-            Each activation key locks to the first device that successfully binds.
+            Each activation key activates one board/device for users in the same organization.
           </p>
         </div>
         <Table>

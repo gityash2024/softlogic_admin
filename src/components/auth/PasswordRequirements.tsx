@@ -6,7 +6,6 @@ interface PasswordRequirementsProps {
 }
 
 const RULES: { label: string; test: (value: string) => boolean }[] = [
-  { label: 'At least 12 characters', test: (value) => value.length >= 12 },
   { label: 'Includes at least one letter', test: (value) => /[A-Za-z]/.test(value) },
   { label: 'Includes at least one number', test: (value) => /[0-9]/.test(value) },
 ];

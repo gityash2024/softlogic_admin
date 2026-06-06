@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -116,7 +116,7 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
         status: userData.status,
         timezone: userData.timezone,
         language: userData.language,
-        linkedStudentIds: [],
+        linkedStudentIds: userData.linkedStudentIds ?? [],
       };
     }
     return {
@@ -211,46 +211,6 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
       ),
     [organizationId, usersQuery.data],
   );
-
-  const remainingForRole = (candidateRole: UserRole) => {
-    if (!activeSubscription) return 0;
-    if (['TEACHER', 'STUDENT', 'PARENT'].includes(candidateRole)) {
-      return Math.max(
-        activeSubscription.seatLimit - activeSubscription.seatUsage,
-        0,
-      );
-    }
-    return Number.MAX_SAFE_INTEGER;
-  };
-
-  const isRoleDisabled = (candidateRole: UserRole) => {
-    if (!['TEACHER', 'STUDENT', 'PARENT'].includes(candidateRole)) return false;
-    if (!selectedOrganization) return true;
-    if (
-      selectedOrganization.teacherOnlyMode &&
-      (candidateRole === 'STUDENT' || candidateRole === 'PARENT')
-    ) {
-      return true;
-    }
-    if (candidateRole === 'STUDENT' && !selectedOrganization.studentLoginEnabled) {
-      return true;
-    }
-    if (candidateRole === 'PARENT' && !selectedOrganization.parentLoginEnabled) {
-      return true;
-    }
-    return !isEdit && remainingForRole(candidateRole) <= 0;
-  };
-
-  useEffect(() => {
-    if (!selectedOrganization) return;
-    if (
-      (role === 'STUDENT' || role === 'PARENT') &&
-      isRoleDisabled(role as UserRole) &&
-      allowedRoles.includes('TEACHER')
-    ) {
-      setValue('role', 'TEACHER');
-    }
-  }, [allowedRoles, role, selectedOrganization, setValue]);
 
   const toggleLinkedStudent = (studentId: string, checked: boolean) => {
     const next = checked
@@ -371,11 +331,7 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {allowedRoles.map((allowedRole) => (
-                        <SelectItem
-                          key={allowedRole}
-                          value={allowedRole}
-                          disabled={isRoleDisabled(allowedRole)}
-                        >
+                        <SelectItem key={allowedRole} value={allowedRole}>
                           {ROLE_LABEL[allowedRole]}
                         </SelectItem>
                       ))}

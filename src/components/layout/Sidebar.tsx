@@ -6,6 +6,8 @@ import {
   LayoutDashboard,
   Users,
   Building2,
+  BookOpen,
+  CalendarClock,
   CreditCard,
   Files,
   Activity as ActivityIcon,
@@ -13,6 +15,11 @@ import {
   Inbox,
   KeyRound,
   Settings,
+  Download,
+  GraduationCap,
+  ClipboardList,
+  MonitorPlay,
+  Presentation,
   LogOut,
   ChevronUp,
   X,
@@ -75,6 +82,12 @@ const BASE_NAV_ITEMS = [
     icon: KeyRound,
   },
   {
+    to: '/downloads',
+    label: 'Downloads',
+    description: 'APK and EXE',
+    icon: Download,
+  },
+  {
     to: '/settings',
     label: 'Settings',
     description: 'Profile and locale',
@@ -97,6 +110,132 @@ const HELP_ITEM = {
 };
 
 const getNavItems = (role: UserRole | undefined) => {
+  if (role === 'TEACHER') {
+    return [
+      {
+        to: '/teacher/dashboard',
+        label: 'Dashboard',
+        description: 'Teaching overview',
+        icon: LayoutDashboard,
+      },
+      {
+        to: '/teacher/boards',
+        label: 'Boards',
+        description: 'Own whiteboards',
+        icon: Presentation,
+      },
+      {
+        to: '/teacher/sessions',
+        label: 'Sessions',
+        description: 'Live classes',
+        icon: MonitorPlay,
+      },
+      {
+        to: '/teacher/materials',
+        label: 'Materials',
+        description: 'Files and captures',
+        icon: Files,
+      },
+      {
+        to: '/downloads',
+        label: 'Downloads',
+        description: 'APK and EXE',
+        icon: Download,
+      },
+      {
+        to: '/settings',
+        label: 'Settings',
+        description: 'Profile and devices',
+        icon: Settings,
+      },
+    ];
+  }
+  if (role === 'STUDENT') {
+    return [
+      {
+        to: '/student/dashboard',
+        label: 'Dashboard',
+        description: 'Learning overview',
+        icon: LayoutDashboard,
+      },
+      {
+        to: '/student/join',
+        label: 'Join Session',
+        description: 'Enter code',
+        icon: MonitorPlay,
+      },
+      {
+        to: '/student/previous',
+        label: 'Previous Sessions',
+        description: 'History',
+        icon: CalendarClock,
+      },
+      {
+        to: '/student/boards',
+        label: 'Boards',
+        description: 'Read only',
+        icon: BookOpen,
+      },
+      {
+        to: '/student/progress',
+        label: 'Progress',
+        description: 'Activity',
+        icon: ClipboardList,
+      },
+      {
+        to: '/downloads',
+        label: 'Downloads',
+        description: 'APK and EXE',
+        icon: Download,
+      },
+      {
+        to: '/settings',
+        label: 'Settings',
+        description: 'Profile and devices',
+        icon: Settings,
+      },
+    ];
+  }
+  if (role === 'PARENT') {
+    return [
+      {
+        to: '/parent/dashboard',
+        label: 'Dashboard',
+        description: 'Parent overview',
+        icon: LayoutDashboard,
+      },
+      {
+        to: '/parent/linked-students',
+        label: 'Linked Students',
+        description: 'Student scope',
+        icon: GraduationCap,
+      },
+      {
+        to: '/parent/sessions-boards',
+        label: 'Sessions & Boards',
+        description: 'Read only',
+        icon: BookOpen,
+      },
+      {
+        to: '/parent/reports',
+        label: 'Reports',
+        description: 'Progress',
+        icon: ClipboardList,
+      },
+      {
+        to: '/downloads',
+        label: 'Downloads',
+        description: 'APK and EXE',
+        icon: Download,
+      },
+      {
+        to: '/settings',
+        label: 'Settings',
+        description: 'Profile and devices',
+        icon: Settings,
+      },
+    ];
+  }
   let items = [...BASE_NAV_ITEMS];
   // Customer/Org admins manage a single workspace, so they don't get the
   // Organizations directory — their own org details are shown read-only in
@@ -151,6 +290,10 @@ export function Sidebar({
     refetchOnWindowFocus: true,
   });
   const unreadCount = unreadQuery.data ?? 0;
+  const consoleLabel =
+    user?.role === 'TEACHER' || user?.role === 'STUDENT' || user?.role === 'PARENT'
+      ? 'Web Panel'
+      : 'Admin Console';
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -230,7 +373,7 @@ export function Sidebar({
           )}
         >
           <p className="text-xs font-semibold uppercase text-white/55">
-            Admin Console
+            {consoleLabel}
           </p>
           <p className="mt-1 text-sm font-semibold text-white">
             {user?.role ? ROLE_LABEL[user.role] : 'Administrator'}
@@ -239,7 +382,7 @@ export function Sidebar({
 
         <nav
           className={cn(
-            'relative flex-1 overflow-hidden px-3 py-2 transition-all duration-300',
+            'relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-2 transition-all duration-300',
             collapsed && 'lg:px-2',
           )}
         >
@@ -252,7 +395,7 @@ export function Sidebar({
                   title={collapsed ? item.label : undefined}
                   className={({ isActive }) =>
                     cn(
-                      'group relative flex items-center gap-3 overflow-hidden rounded-lg px-3 py-2 text-sm transition-all duration-200',
+                      'group relative flex items-center gap-3 overflow-hidden rounded-lg px-3 py-1.5 text-sm transition-all duration-200',
                       isActive
                         ? 'bg-white text-brand-navy shadow-sidebar'
                         : 'text-white/75 hover:bg-white/10 hover:text-white',
@@ -267,13 +410,13 @@ export function Sidebar({
                       )}
                       <span
                         className={cn(
-                          'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105',
+                          'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105',
                           isActive
                             ? 'bg-brand-orange/15 text-brand-orange'
                             : 'bg-white/10 text-white/80',
                         )}
                       >
-                        <item.icon className="h-4 w-4" />
+                        <item.icon className="h-3.5 w-3.5" />
                       </span>
                       <span
                         className={cn(
@@ -383,8 +526,8 @@ export function Sidebar({
       <ConfirmationDialog
         open={confirmLogout}
         onOpenChange={setConfirmLogout}
-        title="Sign out of admin console?"
-        description="Your local session will be cleared on this device. You can sign back in with your administrator credentials."
+        title="Sign out of SoftLogic?"
+        description="Your local session will be cleared on this device. You can sign back in with your account credentials."
         confirmLabel="Sign out"
         tone="warning"
         loading={loggingOut}

@@ -2,9 +2,27 @@ import { api } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
 import type { ApiResponse, AuthResponse, UserRole } from '@/types/api';
 
+export interface AuthLoginSession {
+  id: string;
+  clientSessionId: string | null;
+  deviceInfo: Record<string, unknown> | null;
+  ipAddress: string | null;
+  createdAt: string;
+  lastSeenAt: string | null;
+  expiresAt: string;
+  isCurrent: boolean;
+}
+
 export const authApi = {
   adminLogin: async (email: string, password: string) => {
     const res = await api.post<ApiResponse<AuthResponse>>('/auth/admin/login', {
+      email,
+      password,
+    });
+    return res.data.data;
+  },
+  portalLogin: async (email: string, password: string) => {
+    const res = await api.post<ApiResponse<AuthResponse>>('/auth/portal/login', {
       email,
       password,
     });
@@ -44,6 +62,30 @@ export const authApi = {
       currentPassword,
       newPassword,
       refreshToken,
+    });
+  },
+  sessions: async () => {
+    const refreshToken = useAuthStore.getState().tokens?.refreshToken;
+    await authApi.heartbeat().catch(() => undefined);
+    const res = await api.get<ApiResponse<AuthLoginSession[]>>('/auth/sessions', {
+      headers: refreshToken ? { 'x-refresh-token': refreshToken } : undefined,
+    });
+    return res.data.data;
+  },
+  heartbeat: async () => {
+    const refreshToken = useAuthStore.getState().tokens?.refreshToken;
+    await api.post(
+      '/auth/sessions/heartbeat',
+      refreshToken ? { refreshToken } : {},
+      {
+        headers: refreshToken ? { 'x-refresh-token': refreshToken } : undefined,
+      },
+    );
+  },
+  revokeSession: async (sessionId: string) => {
+    const refreshToken = useAuthStore.getState().tokens?.refreshToken;
+    await api.delete(`/auth/sessions/${sessionId}`, {
+      headers: refreshToken ? { 'x-refresh-token': refreshToken } : undefined,
     });
   },
   impersonate: async (userId: string) => {

@@ -16,10 +16,8 @@ export function SplashScreen() {
   useEffect(() => {
     if (!hydrated) return;
     const timer = setTimeout(() => {
-      if (user && isAdminRole(user.role)) {
-        navigate('/dashboard', { replace: true });
-      } else if (user) {
-        navigate('/forbidden', { replace: true });
+      if (user) {
+        navigate(isAdminRole(user.role) ? '/dashboard' : '/portal', { replace: true });
       } else {
         navigate('/login', { replace: true });
       }
@@ -47,13 +45,13 @@ export function SplashScreen() {
         <Logo variant="light" className="justify-center" />
         <div className="mt-8 inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/10 px-4 py-2 text-xs font-semibold uppercase text-white/75">
           <ShieldCheck className="h-4 w-4 text-brand-orange" />
-          Secure admin workspace
+          Secure SoftLogic workspace
         </div>
         <h1 className="mt-5 text-3xl font-bold text-white sm:text-4xl">
-          SoftLogic Admin Console
+          SoftLogic Role Portal
         </h1>
         <p className="mt-3 max-w-md text-sm leading-6 text-white/70">
-          Preparing operations, license, user, and organization controls.
+          Preparing role-scoped boards, sessions, downloads, and controls.
         </p>
         <Spinner className="mt-8 h-6 w-6 text-white/80" />
       </div>

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArchiveX,
   Building2,
+  Eye,
   Image as ImageIcon,
   Pencil,
   Plus,
@@ -616,6 +617,14 @@ export function OrganizationsPage() {
                           <ArchiveX className="h-4 w-4 text-danger" />
                         </Button>
                       )}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        title="View organization"
+                        onClick={() => navigate(`/organizations/${org.id}`)}
+                      >
+                        <Eye className="h-4 w-4 text-ink-500" />
+                      </Button>
                       <Button
                         size="icon"
                         variant="ghost"
