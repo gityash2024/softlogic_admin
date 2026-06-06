@@ -44,23 +44,12 @@ const schema = z
     brandingMode: z.string(),
     seatLimit: z
       .number()
-      .int('Seat limit must be a whole number')
-      .min(1, 'Seat limit must be at least 1'),
-    seatUsage: z
-      .number()
-      .int('Seat usage must be a whole number')
-      .min(0, 'Seat usage cannot be negative'),
+      .int('Number of seats must be a whole number')
+      .min(1, 'Number of seats must be at least 1'),
     startDate: z.string().min(1, 'Start date required'),
     endDate: z.string().min(1, 'End date required'),
   })
   .superRefine((values, ctx) => {
-    if (values.seatUsage > values.seatLimit) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Seat usage cannot exceed seat limit',
-        path: ['seatUsage'],
-      });
-    }
     if (values.startDate && values.endDate) {
       const start = new Date(values.startDate);
       const end = new Date(values.endDate);
@@ -156,7 +145,6 @@ export function SubscriptionFormPage() {
       status: 'ACTIVE',
       brandingMode: 'SOFTLOGIC',
       seatLimit: 1,
-      seatUsage: 0,
       startDate: toInputDate(new Date().toISOString()),
       endDate: '',
     },
@@ -172,7 +160,6 @@ export function SubscriptionFormPage() {
       status: subscriptionQuery.data.status,
       brandingMode: subscriptionQuery.data.brandingMode,
       seatLimit: subscriptionQuery.data.seatLimit,
-      seatUsage: subscriptionQuery.data.seatUsage,
       startDate: toInputDate(subscriptionQuery.data.startDate),
       endDate: toInputDate(subscriptionQuery.data.endDate),
     });
@@ -234,7 +221,6 @@ export function SubscriptionFormPage() {
   // Live values for the preview card + confirm summary.
   const planName = watch('planName');
   const seatLimit = watch('seatLimit');
-  const seatUsage = watch('seatUsage');
   const endDate = watch('endDate');
   const selectedUser =
     scope === 'user' && userId && userId !== 'NONE'
@@ -275,7 +261,6 @@ export function SubscriptionFormPage() {
           planName: values.planName,
           status: values.status as SubscriptionStatus,
           seatLimit: values.seatLimit,
-          seatUsage: values.seatUsage,
           ...commercialPayload,
           startDate: startISO,
           endDate: endISO,
@@ -292,7 +277,6 @@ export function SubscriptionFormPage() {
         planName: values.planName,
         status: values.status as SubscriptionStatus,
         seatLimit: values.seatLimit,
-        seatUsage: values.seatUsage,
         ...commercialPayload,
         startDate: startISO,
         endDate: endISO,
@@ -320,8 +304,7 @@ export function SubscriptionFormPage() {
       { label: 'Plan name', value: v.planName },
       { label: 'Status', value: statusLabel },
       { label: 'Branding mode', value: BRANDING_MODE_LABEL[v.brandingMode as BrandingMode] },
-      { label: 'Seat limit', value: v.seatLimit },
-      { label: 'Seat usage', value: v.seatUsage },
+      { label: 'Number of seats', value: v.seatLimit },
       { label: 'Duration', value: durLabel },
       { label: 'Start date', value: v.startDate ? formatDate(v.startDate) : '—' },
       { label: 'End date', value: v.endDate ? formatDate(v.endDate) : '—' },
@@ -464,19 +447,9 @@ export function SubscriptionFormPage() {
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Seat limit</label>
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Number of seats</label>
               <Input type="number" min={1} {...register('seatLimit', { valueAsNumber: true })} />
               {errors.seatLimit && <p className="text-xs text-danger">{errors.seatLimit.message}</p>}
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Seat usage</label>
-              <Input
-                type="number"
-                min={0}
-                max={Number(seatLimit) || undefined}
-                {...register('seatUsage', { valueAsNumber: true })}
-              />
-              {errors.seatUsage && <p className="text-xs text-danger">{errors.seatUsage.message}</p>}
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
@@ -524,9 +497,9 @@ export function SubscriptionFormPage() {
               <CreditCard className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="font-bold text-ink-900">Seat Allocation</h3>
+              <h3 className="font-bold text-ink-900">Seats</h3>
               <p className="mt-1 text-sm leading-6 text-ink-500">
-                Seat usage should never exceed the limit. Status changes affect reporting and admin visibility.
+                Set the number of activation keys and licensed users available for this subscription.
               </p>
             </div>
           </Card>
@@ -537,7 +510,6 @@ export function SubscriptionFormPage() {
             statusLabel={previewStatusLabel}
             brandingLabel={BRANDING_MODE_LABEL[brandingMode as BrandingMode]}
             seatLimit={Number(seatLimit) || 0}
-            seatUsage={Number(seatUsage) || 0}
             startDate={startDate}
             endDate={endDate ?? ''}
           />
@@ -585,7 +557,6 @@ interface SubscriptionPreviewCardProps {
   statusLabel: string;
   brandingLabel: string;
   seatLimit: number;
-  seatUsage: number;
   startDate: string;
   endDate: string;
 }
@@ -597,7 +568,6 @@ function SubscriptionPreviewCard({
   statusLabel,
   brandingLabel,
   seatLimit,
-  seatUsage,
   startDate,
   endDate,
 }: SubscriptionPreviewCardProps) {
@@ -630,7 +600,7 @@ function SubscriptionPreviewCard({
         <div>
           <p className="text-[9px] font-semibold uppercase tracking-wide text-white/55">Seats</p>
           <p className="mt-0.5 text-sm font-bold">
-            {seatUsage}/{seatLimit}
+            {seatLimit}
           </p>
         </div>
         <div>

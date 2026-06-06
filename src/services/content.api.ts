@@ -7,6 +7,7 @@ import {
 } from './admin-api';
 import type {
   AdminCanvasRecord,
+  AdminContentImportRecord,
   AdminExportRecord,
   AdminLiveSessionRecord,
 } from '@/types/api';
@@ -35,5 +36,13 @@ export const contentApi = {
       getAdminItem<AdminExportRecord>(`/admin/content/exports/${id}`),
     export: (query: AdminListQuery, format: AdminExportFormat) =>
       downloadAdminExport('/admin/content/exports/export', query, format),
+  },
+  imports: {
+    list: (query?: AdminListQuery) =>
+      getAdminList<AdminContentImportRecord>('/admin/content/imports', query),
+    get: (id: string) =>
+      getAdminItem<AdminContentImportRecord>(`/admin/content/imports/${id}`),
+    export: (query: AdminListQuery, format: AdminExportFormat) =>
+      downloadAdminExport('/admin/content/imports/export', query, format),
   },
 };

@@ -21,6 +21,7 @@ export type PaymentProviderMode = 'TEST' | 'LIVE';
 export type LiveSessionStatus = 'SCHEDULED' | 'LIVE' | 'ENDED' | 'CANCELLED';
 export type ExportStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 export type ExportFormat = 'PDF' | 'PNG' | 'JPG' | 'SVG';
+export type ContentImportStatus = 'PENDING' | 'PROCESSING' | 'CONVERTED' | 'FAILED';
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -215,6 +216,7 @@ export interface SubscriptionRecord {
   seatUsage: number;
   startDate: string;
   endDate: string | null;
+  deletedAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
   organization?: AdminOrganization | null;
@@ -257,6 +259,7 @@ export interface HardwareActivationKeyRecord {
   activationKey: string | null;
   label: string | null;
   status: 'AVAILABLE' | 'BOUND' | 'DISABLED' | 'EXPIRED';
+  maxDevices?: number;
   assignedUserId: string | null;
   assignedUser?: {
     id: string;
@@ -327,6 +330,15 @@ export interface AdminCanvasRecord {
     role: UserRole;
   };
   organization: OrganizationSummary | null;
+  slides?: Array<{
+    id: string;
+    name?: string | null;
+    title?: string | null;
+    order: number;
+    thumbnail?: string | null;
+    elements?: unknown;
+    updatedAt?: string;
+  }>;
   _count: {
     slides: number;
     exports: number;
@@ -382,6 +394,9 @@ export interface AdminExportRecord {
   format: ExportFormat;
   status: ExportStatus;
   fileUrl: string | null;
+  storageKey?: string | null;
+  mimeType?: string | null;
+  fileName?: string | null;
   fileSize: number | null;
   error: string | null;
   createdAt: string;
@@ -398,6 +413,31 @@ export interface AdminExportRecord {
     name: string | null;
     role: UserRole;
   };
+}
+
+export interface AdminContentImportRecord {
+  id: string;
+  userId: string;
+  userRole: UserRole;
+  organizationId: string | null;
+  sourceName: string;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  storageKey: string | null;
+  publicUrl: string | null;
+  status: ContentImportStatus;
+  error: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  convertedAt: string | null;
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+    role: UserRole;
+  };
+  organization: OrganizationSummary | null;
 }
 
 export interface CountBucket<T extends string = string> {
@@ -523,6 +563,13 @@ export const EXPORT_STATUS_LABEL: Record<ExportStatus, string> = {
   PENDING: 'Pending',
   PROCESSING: 'Processing',
   COMPLETED: 'Completed',
+  FAILED: 'Failed',
+};
+
+export const CONTENT_IMPORT_STATUS_LABEL: Record<ContentImportStatus, string> = {
+  PENDING: 'Pending',
+  PROCESSING: 'Processing',
+  CONVERTED: 'Converted',
   FAILED: 'Failed',
 };
 

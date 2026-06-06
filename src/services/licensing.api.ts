@@ -119,6 +119,18 @@ export const licensingApi = {
     );
     return res.data.data;
   },
+  revokeActivationKey: async (keyId: string) => {
+    const res = await api.post<ApiResponse<unknown>>(
+      `/admin/hardware/activation-keys/${keyId}/revoke`,
+    );
+    return res.data.data;
+  },
+  replaceActivationKey: async (keyId: string) => {
+    const res = await api.post<ApiResponse<CreateHardwareActivationKeyResponse>>(
+      `/admin/hardware/activation-keys/${keyId}/replace`,
+    );
+    return res.data.data;
+  },
   getOrganizationLicenseDetails: async (organizationId: string) => {
     const res = await api.get<ApiResponse<OrganizationLicenseDetailRecord>>(
       `/admin/organizations/${organizationId}/license-details`,

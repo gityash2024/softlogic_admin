@@ -32,6 +32,7 @@ import { subscriptionsApi } from '@/services/subscriptions.api';
 import { usersApi } from '@/services/users.api';
 import { extractApiError } from '@/lib/api';
 import { formatDate, formatDateTime, initials } from '@/lib/utils';
+import { BoardPreviewTile } from '@/features/content/WhiteboardPreview';
 import {
   BRANDING_MODE_LABEL,
   EXPORT_STATUS_LABEL,
@@ -409,10 +410,23 @@ function CanvasTable({
         {rows.map((canvas) => (
           <TableRow key={canvas.id}>
             <TableCell>
-              <p className="text-sm font-semibold text-ink-900">{canvas.name}</p>
-              <p className="max-w-[320px] truncate text-xs text-ink-500">
-                {canvas.description ?? canvas.id}
-              </p>
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="w-24 shrink-0">
+                  <BoardPreviewTile
+                    title={canvas.name}
+                    thumbnail={canvas.thumbnail}
+                    slide={canvas.slides?.[0] ?? null}
+                    pageCount={canvas._count.slides}
+                    compact
+                  />
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-ink-900">{canvas.name}</p>
+                  <p className="max-w-[320px] truncate text-xs text-ink-500">
+                    {canvas.description ?? canvas.id}
+                  </p>
+                </div>
+              </div>
             </TableCell>
             <TableCell className="text-sm text-ink-700">
               {canvas.user?.name ?? canvas.user?.email ?? '-'}

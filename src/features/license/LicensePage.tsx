@@ -48,6 +48,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import {
   Table,
   TableHeader,
@@ -62,7 +63,19 @@ function fingerprintTail(hash: string | null | undefined): string {
   return hash.length > 8 ? `…${hash.slice(-8)}` : hash;
 }
 
-function SeatUsageBanner({
+function formatMoney(amountMinor: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 2,
+    }).format(amountMinor / 100);
+  } catch {
+    return `${currency} ${(amountMinor / 100).toFixed(2)}`;
+  }
+}
+
+function SeatsBanner({
   seatLimit,
   seatUsage,
   className,
@@ -82,8 +95,8 @@ function SeatUsageBanner({
       : 'border-amber-200 bg-amber-50 text-amber-700';
   const message =
     pct >= 1
-      ? 'Seat limit reached'
-      : `Seat usage is at ${Math.round(pct * 100)}% of the limit`;
+      ? 'All seats are in use'
+      : `Seats are at ${Math.round(pct * 100)}% capacity`;
   return (
     <div
       className={cn(
@@ -123,6 +136,8 @@ export function LicensePage() {
   const [bulkResult, setBulkResult] = useState<BulkHardwareActivationKeyResponse | null>(null);
   const [exportFormat, setExportFormat] = useState<AdminExportFormat>('xlsx');
   const [isExporting, setIsExporting] = useState(false);
+  const [revokeKeyId, setRevokeKeyId] = useState<string | null>(null);
+  const [replaceKeyId, setReplaceKeyId] = useState<string | null>(null);
 
   const subscriptionsQuery = useQuery({
     queryKey: ['subscriptions', 'all'],
@@ -160,6 +175,12 @@ export function LicensePage() {
     orgSubs.find((subscription) =>
       ['ACTIVE', 'TRIAL'].includes(subscription.status),
     ) ?? orgSubs[0] ?? null;
+  const paymentsQuery = useQuery({
+    queryKey: ['subscription-payments', primarySub?.id],
+    queryFn: () => subscriptionsApi.listPayments(primarySub!.id),
+    enabled: Boolean(primarySub?.id),
+  });
+  const paymentRows = paymentsQuery.data ?? [];
   const hasActiveSub = orgSubs.some((subscription) =>
     ['ACTIVE', 'TRIAL'].includes(subscription.status),
   );
@@ -177,6 +198,7 @@ export function LicensePage() {
     queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
     queryClient.invalidateQueries({ queryKey: ['organizations'] });
     queryClient.invalidateQueries({ queryKey: ['license-details'] });
+    queryClient.invalidateQueries({ queryKey: ['subscription-payments'] });
     queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
   };
 
@@ -233,6 +255,26 @@ export function LicensePage() {
     onError: (error) => toast.error(extractApiError(error)),
   });
 
+  const revokeKeyMutation = useMutation({
+    mutationFn: licensingApi.revokeActivationKey,
+    onSuccess: () => {
+      invalidateCommercialQueries();
+      toast.success('Activation key revoked');
+      setRevokeKeyId(null);
+    },
+    onError: (error) => toast.error(extractApiError(error)),
+  });
+
+  const replaceKeyMutation = useMutation({
+    mutationFn: licensingApi.replaceActivationKey,
+    onSuccess: (key) => {
+      invalidateCommercialQueries();
+      toast.success(`Replacement key created${key.activationKey ? `: ${key.activationKey}` : ''}`);
+      setReplaceKeyId(null);
+    },
+    onError: (error) => toast.error(extractApiError(error)),
+  });
+
   const recalcMutation = useMutation({
     mutationFn: licensingApi.recalculateLicenseUsage,
     onSuccess: () => {
@@ -252,6 +294,22 @@ export function LicensePage() {
     : 0;
 
   const activationKeys = orgDetailsQuery.data?.hardwareActivationKeys ?? [];
+  const usableKeyCount = activationKeys.filter((key) =>
+    key.status === 'AVAILABLE' || key.status === 'BOUND',
+  ).length;
+  const activePrimarySub =
+    primarySub && ['ACTIVE', 'TRIAL'].includes(primarySub.status) ? primarySub : null;
+  const remainingActivationKeys = activePrimarySub
+    ? Math.max(activePrimarySub.seatLimit - usableKeyCount, 0)
+    : 0;
+  const canCreateActivationKey =
+    !!selectedOrganization &&
+    !!activePrimarySub &&
+    remainingActivationKeys > 0 &&
+    !orgDetailsQuery.isLoading;
+  const capacityText = activePrimarySub
+    ? `${usableKeyCount}/${activePrimarySub.seatLimit} usable keys`
+    : 'No active subscription';
   const allDevices = activationKeys.flatMap((key) =>
     key.activations.map((activation) => ({ activation, key })),
   );
@@ -298,6 +356,10 @@ export function LicensePage() {
     if (!selectedOrganization) return;
     if (validBulkRows.length === 0) {
       toast.error('Add at least one key with a label');
+      return;
+    }
+    if (validBulkRows.length > remainingActivationKeys) {
+      toast.error(`Only ${remainingActivationKeys} activation key seat(s) remaining`);
       return;
     }
     bulkMutation.mutate({
@@ -425,7 +487,7 @@ export function LicensePage() {
           </Card>
           <Card className="px-6 py-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-              Total seats
+              Seats
             </p>
             <p className="mt-2 text-3xl font-black text-ink-900">
               {globalActiveSubscriptions.reduce(
@@ -475,6 +537,36 @@ export function LicensePage() {
               <p className="text-sm text-ink-700">
                 {primarySub ? BRANDING_MODE_LABEL[primarySub.brandingMode] : '—'}
               </p>
+              <div className="grid gap-3 pt-2 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-ink-500">Term</p>
+                  <p className="text-sm font-semibold text-ink-900">
+                    {primarySub
+                      ? `${formatDate(primarySub.startDate)} - ${
+                          primarySub.endDate ? formatDate(primarySub.endDate) : 'No end date'
+                        }`
+                      : '-'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-ink-500">Number of seats</p>
+                  <p className="text-sm font-semibold text-ink-900">
+                    {primarySub?.seatLimit ?? 0}
+                  </p>
+                </div>
+              </div>
+              <div className="grid gap-3 pt-1 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-ink-500">Activation keys</p>
+                  <p className="text-sm font-semibold text-ink-900">{capacityText}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-ink-500">Remaining</p>
+                  <p className="text-sm font-semibold text-ink-900">
+                    {remainingActivationKeys}
+                  </p>
+                </div>
+              </div>
               <p className="pt-2 text-xs text-ink-500">
                 Storage:{' '}
                 {selectedOrganization
@@ -488,13 +580,13 @@ export function LicensePage() {
             <div className="border-b border-line px-6 py-4">
               <h3 className="flex items-center gap-2 text-base font-semibold text-ink-900">
                 <Sofa className="h-4 w-4 text-brand-primary" />
-                Seat Usage
+                Seats
               </h3>
               <p className="text-xs text-ink-500">Active organization users</p>
             </div>
             <div className="space-y-4 px-6 py-5">
               {primarySub && (
-                <SeatUsageBanner
+                <SeatsBanner
                   seatLimit={primarySub.seatLimit}
                   seatUsage={primarySub.seatUsage}
                 />
@@ -599,6 +691,9 @@ export function LicensePage() {
                 <p className="text-xs text-ink-500">
                   Each key activates one board/device. Any active user in that organization can use the app on that activated device.
                 </p>
+                <p className="mt-1 text-xs font-medium text-ink-600">
+                  {capacityText} · {remainingActivationKeys} remaining
+                </p>
               </div>
 
               <div className="space-y-3">
@@ -633,7 +728,7 @@ export function LicensePage() {
                   variant="primary"
                   className="w-full"
                   disabled={
-                    !selectedOrganization ||
+                    !canCreateActivationKey ||
                     keyLabel.trim().length === 0 ||
                     hardwareMutation.isPending
                   }
@@ -657,7 +752,7 @@ export function LicensePage() {
                 <Button
                   variant="outline"
                   className="w-full"
-                  disabled={!selectedOrganization}
+                  disabled={!canCreateActivationKey}
                   onClick={openBulkDialog}
                 >
                   <Layers className="h-4 w-4" />
@@ -739,6 +834,7 @@ export function LicensePage() {
                   <TableHead>Status</TableHead>
                   <TableHead>Bound device</TableHead>
                   <TableHead>Expires</TableHead>
+                  {isSuperAdmin && <TableHead className="text-right">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -801,12 +897,33 @@ export function LicensePage() {
                           {key.expiresAt ? formatDate(key.expiresAt) : 'No expiry'}
                         </p>
                       </TableCell>
+                      {isSuperAdmin && (
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={key.status === 'DISABLED'}
+                              onClick={() => setRevokeKeyId(key.id)}
+                            >
+                              Revoke
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setReplaceKeyId(key.id)}
+                            >
+                              Replace
+                            </Button>
+                          </div>
+                        </TableCell>
+                      )}
                     </TableRow>
                   );
                 })}
                 {activationKeys.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-12 text-center">
+                    <TableCell colSpan={isSuperAdmin ? 6 : 5} className="py-12 text-center">
                       <div className="mx-auto flex max-w-sm flex-col items-center gap-2">
                         <span className="flex h-11 w-11 items-center justify-center rounded-full bg-surface-variant text-ink-500">
                           <KeyRound className="h-5 w-5" />
@@ -822,6 +939,7 @@ export function LicensePage() {
                             variant="primary"
                             size="sm"
                             className="mt-1"
+                            disabled={!canCreateActivationKey}
                             onClick={openBulkDialog}
                           >
                             <Layers className="h-4 w-4" />
@@ -933,39 +1051,90 @@ export function LicensePage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Invoice ID</TableHead>
-                <TableHead>Billing Date</TableHead>
+                <TableHead>Reference</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Amount</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Plan</TableHead>
+                <TableHead>Notes</TableHead>
+                <TableHead>Recorded by</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {orgSubs.map((subscription) => (
-                <TableRow key={subscription.id}>
+              {paymentRows.map((payment) => (
+                <TableRow key={payment.id}>
                   <TableCell>
                     <p className="font-mono text-sm font-medium text-ink-900">
-                      #SUB-{subscription.id.slice(0, 6).toUpperCase()}
+                      {payment.invoiceNumber ?? `#PAY-${payment.id.slice(0, 6).toUpperCase()}`}
+                    </p>
+                  </TableCell>
+                  <TableCell>
+                    <p className="text-sm text-ink-700">{formatDate(payment.createdAt)}</p>
+                  </TableCell>
+                  <TableCell>
+                    <p className="text-sm font-medium text-ink-900">
+                      {formatMoney(payment.amountMinor, payment.currency)}
+                    </p>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        payment.status === 'MANUAL_APPROVED' ||
+                        payment.status === 'PAID' ||
+                        payment.status === 'SUCCEEDED'
+                          ? 'success'
+                          : payment.status === 'FAILED'
+                            ? 'danger'
+                            : 'warning'
+                      }
+                    >
+                      {payment.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <p className="max-w-xs whitespace-normal text-sm text-ink-700">
+                      {payment.referenceNote ?? '—'}
                     </p>
                   </TableCell>
                   <TableCell>
                     <p className="text-sm text-ink-700">
-                      {formatDate(subscription.startDate)}
+                      {payment.recordedBy?.name ?? payment.recordedBy?.email ?? '—'}
                     </p>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={subscription.status === 'ACTIVE' ? 'success' : 'warning'}>
-                      {subscription.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <p className="text-sm text-ink-700">{subscription.planName}</p>
                   </TableCell>
                 </TableRow>
               ))}
-              {orgSubs.length === 0 && (
+              {paymentRows.length === 0 &&
+                orgSubs.map((subscription) => (
+                  <TableRow key={subscription.id}>
+                    <TableCell>
+                      <p className="font-mono text-sm font-medium text-ink-900">
+                        #SUB-{subscription.id.slice(0, 6).toUpperCase()}
+                      </p>
+                    </TableCell>
+                    <TableCell>
+                      <p className="text-sm text-ink-700">
+                        {formatDate(subscription.startDate)}
+                      </p>
+                    </TableCell>
+                    <TableCell>
+                      <p className="text-sm text-ink-700">—</p>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={subscription.status === 'ACTIVE' ? 'success' : 'warning'}>
+                        {subscription.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <p className="text-sm text-ink-700">{subscription.planName}</p>
+                    </TableCell>
+                    <TableCell>
+                      <p className="text-sm text-ink-700">—</p>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              {paymentRows.length === 0 && orgSubs.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="py-10 text-center text-sm text-ink-500">
-                    No invoices yet.
+                  <TableCell colSpan={6} className="py-10 text-center text-sm text-ink-500">
+                    {paymentsQuery.isLoading ? 'Loading billing history...' : 'No invoices yet.'}
                   </TableCell>
                 </TableRow>
               )}
@@ -1032,6 +1201,9 @@ export function LicensePage() {
                 <Plus className="h-4 w-4" />
                 Add another key
               </Button>
+              <p className="text-xs text-ink-500">
+                {remainingActivationKeys} activation key seat(s) remaining.
+              </p>
             </div>
           ) : (
             <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
@@ -1076,6 +1248,7 @@ export function LicensePage() {
                   disabled={
                     !selectedOrganization ||
                     validBulkRows.length === 0 ||
+                    validBulkRows.length > remainingActivationKeys ||
                     bulkMutation.isPending
                   }
                   onClick={submitBulk}
@@ -1093,6 +1266,32 @@ export function LicensePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmationDialog
+        open={!!revokeKeyId}
+        onOpenChange={(open) => !open && setRevokeKeyId(null)}
+        title="Revoke activation key?"
+        description="This disables the key and any active device activation for it."
+        confirmLabel="Revoke"
+        tone="danger"
+        loading={revokeKeyMutation.isPending}
+        onConfirm={() => {
+          if (revokeKeyId) revokeKeyMutation.mutate(revokeKeyId);
+        }}
+      />
+
+      <ConfirmationDialog
+        open={!!replaceKeyId}
+        onOpenChange={(open) => !open && setReplaceKeyId(null)}
+        title="Replace activation key?"
+        description="The old key will be revoked and a new key will be created if seats are available."
+        confirmLabel="Replace"
+        tone="warning"
+        loading={replaceKeyMutation.isPending}
+        onConfirm={() => {
+          if (replaceKeyId) replaceKeyMutation.mutate(replaceKeyId);
+        }}
+      />
     </div>
   );
 }

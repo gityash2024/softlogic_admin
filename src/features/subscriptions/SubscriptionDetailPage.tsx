@@ -43,6 +43,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import {
   Table,
   TableHeader,
@@ -100,7 +101,7 @@ function buildTimeline(
   );
 }
 
-function SeatUsageBanner({
+function SeatsBanner({
   seatLimit,
   seatUsage,
   className,
@@ -120,8 +121,8 @@ function SeatUsageBanner({
       : 'border-amber-200 bg-amber-50 text-amber-700';
   const message =
     pct >= 1
-      ? 'Seat limit reached'
-      : `Seat usage is at ${Math.round(pct * 100)}% of the limit`;
+      ? 'All seats are in use'
+      : `Seats are at ${Math.round(pct * 100)}% capacity`;
   return (
     <div
       className={cn(
@@ -155,6 +156,8 @@ export function SubscriptionDetailPage() {
   const [renewReference, setRenewReference] = useState('');
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const [revokeKeyId, setRevokeKeyId] = useState<string | null>(null);
+  const [replaceKeyId, setReplaceKeyId] = useState<string | null>(null);
 
   const detailQuery = useQuery({
     queryKey: ['subscription-details', id],
@@ -190,6 +193,28 @@ export function SubscriptionDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subscription-details', id] });
       toast.success('Device reset — key is available to rebind');
+    },
+    onError: (error) => toast.error(extractApiError(error)),
+  });
+
+  const revokeKeyMutation = useMutation({
+    mutationFn: licensingApi.revokeActivationKey,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['subscription-details', id] });
+      queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
+      toast.success('Activation key revoked');
+      setRevokeKeyId(null);
+    },
+    onError: (error) => toast.error(extractApiError(error)),
+  });
+
+  const replaceKeyMutation = useMutation({
+    mutationFn: licensingApi.replaceActivationKey,
+    onSuccess: (key) => {
+      queryClient.invalidateQueries({ queryKey: ['subscription-details', id] });
+      queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
+      toast.success(`Replacement key created${key.activationKey ? `: ${key.activationKey}` : ''}`);
+      setReplaceKeyId(null);
     },
     onError: (error) => toast.error(extractApiError(error)),
   });
@@ -370,7 +395,7 @@ export function SubscriptionDetailPage() {
             {SUBSCRIPTION_STATUS_LABEL[subscription.status]}
           </Badge>
         </div>
-        <SeatUsageBanner
+        <SeatsBanner
           seatLimit={subscription.seatLimit}
           seatUsage={subscription.seatUsage}
         />
@@ -395,7 +420,7 @@ export function SubscriptionDetailPage() {
           </div>
         </div>
         <div>
-          <p className="text-xs uppercase tracking-wide text-ink-500">Seat usage</p>
+          <p className="text-xs uppercase tracking-wide text-ink-500">Seats</p>
           <p className="mt-1 text-2xl font-bold text-ink-900">
             {subscription.seatUsage}
             <span className="text-sm font-medium text-ink-500">
@@ -424,6 +449,7 @@ export function SubscriptionDetailPage() {
               <TableHead>Status</TableHead>
               <TableHead>Assigned</TableHead>
               <TableHead>Expires</TableHead>
+              {isSuperAdmin && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -486,12 +512,35 @@ export function SubscriptionDetailPage() {
                     {key.assignedUser?.name ?? key.assignedUser?.email ?? '—'}
                   </TableCell>
                   <TableCell>{key.expiresAt ? formatDate(key.expiresAt) : 'No expiry'}</TableCell>
+                  {isSuperAdmin && (
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={key.status === 'DISABLED'}
+                          onClick={() => setRevokeKeyId(key.id)}
+                        >
+                          <XCircle className="h-3.5 w-3.5" />
+                          Revoke
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setReplaceKeyId(key.id)}
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" />
+                          Replace
+                        </Button>
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
               );
             })}
             {subscription.hardwareActivationKeys.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="py-10 text-center text-sm text-ink-500">
+                <TableCell colSpan={isSuperAdmin ? 6 : 5} className="py-10 text-center text-sm text-ink-500">
                   No activation keys issued yet.
                 </TableCell>
               </TableRow>
@@ -793,6 +842,32 @@ export function SubscriptionDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmationDialog
+        open={!!revokeKeyId}
+        onOpenChange={(open) => !open && setRevokeKeyId(null)}
+        title="Revoke activation key?"
+        description="This disables the key and any active device activation for it."
+        confirmLabel="Revoke"
+        tone="danger"
+        loading={revokeKeyMutation.isPending}
+        onConfirm={() => {
+          if (revokeKeyId) revokeKeyMutation.mutate(revokeKeyId);
+        }}
+      />
+
+      <ConfirmationDialog
+        open={!!replaceKeyId}
+        onOpenChange={(open) => !open && setReplaceKeyId(null)}
+        title="Replace activation key?"
+        description="The old key will be revoked and a new key will be created if seats are available."
+        confirmLabel="Replace"
+        tone="warning"
+        loading={replaceKeyMutation.isPending}
+        onConfirm={() => {
+          if (replaceKeyId) replaceKeyMutation.mutate(replaceKeyId);
+        }}
+      />
     </div>
   );
 }

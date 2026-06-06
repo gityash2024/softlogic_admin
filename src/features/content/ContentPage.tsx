@@ -5,6 +5,7 @@ import {
   Download,
   Eye,
   FileArchive,
+  FileUp,
   MonitorPlay,
   Presentation,
   Search,
@@ -18,15 +19,20 @@ import type { AdminExportFormat, AdminListQuery } from '@/services/admin-api';
 import { extractApiError } from '@/lib/api';
 import { formatDateTime, initials } from '@/lib/utils';
 import {
+  CONTENT_IMPORT_STATUS_LABEL,
   EXPORT_STATUS_LABEL,
   LIVE_SESSION_STATUS_LABEL,
   type AdminCanvasRecord,
+  type AdminContentImportRecord,
   type AdminExportRecord,
   type AdminLiveSessionRecord,
+  type ContentImportStatus,
   type ExportFormat,
   type ExportStatus,
   type LiveSessionStatus,
+  type UserRole,
 } from '@/types/api';
+import { BoardPreviewTile } from './WhiteboardPreview';
 
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -69,10 +75,28 @@ import {
   type FilterChip,
 } from '@/features/admin/admin-list-utils';
 
-type ContentTab = 'canvases' | 'live-sessions' | 'exports';
+type ContentTab = 'canvases' | 'live-sessions' | 'exports' | 'imports';
 
 const PER_PAGE = 20;
 const EXPORT_FORMATS: ExportFormat[] = ['PDF', 'PNG', 'JPG', 'SVG'];
+const USER_ROLES: UserRole[] = [
+  'SUPER_ADMIN',
+  'ADMIN',
+  'PARTNER_ADMIN',
+  'CUSTOMER_ADMIN',
+  'TEACHER',
+  'STUDENT',
+  'PARENT',
+];
+const ROLE_LABEL: Record<UserRole, string> = {
+  SUPER_ADMIN: 'Super Admin',
+  ADMIN: 'Admin',
+  PARTNER_ADMIN: 'Partner Admin',
+  CUSTOMER_ADMIN: 'Customer Admin',
+  TEACHER: 'Teacher',
+  STUDENT: 'Student',
+  PARENT: 'Parent',
+};
 
 function formatBytes(bytes: number | null | undefined) {
   if (!bytes) return '0 B';
@@ -90,6 +114,13 @@ function liveStatusVariant(status: LiveSessionStatus) {
 
 function exportStatusVariant(status: ExportStatus) {
   if (status === 'COMPLETED') return 'success' as const;
+  if (status === 'FAILED') return 'danger' as const;
+  if (status === 'PROCESSING') return 'info' as const;
+  return 'warning' as const;
+}
+
+function importStatusVariant(status: ContentImportStatus) {
+  if (status === 'CONVERTED') return 'success' as const;
   if (status === 'FAILED') return 'danger' as const;
   if (status === 'PROCESSING') return 'info' as const;
   return 'warning' as const;
@@ -120,7 +151,7 @@ export function ContentPage() {
   const [exporting, setExporting] = useState<AdminExportFormat | null>(null);
   const requestedTab = params.get('tab') as ContentTab | null;
   const tab: ContentTab =
-    requestedTab === 'live-sessions' || requestedTab === 'exports'
+    requestedTab === 'live-sessions' || requestedTab === 'exports' || requestedTab === 'imports'
       ? requestedTab
       : 'canvases';
 
@@ -128,6 +159,7 @@ export function ContentPage() {
   const search = params.get('search') ?? '';
   const organizationId = params.get('organizationId') ?? 'ALL';
   const userId = params.get('userId') ?? 'ALL';
+  const role = params.get('role') ?? 'ALL';
   const status = params.get('status') ?? 'ALL';
   const format = params.get('format') ?? 'ALL';
   const isPublic = params.get('isPublic') ?? 'ALL';
@@ -138,6 +170,8 @@ export function ContentPage() {
   const updatedTo = params.get('updatedTo') ?? '';
   const completedFrom = params.get('completedFrom') ?? '';
   const completedTo = params.get('completedTo') ?? '';
+  const convertedFrom = params.get('convertedFrom') ?? '';
+  const convertedTo = params.get('convertedTo') ?? '';
   const startedFrom = params.get('startedFrom') ?? '';
   const startedTo = params.get('startedTo') ?? '';
 
@@ -148,10 +182,11 @@ export function ContentPage() {
       search,
       organizationId: cleanFilterValue(organizationId),
       userId: cleanFilterValue(userId),
+      role: cleanFilterValue(role),
       createdFrom,
       createdTo,
     }),
-    [createdFrom, createdTo, organizationId, page, search, userId],
+    [createdFrom, createdTo, organizationId, page, role, search, userId],
   );
 
   const canvasQuery = useMemo<AdminListQuery>(
@@ -189,6 +224,17 @@ export function ContentPage() {
     }),
     [commonQuery, completedFrom, completedTo, format, params, status],
   );
+  const importsQueryObject = useMemo<AdminListQuery>(
+    () => ({
+      ...commonQuery,
+      status: cleanFilterValue(status),
+      convertedFrom,
+      convertedTo,
+      sortBy: params.get('sortBy') ?? 'createdAt',
+      sortOrder: params.get('sortOrder') ?? 'desc',
+    }),
+    [commonQuery, convertedFrom, convertedTo, params, status],
+  );
 
   const canvasesQuery = useQuery({
     queryKey: ['content', 'canvases', canvasQuery],
@@ -205,6 +251,11 @@ export function ContentPage() {
     queryFn: () => contentApi.exports.list(exportsQueryObject),
     enabled: tab === 'exports',
   });
+  const importRecordsQuery = useQuery({
+    queryKey: ['content', 'imports', importsQueryObject],
+    queryFn: () => contentApi.imports.list(importsQueryObject),
+    enabled: tab === 'imports',
+  });
   const orgsQuery = useQuery({
     queryKey: ['organizations', 'all'],
     queryFn: organizationsApi.all,
@@ -219,23 +270,30 @@ export function ContentPage() {
       ? canvasQuery
       : tab === 'live-sessions'
         ? liveQuery
-        : exportsQueryObject;
+        : tab === 'exports'
+          ? exportsQueryObject
+          : importsQueryObject;
   const currentMeta =
     tab === 'canvases'
       ? canvasesQuery.data?.meta
       : tab === 'live-sessions'
         ? liveSessionsQuery.data?.meta
-        : exportRecordsQuery.data?.meta;
+        : tab === 'exports'
+          ? exportRecordsQuery.data?.meta
+          : importRecordsQuery.data?.meta;
   const currentLoading =
     tab === 'canvases'
       ? canvasesQuery.isLoading
       : tab === 'live-sessions'
         ? liveSessionsQuery.isLoading
-        : exportRecordsQuery.isLoading;
+        : tab === 'exports'
+          ? exportRecordsQuery.isLoading
+          : importRecordsQuery.isLoading;
 
   const canvasRows = canvasesQuery.data?.data ?? [];
   const liveRows = liveSessionsQuery.data?.data ?? [];
   const exportRows = exportRecordsQuery.data?.data ?? [];
+  const importRows = importRecordsQuery.data?.data ?? [];
 
   const activeFilters = useMemo<FilterChip[]>(() => {
     const org = orgsQuery.data?.find((item) => item.id === organizationId);
@@ -251,6 +309,11 @@ export function ContentPage() {
         key: 'userId',
         label: 'User',
         value: selectedUser?.name ?? selectedUser?.email ?? userId,
+      },
+      role !== 'ALL' && {
+        key: 'role',
+        label: 'Role',
+        value: ROLE_LABEL[role as UserRole] ?? role,
       },
       tab === 'canvases' &&
         isPublic !== 'ALL' && {
@@ -284,10 +347,22 @@ export function ContentPage() {
         label: 'Completed to',
         value: completedTo,
       },
+      convertedFrom && {
+        key: 'convertedFrom',
+        label: 'Converted from',
+        value: convertedFrom,
+      },
+      convertedTo && {
+        key: 'convertedTo',
+        label: 'Converted to',
+        value: convertedTo,
+      },
     ].filter(Boolean) as FilterChip[];
   }, [
     completedFrom,
     completedTo,
+    convertedFrom,
+    convertedTo,
     createdFrom,
     createdTo,
     format,
@@ -295,6 +370,7 @@ export function ContentPage() {
     isPublic,
     organizationId,
     orgsQuery.data,
+    role,
     search,
     startedFrom,
     startedTo,
@@ -320,6 +396,8 @@ export function ContentPage() {
     next.delete('startedTo');
     next.delete('completedFrom');
     next.delete('completedTo');
+    next.delete('convertedFrom');
+    next.delete('convertedTo');
     setParams(next, { replace: true });
   };
 
@@ -332,6 +410,7 @@ export function ContentPage() {
         await contentApi.liveSessions.export(payload, exportFormat);
       }
       if (tab === 'exports') await contentApi.exports.export(payload, exportFormat);
+      if (tab === 'imports') await contentApi.imports.export(payload, exportFormat);
       toast.success(`Content ${exportFormat.toUpperCase()} export started`);
     } catch (error) {
       toast.error(extractApiError(error));
@@ -342,7 +421,7 @@ export function ContentPage() {
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-4">
         <StatCard
           label="Canvases"
           value={tab === 'canvases' ? (currentMeta?.total ?? 0) : 'Ready'}
@@ -360,6 +439,12 @@ export function ContentPage() {
           value={tab === 'exports' ? (currentMeta?.total ?? 0) : 'Ready'}
           detail="Files, formats, completion states"
           tone="orange"
+        />
+        <StatCard
+          label="Import records"
+          value={tab === 'imports' ? (currentMeta?.total ?? 0) : 'Ready'}
+          detail="Uploaded PDFs and PowerPoints"
+          tone="blue"
         />
       </div>
 
@@ -393,9 +478,13 @@ export function ContentPage() {
                 <FileArchive className="h-4 w-4" />
                 Exports
               </TabsTrigger>
+              <TabsTrigger value="imports">
+                <FileUp className="h-4 w-4" />
+                Imports
+              </TabsTrigger>
             </TabsList>
 
-            <div className="grid gap-3 xl:grid-cols-[1fr_220px_220px]">
+            <div className="grid gap-3 xl:grid-cols-[1fr_220px_220px_220px]">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
                 <Input
@@ -439,6 +528,24 @@ export function ContentPage() {
                   {usersQuery.data?.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.name ?? user.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={role}
+                onValueChange={(value) =>
+                  setSearchParam(params, setParams, 'role', value)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All roles</SelectItem>
+                  {USER_ROLES.map((item) => (
+                    <SelectItem key={item} value={item}>
+                      {ROLE_LABEL[item]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -640,6 +747,61 @@ export function ContentPage() {
               </div>
             )}
 
+            {tab === 'imports' && (
+              <div className="grid gap-3 lg:grid-cols-5">
+                <Select
+                  value={status}
+                  onValueChange={(value) =>
+                    setSearchParam(params, setParams, 'status', value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All statuses</SelectItem>
+                    {Object.entries(CONTENT_IMPORT_STATUS_LABEL).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  type="date"
+                  value={createdFrom}
+                  onChange={(e) =>
+                    setSearchParam(params, setParams, 'createdFrom', e.target.value)
+                  }
+                  title="Created from"
+                />
+                <Input
+                  type="date"
+                  value={createdTo}
+                  onChange={(e) =>
+                    setSearchParam(params, setParams, 'createdTo', e.target.value)
+                  }
+                  title="Created to"
+                />
+                <Input
+                  type="date"
+                  value={convertedFrom}
+                  onChange={(e) =>
+                    setSearchParam(params, setParams, 'convertedFrom', e.target.value)
+                  }
+                  title="Converted from"
+                />
+                <Input
+                  type="date"
+                  value={convertedTo}
+                  onChange={(e) =>
+                    setSearchParam(params, setParams, 'convertedTo', e.target.value)
+                  }
+                  title="Converted to"
+                />
+              </div>
+            )}
+
             <ActiveFilterChips
               filters={activeFilters}
               onRemove={(key) => setSearchParam(params, setParams, key, null)}
@@ -658,6 +820,9 @@ export function ContentPage() {
           </TabsContent>
           <TabsContent value="exports" className="mt-0">
             <ExportsTable rows={exportRows} loading={exportRecordsQuery.isLoading} />
+          </TabsContent>
+          <TabsContent value="imports" className="mt-0">
+            <ImportsTable rows={importRows} loading={importRecordsQuery.isLoading} />
           </TabsContent>
         </Tabs>
 
@@ -697,7 +862,15 @@ function CanvasTable({
           <TableRow key={canvas.id}>
             <TableCell>
               <div className="flex min-w-0 items-center gap-3">
-                <PreviewTile thumbnail={canvas.thumbnail} icon="canvas" />
+                <div className="w-24 shrink-0">
+                  <BoardPreviewTile
+                    title={canvas.name}
+                    thumbnail={canvas.thumbnail}
+                    slide={canvas.slides?.[0] ?? null}
+                    pageCount={canvas._count.slides}
+                    compact
+                  />
+                </div>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-ink-900">
                     {canvas.name}
@@ -848,8 +1021,13 @@ function ExportsTable({
                     {record.canvas?.name ?? 'Canvas export'}
                   </p>
                   <p className="truncate text-xs text-ink-500">
-                    {record.canvas?.organization?.name ?? record.id}
+                    {record.fileName ?? record.canvas?.organization?.name ?? record.id}
                   </p>
+                  {record.storageKey && (
+                    <p className="truncate text-[11px] text-ink-400">
+                      {record.storageKey}
+                    </p>
+                  )}
                 </div>
               </div>
             </TableCell>
@@ -909,6 +1087,107 @@ function ExportsTable({
                   ) : (
                     <span>
                       <Download className="h-4 w-4 text-ink-300" />
+                    </span>
+                  )}
+                </Button>
+              </div>
+            </TableCell>
+          </TableRow>
+        ))}
+        {rows.length === 0 && <EmptyContentRow colSpan={7} />}
+      </TableBody>
+    </Table>
+  );
+}
+
+function ImportsTable({
+  rows,
+  loading,
+}: {
+  rows: AdminContentImportRecord[];
+  loading: boolean;
+}) {
+  if (loading) return <TableLoading />;
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Import</TableHead>
+          <TableHead>User</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead>Size</TableHead>
+          <TableHead>Created</TableHead>
+          <TableHead>Converted</TableHead>
+          <TableHead className="text-right">Actions</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((record) => (
+          <TableRow key={record.id}>
+            <TableCell>
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-12 w-16 shrink-0 items-center justify-center rounded-lg border border-line bg-surface-variant">
+                  <FileUp className="h-5 w-5 text-brand-primary" />
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-ink-900">
+                    {record.sourceName}
+                  </p>
+                  <p className="truncate text-xs text-ink-500">
+                    {record.organization?.name ?? record.mimeType ?? record.id}
+                  </p>
+                  {record.storageKey && (
+                    <p className="truncate text-[11px] text-ink-400">
+                      {record.storageKey}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </TableCell>
+            <TableCell>
+              <UserCell
+                name={record.user?.name}
+                email={record.user?.email}
+                role={record.userRole ?? record.user?.role}
+              />
+            </TableCell>
+            <TableCell>
+              <Badge variant={importStatusVariant(record.status)}>
+                {CONTENT_IMPORT_STATUS_LABEL[record.status]}
+              </Badge>
+              {record.error && (
+                <p className="mt-1 max-w-52 truncate text-xs text-danger">{record.error}</p>
+              )}
+            </TableCell>
+            <TableCell>
+              <p className="text-sm text-ink-700">{formatBytes(record.sizeBytes)}</p>
+            </TableCell>
+            <TableCell>
+              <p className="text-xs leading-5 text-ink-500">
+                {formatDateTime(record.createdAt)}
+              </p>
+            </TableCell>
+            <TableCell>
+              <p className="text-xs leading-5 text-ink-500">
+                {formatDateTime(record.convertedAt)}
+              </p>
+            </TableCell>
+            <TableCell className="text-right">
+              <div className="flex justify-end gap-1">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  disabled={!record.publicUrl}
+                  title="Open import"
+                  asChild={Boolean(record.publicUrl)}
+                >
+                  {record.publicUrl ? (
+                    <a href={record.publicUrl} target="_blank" rel="noreferrer">
+                      <Eye className="h-4 w-4 text-brand-primary" />
+                    </a>
+                  ) : (
+                    <span>
+                      <Eye className="h-4 w-4 text-ink-300" />
                     </span>
                   )}
                 </Button>

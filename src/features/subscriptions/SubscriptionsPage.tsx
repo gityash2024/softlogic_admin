@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Ban,
   CheckCircle2,
+  Archive,
+  ArchiveRestore,
   Clock3,
   CreditCard,
   Eye,
@@ -102,6 +104,8 @@ export function SubscriptionsPage() {
   } | null>(null);
   const [approveTarget, setApproveTarget] = useState<SubscriptionRecord | null>(null);
   const [rejectTarget, setRejectTarget] = useState<SubscriptionRecord | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<SubscriptionRecord | null>(null);
+  const [restoreTarget, setRestoreTarget] = useState<SubscriptionRecord | null>(null);
   const [rejectReason, setRejectReason] = useState('');
 
   const page = numberParam(params.get('page'), 1);
@@ -186,7 +190,10 @@ export function SubscriptionsPage() {
       status !== 'ALL' && {
         key: 'status',
         label: 'Status',
-        value: SUBSCRIPTION_STATUS_LABEL[status as SubscriptionStatus] ?? status,
+        value:
+          status === 'ARCHIVED'
+            ? 'Archived'
+            : SUBSCRIPTION_STATUS_LABEL[status as SubscriptionStatus] ?? status,
       },
       planName && { key: 'planName', label: 'Plan', value: planName },
       organizationId !== 'ALL' && {
@@ -266,6 +273,28 @@ export function SubscriptionsPage() {
     onError: (err) => toast.error(extractApiError(err)),
   });
 
+  const archiveMutation = useMutation({
+    mutationFn: (subId: string) => subscriptionsApi.archive(subId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
+      toast.success('Subscription archived');
+      setArchiveTarget(null);
+    },
+    onError: (err) => toast.error(extractApiError(err)),
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: (subId: string) => subscriptionsApi.restore(subId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
+      toast.success('Subscription restored');
+      setRestoreTarget(null);
+    },
+    onError: (err) => toast.error(extractApiError(err)),
+  });
+
   const handleExport = async (format: AdminExportFormat) => {
     setExporting(format);
     try {
@@ -297,7 +326,7 @@ export function SubscriptionsPage() {
           tone="green"
         />
         <StatCard
-          label="Seats used"
+          label="Seats"
           value={`${usedSeats}/${totalSeats}`}
           detail="Current result page"
           tone="orange"
@@ -305,7 +334,7 @@ export function SubscriptionsPage() {
         <StatCard
           label="Utilization"
           value={`${totalSeats ? Math.round((usedSeats / totalSeats) * 100) : 0}%`}
-          detail="Seat usage ratio"
+          detail="Current result page"
           tone="purple"
         />
       </div>
@@ -315,7 +344,7 @@ export function SubscriptionsPage() {
           <div>
             <h2 className="text-lg font-semibold text-ink-900">Subscriptions</h2>
             <p className="text-sm text-ink-500">
-              Track plan state, scopes, terms, expiring plans, and seat utilization.
+              Track plan state, scopes, terms, expiring plans, and seat capacity.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -360,6 +389,7 @@ export function SubscriptionsPage() {
                 <SelectItem value="PENDING_APPROVAL">Pending Approval</SelectItem>
                 <SelectItem value="EXPIRED">Expired</SelectItem>
                 <SelectItem value="CANCELED">Canceled</SelectItem>
+                <SelectItem value="ARCHIVED">Archived</SelectItem>
               </SelectContent>
             </Select>
             <Select
@@ -475,7 +505,7 @@ export function SubscriptionsPage() {
               <TableRow>
                 <TableHead>Scope</TableHead>
                 <TableHead>Plan</TableHead>
-                <TableHead>Seat Usage</TableHead>
+                <TableHead>Seats</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Term</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -517,6 +547,11 @@ export function SubscriptionsPage() {
                       <Badge variant={statusVariant(s.status)}>
                         {SUBSCRIPTION_STATUS_LABEL[s.status]}
                       </Badge>
+                      {s.deletedAt && (
+                        <Badge variant="default" className="ml-2">
+                          Archived
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       <p className="text-sm leading-5 text-ink-700">
@@ -603,6 +638,26 @@ export function SubscriptionsPage() {
                             <Pencil className="h-4 w-4 text-ink-500" />
                           </Button>
                         )}
+                        {isSuperAdmin &&
+                          (s.deletedAt ? (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              title="Restore subscription"
+                              onClick={() => setRestoreTarget(s)}
+                            >
+                              <ArchiveRestore className="h-4 w-4 text-success" />
+                            </Button>
+                          ) : (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              title="Archive subscription"
+                              onClick={() => setArchiveTarget(s)}
+                            >
+                              <Archive className="h-4 w-4 text-warning" />
+                            </Button>
+                          ))}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -746,6 +801,32 @@ export function SubscriptionsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmationDialog
+        open={!!archiveTarget}
+        onOpenChange={(open) => !open && setArchiveTarget(null)}
+        title="Archive subscription?"
+        description={`${archiveTarget?.planName ?? 'This subscription'} will move to the Archived filter. Existing history stays preserved.`}
+        confirmLabel="Archive"
+        tone="warning"
+        loading={archiveMutation.isPending}
+        onConfirm={() => {
+          if (archiveTarget) archiveMutation.mutate(archiveTarget.id);
+        }}
+      />
+
+      <ConfirmationDialog
+        open={!!restoreTarget}
+        onOpenChange={(open) => !open && setRestoreTarget(null)}
+        title="Restore subscription?"
+        description={`${restoreTarget?.planName ?? 'This subscription'} will return to the normal subscription list.`}
+        confirmLabel="Restore"
+        tone="success"
+        loading={restoreMutation.isPending}
+        onConfirm={() => {
+          if (restoreTarget) restoreMutation.mutate(restoreTarget.id);
+        }}
+      />
     </div>
   );
 }

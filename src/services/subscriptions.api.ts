@@ -33,7 +33,6 @@ export interface CreateSubscriptionPayload {
   status?: SubscriptionStatus;
   brandingMode?: BrandingMode;
   seatLimit: number;
-  seatUsage: number;
   startDate: string;
   endDate?: string | null;
 }
@@ -43,7 +42,6 @@ export interface UpdateSubscriptionPayload {
   status?: SubscriptionStatus;
   brandingMode?: BrandingMode;
   seatLimit?: number;
-  seatUsage?: number;
   startDate?: string;
   endDate?: string | null;
 }
@@ -113,6 +111,18 @@ export const subscriptionsApi = {
     const res = await api.post<ApiResponse<SubscriptionRecord>>(
       `/admin/subscriptions/${id}/reject`,
       { reason: reason ?? null },
+    );
+    return res.data.data;
+  },
+  archive: async (id: string) => {
+    const res = await api.delete<ApiResponse<SubscriptionRecord>>(
+      `/admin/subscriptions/${id}`,
+    );
+    return res.data.data;
+  },
+  restore: async (id: string) => {
+    const res = await api.post<ApiResponse<SubscriptionRecord>>(
+      `/admin/subscriptions/${id}/restore`,
     );
     return res.data.data;
   },
