@@ -77,7 +77,7 @@ export const downloadsApi = {
     const manifest = await manifestPromise;
     const release =
       manifest.releases.find((item) => item.version === manifest.currentVersion) ??
-      manifest.releases.find((item) => item.version === 'v1.0.16') ??
+      manifest.releases.find((item) => item.version === 'v1.0.17') ??
       manifest.releases[0];
     if (!release) {
       throw new Error('No SoftLogic release is available');
