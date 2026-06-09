@@ -65,6 +65,9 @@ export interface OrganizationSummary {
   parentLoginEnabled: boolean;
   sessionOnlyJoinEnabled: boolean;
   teacherOnlyMode: boolean;
+  teacherUserLimit: number | null;
+  studentUserLimit: number | null;
+  parentUserLimit: number | null;
   supportEmail: string | null;
   supportPhone: string | null;
   storageProviders: OrganizationStorageProvider[];
@@ -157,6 +160,9 @@ export interface AdminOrganization {
   parentLoginEnabled: boolean;
   sessionOnlyJoinEnabled: boolean;
   teacherOnlyMode: boolean;
+  teacherUserLimit: number | null;
+  studentUserLimit: number | null;
+  parentUserLimit: number | null;
   supportEmail: string | null;
   supportPhone: string | null;
   archivedSlug?: string | null;

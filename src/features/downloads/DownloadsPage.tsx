@@ -41,7 +41,8 @@ export function DownloadsPage() {
 
   const release = query.data;
   const artifacts = release.artifacts.filter((artifact) =>
-    ['APK', 'EXE'].includes(artifact.format),
+    ['APK', 'EXE'].includes(artifact.format) &&
+    artifact.platform.toLowerCase().startsWith('softlogic'),
   );
 
   return (

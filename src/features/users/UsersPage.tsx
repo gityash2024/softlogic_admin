@@ -27,6 +27,7 @@ import { extractApiError } from '@/lib/api';
 import { formatDate, initials } from '@/lib/utils';
 import { useAuthStore } from '@/lib/auth-store';
 import { manageableRoles, canManageUser } from '@/lib/role-access';
+import { rolePolicyBlockReason } from '@/lib/organization-role-policy';
 import {
   ROLE_LABEL,
   type AdminUser,
@@ -351,7 +352,37 @@ export function UsersPage() {
     onError: (err) => toast.error(extractApiError(err)),
   });
 
-  const parsedInviteRows = useMemo(() => parseInviteCsv(csvText), [csvText]);
+  const parsedInviteRows = useMemo(
+    () =>
+      parseInviteCsv(csvText).map((row) => {
+        if (row.error || !row.role) return row;
+        const rowRole = row.role as UserRole;
+        if (!allowedRoles.includes(rowRole)) {
+          return { ...row, error: `Cannot assign ${row.role}` };
+        }
+
+        const effectiveOrganizationId =
+          row.organizationId ||
+          (organizationId !== 'ALL' ? organizationId : undefined) ||
+          actor?.primaryOrganization?.id;
+        const organization = effectiveOrganizationId
+          ? orgsQuery.data?.find((org) => org.id === effectiveOrganizationId) ?? null
+          : null;
+        if (effectiveOrganizationId && !organization) {
+          return { ...row, error: 'Unknown organization' };
+        }
+
+        const policyReason = rolePolicyBlockReason(organization, rowRole);
+        return policyReason ? { ...row, error: policyReason } : row;
+      }),
+    [
+      actor?.primaryOrganization?.id,
+      allowedRoles,
+      csvText,
+      organizationId,
+      orgsQuery.data,
+    ],
+  );
   const validInviteRows = parsedInviteRows.filter((row) => !row.error);
   const invalidInviteCount = parsedInviteRows.length - validInviteRows.length;
 
@@ -391,7 +422,9 @@ export function UsersPage() {
         email: row.email,
         name: row.name,
         role: row.role as UserRole,
-        organizationId: row.organizationId,
+        organizationId:
+          row.organizationId ||
+          (organizationId !== 'ALL' ? organizationId : undefined),
       })),
     );
   };

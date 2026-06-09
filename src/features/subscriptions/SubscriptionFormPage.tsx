@@ -112,7 +112,8 @@ export function SubscriptionFormPage() {
   // admins are unchanged.
   const lockToOwnOrg = actor?.role === 'CUSTOMER_ADMIN' || actor?.role === 'ADMIN';
   const ownOrganizationId = actor?.primaryOrganization?.id ?? null;
-  const [durationMonths, setDurationMonths] = useState<number | null>(null);
+  const initialStartDate = toInputDate(new Date().toISOString());
+  const [durationMonths, setDurationMonths] = useState<number | null>(isEdit ? null : 12);
 
   const subscriptionQuery = useQuery({
     queryKey: ['subscriptions', id],
@@ -145,8 +146,8 @@ export function SubscriptionFormPage() {
       status: 'ACTIVE',
       brandingMode: 'SOFTLOGIC',
       seatLimit: 1,
-      startDate: toInputDate(new Date().toISOString()),
-      endDate: '',
+      startDate: initialStartDate,
+      endDate: isEdit ? '' : addMonthsToDate(initialStartDate, 12),
     },
   });
 
@@ -163,6 +164,7 @@ export function SubscriptionFormPage() {
       startDate: toInputDate(subscriptionQuery.data.startDate),
       endDate: toInputDate(subscriptionQuery.data.endDate),
     });
+    setDurationMonths(null);
   }, [reset, subscriptionQuery.data]);
 
   // Pin customer/org admins to org scope + their own organization on the

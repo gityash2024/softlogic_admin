@@ -20,6 +20,9 @@ export interface CreateOrganizationPayload {
   parentLoginEnabled?: boolean;
   sessionOnlyJoinEnabled?: boolean;
   teacherOnlyMode?: boolean;
+  teacherUserLimit?: number | null;
+  studentUserLimit?: number | null;
+  parentUserLimit?: number | null;
   supportEmail?: string | null;
   supportPhone?: string | null;
   storageProviders?: OrganizationStorageProvider[];
@@ -41,6 +44,9 @@ export interface UpdateOrganizationPayload {
   parentLoginEnabled?: boolean;
   sessionOnlyJoinEnabled?: boolean;
   teacherOnlyMode?: boolean;
+  teacherUserLimit?: number | null;
+  studentUserLimit?: number | null;
+  parentUserLimit?: number | null;
   supportEmail?: string | null;
   supportPhone?: string | null;
   storageProviders?: OrganizationStorageProvider[];

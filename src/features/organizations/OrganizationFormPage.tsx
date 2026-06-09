@@ -36,24 +36,27 @@ import {
 import { ConfirmSubmitDialog, type ConfirmRow } from '@/components/ui/confirm-submit-dialog';
 
 const schema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  slug: z.string().optional(),
-  kind: z.string().min(1),
-  parentOrganizationId: z.string().optional(),
-  status: z.string().optional(),
-  brandingMode: z.string().optional(),
-  brandName: z.string().optional(),
-  brandPrimaryColor: z.string().optional(),
-  brandAccentColor: z.string().optional(),
-  studentLoginEnabled: z.boolean().optional(),
-  parentLoginEnabled: z.boolean().optional(),
-  sessionOnlyJoinEnabled: z.boolean().optional(),
-  teacherOnlyMode: z.boolean().optional(),
-  supportEmail: z.string().trim().email('Enter a valid support email').or(z.literal('')).optional(),
-  supportPhone: z.string().optional(),
-  storageProviders: z.array(z.string()).optional(),
-  defaultStorageProvider: z.string().optional(),
-  storageStatus: z.string().optional(),
+    name: z.string().min(1, 'Name is required'),
+    slug: z.string().optional(),
+    kind: z.string().min(1),
+    parentOrganizationId: z.string().optional(),
+    status: z.string().optional(),
+    brandingMode: z.string().optional(),
+    brandName: z.string().optional(),
+    brandPrimaryColor: z.string().optional(),
+    brandAccentColor: z.string().optional(),
+    studentLoginEnabled: z.boolean().optional(),
+    parentLoginEnabled: z.boolean().optional(),
+    sessionOnlyJoinEnabled: z.boolean().optional(),
+    teacherOnlyMode: z.boolean().optional(),
+    teacherUserLimit: z.number().int().min(0).optional().nullable(),
+    studentUserLimit: z.number().int().min(0).optional().nullable(),
+    parentUserLimit: z.number().int().min(0).optional().nullable(),
+    supportEmail: z.string().trim().email('Enter a valid support email').or(z.literal('')).optional(),
+    supportPhone: z.string().optional(),
+    storageProviders: z.array(z.string()).optional(),
+    defaultStorageProvider: z.string().optional(),
+    storageStatus: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -139,6 +142,9 @@ function OrganizationFormEditor({
         parentLoginEnabled: organization.parentLoginEnabled,
         sessionOnlyJoinEnabled: organization.sessionOnlyJoinEnabled,
         teacherOnlyMode: organization.teacherOnlyMode,
+        teacherUserLimit: organization.teacherUserLimit ?? 0,
+        studentUserLimit: organization.studentUserLimit ?? 0,
+        parentUserLimit: organization.parentUserLimit ?? 0,
         supportEmail: organization.supportEmail ?? '',
         supportPhone: organization.supportPhone ?? '',
         storageProviders:
@@ -168,6 +174,9 @@ function OrganizationFormEditor({
       parentLoginEnabled: false,
       sessionOnlyJoinEnabled: true,
       teacherOnlyMode: false,
+      teacherUserLimit: 0,
+      studentUserLimit: 0,
+      parentUserLimit: 0,
       supportEmail: '',
       supportPhone: '',
       storageProviders: [],
@@ -256,8 +265,11 @@ function OrganizationFormEditor({
   const storageStatus = watch('storageStatus');
   const studentLoginEnabled = watch('studentLoginEnabled');
   const parentLoginEnabled = watch('parentLoginEnabled');
-  const sessionOnlyJoinEnabled = watch('sessionOnlyJoinEnabled');
   const teacherOnlyMode = watch('teacherOnlyMode');
+  const teacherUserLimit = Number(watch('teacherUserLimit') ?? 0);
+  const studentUserLimit = Number(watch('studentUserLimit') ?? 0);
+  const parentUserLimit = Number(watch('parentUserLimit') ?? 0);
+  const totalUserLimit = teacherUserLimit + studentUserLimit + parentUserLimit;
   const submitting = createMutation.isPending || updateMutation.isPending;
   const isWhiteLabel = brandingMode !== 'SOFTLOGIC';
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -265,9 +277,42 @@ function OrganizationFormEditor({
 
   useEffect(() => {
     if (!teacherOnlyMode) return;
-    if (studentLoginEnabled) setValue('studentLoginEnabled', false);
-    if (parentLoginEnabled) setValue('parentLoginEnabled', false);
+    if (studentLoginEnabled) setValue('studentLoginEnabled', false, { shouldDirty: true });
+    if (parentLoginEnabled) setValue('parentLoginEnabled', false, { shouldDirty: true });
+    if (studentUserLimit !== 0) setValue('studentUserLimit', 0, { shouldDirty: true });
+    if (parentUserLimit !== 0) setValue('parentUserLimit', 0, { shouldDirty: true });
+  }, [
+    parentLoginEnabled,
+    parentUserLimit,
+    setValue,
+    studentLoginEnabled,
+    studentUserLimit,
+    teacherOnlyMode,
+  ]);
+
+  useEffect(() => {
+    if (!parentLoginEnabled || teacherOnlyMode || studentLoginEnabled) return;
+    setValue('studentLoginEnabled', true, { shouldDirty: true });
   }, [parentLoginEnabled, setValue, studentLoginEnabled, teacherOnlyMode]);
+
+  useEffect(() => {
+    if (studentLoginEnabled || teacherOnlyMode) return;
+    if (parentLoginEnabled) setValue('parentLoginEnabled', false, { shouldDirty: true });
+    if (studentUserLimit !== 0) setValue('studentUserLimit', 0, { shouldDirty: true });
+    if (parentUserLimit !== 0) setValue('parentUserLimit', 0, { shouldDirty: true });
+  }, [
+    parentLoginEnabled,
+    parentUserLimit,
+    setValue,
+    studentLoginEnabled,
+    studentUserLimit,
+    teacherOnlyMode,
+  ]);
+
+  useEffect(() => {
+    if (parentLoginEnabled || teacherOnlyMode) return;
+    if (parentUserLimit !== 0) setValue('parentUserLimit', 0, { shouldDirty: true });
+  }, [parentLoginEnabled, parentUserLimit, setValue, teacherOnlyMode]);
 
   useEffect(() => {
     if (
@@ -301,6 +346,36 @@ function OrganizationFormEditor({
   };
 
   const onSubmit = (values: FormValues) => {
+    if (isSuperAdmin) {
+      const hasMode =
+        Boolean(values.studentLoginEnabled) ||
+        Boolean(values.parentLoginEnabled) ||
+        Boolean(values.teacherOnlyMode);
+      if (!hasMode) {
+        toast.error('Select a customer mode');
+        return;
+      }
+      if ((values.teacherUserLimit ?? 0) < 1) {
+        toast.error('Teacher users must be at least 1');
+        return;
+      }
+      if (
+        !values.teacherOnlyMode &&
+        values.studentLoginEnabled &&
+        (values.studentUserLimit ?? 0) < 1
+      ) {
+        toast.error('Student users must be at least 1');
+        return;
+      }
+      if (
+        !values.teacherOnlyMode &&
+        values.parentLoginEnabled &&
+        (values.parentUserLimit ?? 0) < 1
+      ) {
+        toast.error('Parent users must be at least 1');
+        return;
+      }
+    }
     setPendingValues(values);
     setConfirmOpen(true);
   };
@@ -308,6 +383,12 @@ function OrganizationFormEditor({
   const runSubmit = () => {
     const values = pendingValues;
     if (!values) return;
+    const normalizedTeacherOnly = Boolean(values.teacherOnlyMode);
+    const normalizedParentLogin =
+      !normalizedTeacherOnly && Boolean(values.parentLoginEnabled);
+    const normalizedStudentLogin =
+      !normalizedTeacherOnly &&
+      (Boolean(values.studentLoginEnabled) || normalizedParentLogin);
     const commercialPayload = isSuperAdmin
       ? {
           brandingMode: values.brandingMode as BrandingMode,
@@ -318,10 +399,21 @@ function OrganizationFormEditor({
           brandAccentColor: values.brandAccentColor?.trim()
             ? values.brandAccentColor.trim()
             : null,
-          studentLoginEnabled: Boolean(values.studentLoginEnabled),
-          parentLoginEnabled: Boolean(values.parentLoginEnabled),
+          studentLoginEnabled: normalizedStudentLogin,
+          parentLoginEnabled: normalizedParentLogin,
           sessionOnlyJoinEnabled: Boolean(values.sessionOnlyJoinEnabled),
-          teacherOnlyMode: Boolean(values.teacherOnlyMode),
+          teacherOnlyMode: normalizedTeacherOnly,
+          teacherUserLimit: Number(values.teacherUserLimit ?? 0),
+          studentUserLimit: normalizedTeacherOnly
+            ? 0
+            : normalizedStudentLogin
+              ? Number(values.studentUserLimit ?? 0)
+              : 0,
+          parentUserLimit: normalizedTeacherOnly
+            ? 0
+            : normalizedParentLogin
+              ? Number(values.parentUserLimit ?? 0)
+              : 0,
         }
       : {};
     const storagePayload = canConfigureStorage
@@ -402,12 +494,18 @@ function OrganizationFormEditor({
       rows.push({ label: 'Student login', value: v.studentLoginEnabled ? 'Enabled' : 'Disabled' });
       rows.push({ label: 'Parent login', value: v.parentLoginEnabled ? 'Enabled' : 'Disabled' });
       rows.push({
-        label: 'Session-only QR join',
-        value: v.sessionOnlyJoinEnabled ? 'Enabled' : 'Disabled',
-      });
-      rows.push({
         label: 'Teacher-only mode',
         value: v.teacherOnlyMode ? 'Enabled' : 'Disabled',
+      });
+      rows.push({ label: 'Teacher users', value: Number(v.teacherUserLimit ?? 0) });
+      rows.push({ label: 'Student users', value: Number(v.studentUserLimit ?? 0) });
+      rows.push({ label: 'Parent users', value: Number(v.parentUserLimit ?? 0) });
+      rows.push({
+        label: 'Total users',
+        value:
+          Number(v.teacherUserLimit ?? 0) +
+          Number(v.studentUserLimit ?? 0) +
+          Number(v.parentUserLimit ?? 0),
       });
     }
     if (canConfigureStorage) {
@@ -526,6 +624,51 @@ function OrganizationFormEditor({
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Support phone</label>
               <Input placeholder="+91 98765 43210" {...register('supportPhone')} />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Teacher users</label>
+              <Input
+                type="number"
+                min={0}
+                disabled={!isSuperAdmin}
+                {...register('teacherUserLimit', { valueAsNumber: true })}
+              />
+              {errors.teacherUserLimit && (
+                <p className="text-xs text-danger">{errors.teacherUserLimit.message}</p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Student users</label>
+              <Input
+                type="number"
+                min={0}
+                disabled={!isSuperAdmin || teacherOnlyMode || !studentLoginEnabled}
+                {...register('studentUserLimit', { valueAsNumber: true })}
+              />
+              {errors.studentUserLimit && (
+                <p className="text-xs text-danger">{errors.studentUserLimit.message}</p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Parent users</label>
+              <Input
+                type="number"
+                min={0}
+                disabled={!isSuperAdmin || teacherOnlyMode || !parentLoginEnabled}
+                {...register('parentUserLimit', { valueAsNumber: true })}
+              />
+              {errors.parentUserLimit && (
+                <p className="text-xs text-danger">{errors.parentUserLimit.message}</p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Total users</label>
+              <Input type="number" value={totalUserLimit} disabled readOnly />
+              {errors.studentLoginEnabled && (
+                <p className="text-xs text-danger">{errors.studentLoginEnabled.message}</p>
+              )}
             </div>
           </div>
         </Card>
@@ -714,7 +857,6 @@ function OrganizationFormEditor({
               {[
                 ['studentLoginEnabled', 'Student dashboard login', studentLoginEnabled],
                 ['parentLoginEnabled', 'Parent dashboard login', parentLoginEnabled],
-                ['sessionOnlyJoinEnabled', 'Session-only QR join', sessionOnlyJoinEnabled],
                 ['teacherOnlyMode', 'Teacher-only customer mode', teacherOnlyMode],
               ].map(([name, label, checked]) => (
                 <label
@@ -731,7 +873,9 @@ function OrganizationFormEditor({
                     }
                     checked={Boolean(checked)}
                     onChange={(event) =>
-                      setValue(name as keyof FormValues, event.target.checked)
+                      setValue(name as keyof FormValues, event.target.checked, {
+                        shouldDirty: true,
+                      })
                     }
                     className="h-4 w-4 shrink-0 rounded border-line text-brand-primary"
                   />

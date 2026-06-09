@@ -67,6 +67,7 @@ import {
 import { AiSettingsDialog } from './AiSettingsDialog';
 
 const PER_PAGE = 20;
+const ORGANIZATION_ACTION_BUTTON_CLASS = 'h-7 w-7 shrink-0 p-0';
 
 function kindVariant(kind: OrganizationKind) {
   if (kind === 'INTERNAL') return 'navy' as const;
@@ -464,6 +465,15 @@ export function OrganizationsPage() {
           </div>
         ) : (
           <Table>
+            <colgroup>
+              <col />
+              <col className="w-[14%]" />
+              <col className="w-[14%]" />
+              <col className="w-[14%]" />
+              <col className="w-[10%]" />
+              <col className="w-[11%]" />
+              <col className="w-[264px]" />
+            </colgroup>
             <TableHeader>
               <TableRow>
                 <TableHead>Organization</TableHead>
@@ -472,7 +482,7 @@ export function OrganizationsPage() {
                 <TableHead>Plan</TableHead>
                 <TableHead>Members</TableHead>
                 <TableHead>AI</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="w-[264px] px-1.5 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -534,9 +544,10 @@ export function OrganizationsPage() {
                       {hasAiSettings(org) ? 'Configured' : 'Missing'}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
+                  <TableCell className="w-[264px] px-1.5 text-right">
+                    <div className="flex justify-end gap-px whitespace-nowrap">
                       <Button
+                        className={ORGANIZATION_ACTION_BUTTON_CLASS}
                         size="icon"
                         variant="ghost"
                         disabled={Boolean(org.deletedAt)}
@@ -559,6 +570,7 @@ export function OrganizationsPage() {
                         )}
                       </Button>
                       <Button
+                        className={ORGANIZATION_ACTION_BUTTON_CLASS}
                         size="icon"
                         variant="ghost"
                         disabled={Boolean(org.deletedAt)}
@@ -568,6 +580,7 @@ export function OrganizationsPage() {
                         <Sliders className="h-4 w-4 text-ink-500" />
                       </Button>
                       <Button
+                        className={ORGANIZATION_ACTION_BUTTON_CLASS}
                         size="icon"
                         variant="ghost"
                         disabled={Boolean(org.deletedAt)}
@@ -591,6 +604,7 @@ export function OrganizationsPage() {
                       />
                       {org.logoUrl && (
                         <Button
+                          className={ORGANIZATION_ACTION_BUTTON_CLASS}
                           size="icon"
                           variant="ghost"
                           disabled={Boolean(org.deletedAt)}
@@ -602,6 +616,7 @@ export function OrganizationsPage() {
                       )}
                       {actor?.role === 'SUPER_ADMIN' && (
                         <Button
+                          className={ORGANIZATION_ACTION_BUTTON_CLASS}
                           size="icon"
                           variant="ghost"
                           disabled={org.kind === 'INTERNAL' || Boolean(org.deletedAt)}
@@ -618,6 +633,7 @@ export function OrganizationsPage() {
                         </Button>
                       )}
                       <Button
+                        className={ORGANIZATION_ACTION_BUTTON_CLASS}
                         size="icon"
                         variant="ghost"
                         title="View organization"
@@ -626,6 +642,7 @@ export function OrganizationsPage() {
                         <Eye className="h-4 w-4 text-ink-500" />
                       </Button>
                       <Button
+                        className={ORGANIZATION_ACTION_BUTTON_CLASS}
                         size="icon"
                         variant="ghost"
                         title="Open organization users"
@@ -640,6 +657,7 @@ export function OrganizationsPage() {
                         <UsersRound className="h-4 w-4 text-brand-primary" />
                       </Button>
                       <Button
+                        className={ORGANIZATION_ACTION_BUTTON_CLASS}
                         size="icon"
                         variant="ghost"
                         title="Edit organization"

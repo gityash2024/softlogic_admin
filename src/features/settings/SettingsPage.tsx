@@ -97,6 +97,7 @@ export function SettingsPage() {
   const org = user?.primaryOrganization ?? null;
   const orgSubscription = user?.subscription ?? null;
   const showOrgCard = !!org && user?.role !== 'SUPER_ADMIN';
+  const appVersion = __APP_VERSION__ ? `v${__APP_VERSION__}` : '';
   const [name, setName] = useState(user?.name ?? '');
   const [timezone, setTimezone] = useState(user?.timezone ?? 'UTC');
   const [language, setLanguage] = useState(user?.language ?? 'en');
@@ -525,6 +526,16 @@ export function SettingsPage() {
             <p className="mt-2 rounded-full bg-brand-primary/10 px-3 py-0.5 text-xs font-semibold text-brand-primary">
               {user?.role ? ROLE_LABEL[user.role] : '-'}
             </p>
+            {appVersion && (
+              <div className="mt-4 w-full rounded-lg border border-line bg-surface-variant px-3 py-2 text-left">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                  App version
+                </p>
+                <p className="mt-1 text-sm font-semibold text-ink-900">
+                  {appVersion}
+                </p>
+              </div>
+            )}
           </div>
           <div className="mt-6 border-t border-line pt-5">
             <Button

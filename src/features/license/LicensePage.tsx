@@ -114,6 +114,8 @@ function SeatsBanner({
   );
 }
 
+type BulkCreateMode = 'choice' | 'manual' | 'auto';
+
 export function LicensePage() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
@@ -128,11 +130,12 @@ export function LicensePage() {
   const [revealedKeyIds, setRevealedKeyIds] = useState<Record<string, boolean>>({});
   const [keyLabel, setKeyLabel] = useState('');
   const [keyLabelTouched, setKeyLabelTouched] = useState(false);
-  const [maxDevices, setMaxDevices] = useState(1);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkRows, setBulkRows] = useState<Array<{ label: string; maxDevices: number }>>([
     { label: '', maxDevices: 1 },
   ]);
+  const [bulkMode, setBulkMode] = useState<BulkCreateMode>('choice');
+  const [autoBulkCount, setAutoBulkCount] = useState(1);
   const [bulkResult, setBulkResult] = useState<BulkHardwareActivationKeyResponse | null>(null);
   const [exportFormat, setExportFormat] = useState<AdminExportFormat>('xlsx');
   const [isExporting, setIsExporting] = useState(false);
@@ -217,7 +220,6 @@ export function LicensePage() {
       invalidateCommercialQueries();
       setKeyLabel('');
       setKeyLabelTouched(false);
-      setMaxDevices(1);
       toast.success('Hardware activation key created');
     },
     onError: (error) => toast.error(extractApiError(error)),
@@ -324,6 +326,8 @@ export function LicensePage() {
 
   const openBulkDialog = () => {
     setBulkResult(null);
+    setBulkMode('choice');
+    setAutoBulkCount(1);
     setBulkRows([{ label: '', maxDevices: 1 }]);
     setBulkOpen(true);
   };
@@ -331,6 +335,8 @@ export function LicensePage() {
   const closeBulkDialog = () => {
     setBulkOpen(false);
     setBulkResult(null);
+    setBulkMode('choice');
+    setAutoBulkCount(1);
     setBulkRows([{ label: '', maxDevices: 1 }]);
   };
 
@@ -351,6 +357,7 @@ export function LicensePage() {
     );
 
   const validBulkRows = bulkRows.filter((row) => row.label.trim().length > 0);
+  const maxAutoBulkCount = Math.min(remainingActivationKeys, 100);
 
   const submitBulk = () => {
     if (!selectedOrganization) return;
@@ -367,7 +374,24 @@ export function LicensePage() {
       subscriptionId: primarySub?.id ?? null,
       keys: validBulkRows.map((row) => ({
         label: row.label.trim(),
-        maxDevices: Math.max(1, row.maxDevices || 1),
+        maxDevices: 1,
+      })),
+    });
+  };
+
+  const submitAutoBulk = () => {
+    if (!selectedOrganization) return;
+    const count = Math.trunc(autoBulkCount);
+    if (count < 1 || count > maxAutoBulkCount) {
+      toast.error(`Enter a number from 1 to ${maxAutoBulkCount}`);
+      return;
+    }
+    bulkMutation.mutate({
+      organizationId: selectedOrganization.id,
+      subscriptionId: primarySub?.id ?? null,
+      keys: Array.from({ length: count }, (_, index) => ({
+        label: `Auto activation key ${index + 1}`,
+        maxDevices: 1,
       })),
     });
   };
@@ -715,10 +739,8 @@ export function LicensePage() {
                     <Input
                       type="number"
                       min={1}
-                      value={maxDevices}
-                      onChange={(event) =>
-                        setMaxDevices(Math.max(1, Number(event.target.value) || 1))
-                      }
+                      value={1}
+                      disabled
                       placeholder="Max devices"
                     />
                     <p className="text-xs text-ink-500">1 = single device lock</p>
@@ -742,7 +764,7 @@ export function LicensePage() {
                       organizationId: selectedOrganization.id,
                       subscriptionId: primarySub?.id ?? null,
                       label: keyLabel.trim(),
-                      maxDevices,
+                      maxDevices: 1,
                     });
                   }}
                 >
@@ -1157,7 +1179,34 @@ export function LicensePage() {
             </DialogDescription>
           </DialogHeader>
 
-          {!bulkResult ? (
+          {!bulkResult && bulkMode === 'choice' ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-auto justify-start px-4 py-4 text-left"
+                onClick={() => setBulkMode('manual')}
+              >
+                <Layers className="h-4 w-4" />
+                <span>
+                  <span className="block font-semibold">Manual</span>
+                  <span className="block text-xs font-normal text-ink-500">Add labels one by one</span>
+                </span>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-auto justify-start px-4 py-4 text-left"
+                onClick={() => setBulkMode('auto')}
+              >
+                <Plus className="h-4 w-4" />
+                <span>
+                  <span className="block font-semibold">Auto</span>
+                  <span className="block text-xs font-normal text-ink-500">Generate labels automatically</span>
+                </span>
+              </Button>
+            </div>
+          ) : !bulkResult && bulkMode === 'manual' ? (
             <div className="space-y-3">
               <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
                 {bulkRows.map((row, index) => (
@@ -1176,12 +1225,8 @@ export function LicensePage() {
                     <Input
                       type="number"
                       min={1}
-                      value={row.maxDevices}
-                      onChange={(event) =>
-                        updateBulkRow(index, {
-                          maxDevices: Math.max(1, Number(event.target.value) || 1),
-                        })
-                      }
+                      value={1}
+                      disabled
                       placeholder="Max devices"
                     />
                     <Button
@@ -1205,7 +1250,27 @@ export function LicensePage() {
                 {remainingActivationKeys} activation key seat(s) remaining.
               </p>
             </div>
-          ) : (
+          ) : !bulkResult && bulkMode === 'auto' ? (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  Number of keys
+                </label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={maxAutoBulkCount}
+                  value={autoBulkCount}
+                  onChange={(event) =>
+                    setAutoBulkCount(Math.max(1, Number(event.target.value) || 1))
+                  }
+                />
+              </div>
+              <p className="text-xs text-ink-500">
+                {remainingActivationKeys} activation key seat(s) remaining.
+              </p>
+            </div>
+          ) : bulkResult ? (
             <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
               {bulkResult.keys.map((key) => (
                 <div
@@ -1234,10 +1299,14 @@ export function LicensePage() {
                 </div>
               ))}
             </div>
-          )}
+          ) : null}
 
           <DialogFooter>
-            {!bulkResult ? (
+            {!bulkResult && bulkMode === 'choice' ? (
+              <Button type="button" variant="outline" onClick={closeBulkDialog}>
+                Cancel
+              </Button>
+            ) : !bulkResult && bulkMode === 'manual' ? (
               <>
                 <Button type="button" variant="outline" onClick={closeBulkDialog}>
                   Cancel
@@ -1256,6 +1325,26 @@ export function LicensePage() {
                   {bulkMutation.isPending && <Spinner className="h-4 w-4" />}
                   Create {validBulkRows.length || ''} key
                   {validBulkRows.length === 1 ? '' : 's'}
+                </Button>
+              </>
+            ) : !bulkResult && bulkMode === 'auto' ? (
+              <>
+                <Button type="button" variant="outline" onClick={closeBulkDialog}>
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  disabled={
+                    !selectedOrganization ||
+                    autoBulkCount < 1 ||
+                    autoBulkCount > maxAutoBulkCount ||
+                    bulkMutation.isPending
+                  }
+                  onClick={submitAutoBulk}
+                >
+                  {bulkMutation.isPending && <Spinner className="h-4 w-4" />}
+                  Create {autoBulkCount} key{autoBulkCount === 1 ? '' : 's'}
                 </Button>
               </>
             ) : (

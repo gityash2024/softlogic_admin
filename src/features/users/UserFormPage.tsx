@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,6 +11,11 @@ import { usersApi, type UpdateUserPayload } from '@/services/users.api';
 import { organizationsApi } from '@/services/organizations.api';
 import { useAuthStore } from '@/lib/auth-store';
 import { manageableRoles } from '@/lib/role-access';
+import {
+  LICENSED_USER_ROLES,
+  roleLimitForOrganization,
+  rolePolicyBlockReason,
+} from '@/lib/organization-role-policy';
 import { extractApiError } from '@/lib/api';
 import {
   ROLE_LABEL,
@@ -201,6 +206,25 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
     (subscription) =>
       subscription.status === 'ACTIVE' || subscription.status === 'TRIAL',
   );
+  const roleUsageQuery = useQuery({
+    queryKey: ['users', 'role-cap-usage', organizationId],
+    queryFn: async () => {
+      const rows = await Promise.all(
+        LICENSED_USER_ROLES.map(async (itemRole) => {
+          const result = await usersApi.list({
+            perPage: 1,
+            organizationId,
+            role: itemRole,
+            status: 'ACTIVE',
+          });
+          return [itemRole, result.meta.total] as const;
+        }),
+      );
+      return Object.fromEntries(rows) as Partial<Record<UserRole, number>>;
+    },
+    enabled: organizationId !== 'NONE',
+  });
+  const roleUsage = roleUsageQuery.data ?? {};
   const studentOptions = useMemo(
     () =>
       (usersQuery.data?.data ?? []).filter(
@@ -211,6 +235,32 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
       ),
     [organizationId, usersQuery.data],
   );
+
+  const roleDisabledReason = (candidateRole: UserRole): string | null => {
+    const policyReason = rolePolicyBlockReason(selectedOrganization, candidateRole);
+    if (policyReason) return policyReason;
+    if (!selectedOrganization || !LICENSED_USER_ROLES.includes(candidateRole)) return null;
+
+    const limit = roleLimitForOrganization(selectedOrganization, candidateRole);
+    if (limit === null) return null;
+    const used = roleUsage[candidateRole] ?? 0;
+    const isCurrentUserInSameRole =
+      isEdit &&
+      userData?.status === 'ACTIVE' &&
+      userData.role === candidateRole &&
+      userData.primaryOrganizationId === selectedOrganization.id;
+    const effectiveUsed = isCurrentUserInSameRole ? Math.max(used - 1, 0) : used;
+    return effectiveUsed >= limit ? `${ROLE_LABEL[candidateRole]} cap is full` : null;
+  };
+
+  useEffect(() => {
+    const currentRole = role as UserRole;
+    if (!roleDisabledReason(currentRole)) return;
+    const nextRole = allowedRoles.find((candidate) => !roleDisabledReason(candidate));
+    if (nextRole) setValue('role', nextRole, { shouldDirty: true });
+  // roleDisabledReason is intentionally evaluated from current form/query state.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowedRoles, organizationId, role, roleUsage, selectedOrganization, setValue]);
 
   const toggleLinkedStudent = (studentId: string, checked: boolean) => {
     const next = checked
@@ -330,11 +380,19 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
                   <Select value={field.value} onValueChange={field.onChange}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {allowedRoles.map((allowedRole) => (
-                        <SelectItem key={allowedRole} value={allowedRole}>
-                          {ROLE_LABEL[allowedRole]}
-                        </SelectItem>
-                      ))}
+                      {allowedRoles.map((allowedRole) => {
+                        const disabledReason = roleDisabledReason(allowedRole);
+                        return (
+                          <SelectItem
+                            key={allowedRole}
+                            value={allowedRole}
+                            disabled={Boolean(disabledReason)}
+                          >
+                            {ROLE_LABEL[allowedRole]}
+                            {disabledReason ? ` (${disabledReason})` : ''}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 )}
