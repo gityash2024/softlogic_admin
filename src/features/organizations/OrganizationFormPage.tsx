@@ -8,6 +8,7 @@ import { ArrowLeft, Building2, Image as ImageIcon, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { organizationsApi, type UpdateOrganizationPayload } from '@/services/organizations.api';
+import { aiApi } from '@/services/ai.api';
 import { useAuthStore } from '@/lib/auth-store';
 import { canCreateOrganizationKind } from '@/lib/role-access';
 import { extractApiError } from '@/lib/api';
@@ -57,6 +58,7 @@ const schema = z.object({
     storageProviders: z.array(z.string()).optional(),
     defaultStorageProvider: z.string().optional(),
     storageStatus: z.string().optional(),
+    aiCreditTokens: z.number().int().min(0).optional().nullable(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -121,10 +123,15 @@ function OrganizationFormEditor({
   const { user: actor } = useAuthStore();
   const queryClient = useQueryClient();
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const pendingAiCreditTokensRef = useRef(0);
   const { allowedKinds } = canCreateOrganizationKind(actor?.role);
   const isSuperAdmin = actor?.role === 'SUPER_ADMIN';
   const canConfigureStorage =
     actor?.role === 'SUPER_ADMIN' || actor?.role === 'PARTNER_ADMIN';
+  const aiOverviewQuery = useQuery({
+    queryKey: ['ai-overview'],
+    queryFn: aiApi.overview,
+  });
 
   const defaultValues: FormValues = useMemo(() => {
     if (organization) {
@@ -158,6 +165,7 @@ function OrganizationFormEditor({
           organization.storageProvider ??
           'NONE',
         storageStatus: organization.storageStatus,
+        aiCreditTokens: 0,
       };
     }
     return {
@@ -182,6 +190,7 @@ function OrganizationFormEditor({
       storageProviders: [],
       defaultStorageProvider: 'NONE',
       storageStatus: 'NOT_CONFIGURED',
+      aiCreditTokens: 0,
     };
     // Captured once at mount; the wrapper guarantees `organization` is loaded
     // before this editor mounts, so reset()-after-mount is not needed.
@@ -201,8 +210,19 @@ function OrganizationFormEditor({
 
   const createMutation = useMutation({
     mutationFn: organizationsApi.create,
-    onSuccess: (created) => {
+    onSuccess: async (created) => {
+      const tokensToAllocate = pendingAiCreditTokensRef.current;
+      pendingAiCreditTokensRef.current = 0;
+      if (tokensToAllocate > 0) {
+        await aiApi.allocate({
+          scope: 'ORGANIZATION',
+          organizationId: created.id,
+          amountTokens: tokensToAllocate,
+          reason: 'Organization create allocation',
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ['organizations'] });
+      queryClient.invalidateQueries({ queryKey: ['ai-overview'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
       if (created.setupEmailSent === false) {
         toast.warning('Organization created, but setup email could not be delivered');
@@ -219,8 +239,19 @@ function OrganizationFormEditor({
   const updateMutation = useMutation({
     mutationFn: ({ organizationId: orgId, payload }: { organizationId: string; payload: UpdateOrganizationPayload }) =>
       organizationsApi.update(orgId, payload),
-    onSuccess: (updated) => {
+    onSuccess: async (updated) => {
+      const tokensToAllocate = pendingAiCreditTokensRef.current;
+      pendingAiCreditTokensRef.current = 0;
+      if (tokensToAllocate > 0) {
+        await aiApi.allocate({
+          scope: 'ORGANIZATION',
+          organizationId: updated.id,
+          amountTokens: tokensToAllocate,
+          reason: 'Organization edit allocation',
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ['organizations'] });
+      queryClient.invalidateQueries({ queryKey: ['ai-overview'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
       if (updated.setupEmailSent === false) {
         toast.warning('Organization updated, but setup email could not be delivered');
@@ -263,6 +294,7 @@ function OrganizationFormEditor({
   const storageProviders = watch('storageProviders') ?? [];
   const defaultStorageProvider = watch('defaultStorageProvider');
   const storageStatus = watch('storageStatus');
+  const aiCreditTokens = Number(watch('aiCreditTokens') ?? 0);
   const studentLoginEnabled = watch('studentLoginEnabled');
   const parentLoginEnabled = watch('parentLoginEnabled');
   const teacherOnlyMode = watch('teacherOnlyMode');
@@ -274,6 +306,16 @@ function OrganizationFormEditor({
   const isWhiteLabel = brandingMode !== 'SOFTLOGIC';
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingValues, setPendingValues] = useState<FormValues | null>(null);
+  const sourceAiAccount =
+    actor?.role === 'SUPER_ADMIN'
+      ? aiOverviewQuery.data?.master
+      : aiOverviewQuery.data?.accounts.find(
+          (account) =>
+            account.scope === 'ORGANIZATION' &&
+            account.organizationId === actor?.primaryOrganization?.id,
+        );
+  const sourceAvailableAiTokens = sourceAiAccount?.availableTokens ?? 0;
+  const afterAiAllocation = Math.max(sourceAvailableAiTokens - aiCreditTokens, 0);
 
   useEffect(() => {
     if (!teacherOnlyMode) return;
@@ -376,6 +418,10 @@ function OrganizationFormEditor({
         return;
       }
     }
+    if ((values.aiCreditTokens ?? 0) > sourceAvailableAiTokens) {
+      toast.error(`Only ${sourceAvailableAiTokens.toLocaleString('en-IN')} AI token credits are available`);
+      return;
+    }
     setPendingValues(values);
     setConfirmOpen(true);
   };
@@ -383,6 +429,7 @@ function OrganizationFormEditor({
   const runSubmit = () => {
     const values = pendingValues;
     if (!values) return;
+    pendingAiCreditTokensRef.current = Number(values.aiCreditTokens ?? 0);
     const normalizedTeacherOnly = Boolean(values.teacherOnlyMode);
     const normalizedParentLogin =
       !normalizedTeacherOnly && Boolean(values.parentLoginEnabled);
@@ -506,6 +553,13 @@ function OrganizationFormEditor({
           Number(v.teacherUserLimit ?? 0) +
           Number(v.studentUserLimit ?? 0) +
           Number(v.parentUserLimit ?? 0),
+      });
+    }
+    if ((v.aiCreditTokens ?? 0) > 0) {
+      rows.push({ label: 'AI tokens to allocate', value: Number(v.aiCreditTokens ?? 0) });
+      rows.push({
+        label: 'AI tokens after allocation',
+        value: Math.max(sourceAvailableAiTokens - Number(v.aiCreditTokens ?? 0), 0),
       });
     }
     if (canConfigureStorage) {
@@ -669,6 +723,30 @@ function OrganizationFormEditor({
               {errors.studentLoginEnabled && (
                 <p className="text-xs text-danger">{errors.studentLoginEnabled.message}</p>
               )}
+            </div>
+          </div>
+          <div className="grid gap-4 rounded-lg border border-line bg-surface-variant px-4 py-4 sm:grid-cols-[1fr_1fr_1fr]">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">AI tokens available</p>
+              <p className="mt-1 text-lg font-black text-ink-900">
+                {sourceAvailableAiTokens.toLocaleString('en-IN')}
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Allocate AI tokens</label>
+              <Input
+                type="number"
+                min={0}
+                max={sourceAvailableAiTokens}
+                {...register('aiCreditTokens', { valueAsNumber: true })}
+              />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">After allocation</p>
+              <p className="mt-1 text-lg font-black text-ink-900">
+                {afterAiAllocation.toLocaleString('en-IN')}
+              </p>
+              <p className="text-xs text-ink-500">Central AI wallet preview</p>
             </div>
           </div>
         </Card>

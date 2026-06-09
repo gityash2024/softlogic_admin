@@ -16,7 +16,7 @@ const PATH_TO_TITLE: Record<string, { title: string; subtitle: string }> = {
   },
   '/organizations': {
     title: 'Organizations',
-    subtitle: 'Manage partners, customers, branding, and AI settings',
+    subtitle: 'Manage partners, customers, branding, and AI access',
   },
   '/subscriptions': {
     title: 'Subscriptions',
@@ -29,6 +29,10 @@ const PATH_TO_TITLE: Record<string, { title: string; subtitle: string }> = {
   '/license': {
     title: 'License',
     subtitle: 'Workspace subscription reference and billing history',
+  },
+  '/ai': {
+    title: 'AI',
+    subtitle: 'Master key, token credits, and live usage',
   },
   '/portal': {
     title: 'Role Portal',

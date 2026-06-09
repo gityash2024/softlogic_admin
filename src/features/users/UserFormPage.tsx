@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 
 import { usersApi, type UpdateUserPayload } from '@/services/users.api';
 import { organizationsApi } from '@/services/organizations.api';
+import { aiApi } from '@/services/ai.api';
 import { useAuthStore } from '@/lib/auth-store';
 import { manageableRoles } from '@/lib/role-access';
 import {
@@ -45,6 +46,7 @@ const schema = z.object({
   timezone: z.string().optional(),
   language: z.string().optional(),
   linkedStudentIds: z.array(z.string()).optional(),
+  aiCreditTokens: z.number().int().min(0).optional().nullable(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -95,6 +97,7 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
   const [searchParams] = useSearchParams();
   const { user: actor } = useAuthStore();
   const queryClient = useQueryClient();
+  const pendingAiCreditTokensRef = useRef(0);
   const allowedRoles = manageableRoles(actor?.role);
   const defaultRole = allowedRoles.includes('TEACHER')
     ? 'TEACHER'
@@ -122,6 +125,7 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
         timezone: userData.timezone,
         language: userData.language,
         linkedStudentIds: userData.linkedStudentIds ?? [],
+        aiCreditTokens: 0,
       };
     }
     return {
@@ -133,6 +137,7 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
       timezone: 'UTC',
       language: 'en',
       linkedStudentIds: [],
+      aiCreditTokens: 0,
     };
     // defaults are captured once at mount; further changes are handled via setValue.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -152,8 +157,19 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
 
   const createMutation = useMutation({
     mutationFn: usersApi.create,
-    onSuccess: (user) => {
+    onSuccess: async (user) => {
+      const tokensToAllocate = pendingAiCreditTokensRef.current;
+      pendingAiCreditTokensRef.current = 0;
+      if (tokensToAllocate > 0) {
+        await aiApi.allocate({
+          scope: 'USER',
+          userId: user.id,
+          amountTokens: tokensToAllocate,
+          reason: 'User create allocation',
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['ai-overview'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
       toast.success('User created');
       navigate(
@@ -168,8 +184,19 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
   const updateMutation = useMutation({
     mutationFn: ({ userId: targetId, payload }: { userId: string; payload: UpdateUserPayload }) =>
       usersApi.update(targetId, payload),
-    onSuccess: (user) => {
+    onSuccess: async (user) => {
+      const tokensToAllocate = pendingAiCreditTokensRef.current;
+      pendingAiCreditTokensRef.current = 0;
+      if (tokensToAllocate > 0) {
+        await aiApi.allocate({
+          scope: 'USER',
+          userId: user.id,
+          amountTokens: tokensToAllocate,
+          reason: 'User edit allocation',
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['ai-overview'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
       toast.success('User updated');
       navigate(
@@ -188,6 +215,7 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
   const organizationId = watch('organizationId');
   const status = watch('status');
   const linkedStudentIds = watch('linkedStudentIds') ?? [];
+  const aiCreditTokens = Number(watch('aiCreditTokens') ?? 0);
   const selectedOrganization = useMemo(
     () => organizations.find((org) => org.id === organizationId) ?? null,
     [organizationId, organizations],
@@ -201,6 +229,10 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
         role: 'STUDENT',
       }),
     enabled: organizationId !== 'NONE',
+  });
+  const aiOverviewQuery = useQuery({
+    queryKey: ['ai-overview'],
+    queryFn: aiApi.overview,
   });
   const activeSubscription = selectedOrganization?.subscriptions?.find(
     (subscription) =>
@@ -235,6 +267,26 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
       ),
     [organizationId, usersQuery.data],
   );
+  const canAssignAiCredits =
+    role !== 'STUDENT' && role !== 'PARENT' && organizationId !== 'NONE';
+  const sourceAiAccount =
+    actor?.role === 'SUPER_ADMIN'
+      ? selectedOrganization
+        ? aiOverviewQuery.data?.accounts.find(
+            (account) =>
+              account.scope === 'ORGANIZATION' &&
+              account.organizationId === selectedOrganization.id,
+          ) ?? aiOverviewQuery.data?.master
+        : aiOverviewQuery.data?.master
+      : aiOverviewQuery.data?.accounts.find(
+          (account) =>
+            account.scope === 'ORGANIZATION' &&
+            account.organizationId === (organizationId !== 'NONE' ? organizationId : ownOrganizationId),
+        );
+  const sourceAvailableAiTokens = canAssignAiCredits
+    ? sourceAiAccount?.availableTokens ?? 0
+    : 0;
+  const afterAiAllocation = Math.max(sourceAvailableAiTokens - aiCreditTokens, 0);
 
   const roleDisabledReason = (candidateRole: UserRole): string | null => {
     const policyReason = rolePolicyBlockReason(selectedOrganization, candidateRole);
@@ -270,6 +322,13 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
   };
 
   const onSubmit = (values: FormValues) => {
+    if (values.role === 'STUDENT' || values.role === 'PARENT') {
+      values.aiCreditTokens = 0;
+    }
+    if ((values.aiCreditTokens ?? 0) > sourceAvailableAiTokens) {
+      toast.error(`Only ${sourceAvailableAiTokens.toLocaleString('en-IN')} AI token credits are available`);
+      return;
+    }
     setPendingValues(values);
     setConfirmOpen(true);
   };
@@ -277,6 +336,10 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
   const runSubmit = () => {
     const values = pendingValues;
     if (!values) return;
+    pendingAiCreditTokensRef.current =
+      values.role === 'STUDENT' || values.role === 'PARENT'
+        ? 0
+        : Number(values.aiCreditTokens ?? 0);
     const payload = {
       email: values.email,
       name: values.name,
@@ -327,6 +390,21 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
         label: 'Linked students',
         value: `${(v.linkedStudentIds ?? []).length} selected`,
       });
+    }
+    if (v.role !== 'STUDENT' && v.role !== 'PARENT') {
+      rows.push({
+        label: 'AI user credits',
+        value:
+          (v.aiCreditTokens ?? 0) > 0
+            ? Number(v.aiCreditTokens ?? 0).toLocaleString('en-IN')
+            : 'No personal limit; uses organization pool',
+      });
+      if ((v.aiCreditTokens ?? 0) > 0) {
+        rows.push({
+          label: 'AI pool after allocation',
+          value: Math.max(sourceAvailableAiTokens - Number(v.aiCreditTokens ?? 0), 0).toLocaleString('en-IN'),
+        });
+      }
     }
     return rows;
   };
@@ -517,6 +595,43 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
               <Input placeholder="en" {...register('language')} />
             </div>
           </div>
+          {canAssignAiCredits && (
+            <div className="grid gap-3 rounded-lg border border-line bg-surface-variant px-3 py-3 text-sm text-ink-700">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-ink-900">AI Credits</p>
+                  <p className="text-xs text-ink-500">
+                    Leave zero for no personal limit; usage will draw from the organization pool.
+                  </p>
+                </div>
+                <span className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  {sourceAvailableAiTokens.toLocaleString('en-IN')} available
+                </span>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Assign user tokens</label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={sourceAvailableAiTokens}
+                    {...register('aiCreditTokens', { valueAsNumber: true })}
+                  />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">After allocation</p>
+                  <p className="mt-1 text-lg font-black text-ink-900">
+                    {afterAiAllocation.toLocaleString('en-IN')}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          {(role === 'STUDENT' || role === 'PARENT') && (
+            <p className="rounded-lg border border-line bg-surface-variant px-3 py-3 text-xs text-ink-500">
+              Students and parents cannot run AI tools on the whiteboard, so no AI credits are assigned.
+            </p>
+          )}
         </Card>
       </div>
 

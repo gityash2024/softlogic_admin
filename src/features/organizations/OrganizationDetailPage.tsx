@@ -70,7 +70,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AiSettingsDialog } from './AiSettingsDialog';
 
 const LINKED_PAGE_SIZE = 10;
 
@@ -126,11 +125,6 @@ function keyStatusVariant(status: HardwareActivationKeyRecord['status']) {
   if (status === 'BOUND') return 'success' as const;
   if (status === 'DISABLED') return 'danger' as const;
   return 'warning' as const;
-}
-
-function hasAiSettings(org: AdminOrganization) {
-  const ai = (org.settings as Record<string, unknown> | undefined)?.ai;
-  return Boolean(ai && typeof ai === 'object' && Object.keys(ai).length > 0);
 }
 
 function linkedUrl(path: string, params: Record<string, string>) {
@@ -630,7 +624,6 @@ export function OrganizationDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [tab, setTab] = useState<HubTab>('overview');
-  const [aiOpen, setAiOpen] = useState(false);
 
   const organizationQuery = useQuery({
     queryKey: ['organizations', id],
@@ -816,9 +809,9 @@ export function OrganizationDetailPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => setAiOpen(true)}>
+          <Button variant="outline" onClick={() => navigate('/ai')}>
             <Sliders className="h-4 w-4" />
-            AI settings
+            AI credits
           </Button>
           <Button variant="primary" onClick={() => navigate(`/organizations/${org.id}/edit`)}>
             <Pencil className="h-4 w-4" />
@@ -940,9 +933,9 @@ export function OrganizationDetailPage() {
                 <DetailItem
                   label="AI"
                   value={
-                    <Badge variant={hasAiSettings(org) ? 'success' : 'default'}>
+                    <Badge variant="info">
                       <Bot className="h-3 w-3" />
-                      {hasAiSettings(org) ? 'Configured' : 'Missing'}
+                      Centralized
                     </Badge>
                   }
                 />
@@ -1182,11 +1175,6 @@ export function OrganizationDetailPage() {
         </TabsContent>
       </Tabs>
 
-      <AiSettingsDialog
-        open={aiOpen}
-        onOpenChange={setAiOpen}
-        organization={org}
-      />
     </div>
   );
 }

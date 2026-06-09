@@ -14,6 +14,7 @@ import {
   HelpCircle,
   Inbox,
   KeyRound,
+  BrainCircuit,
   Settings,
   Download,
   GraduationCap,
@@ -80,6 +81,12 @@ const BASE_NAV_ITEMS = [
     label: 'License',
     description: 'Billing reference',
     icon: KeyRound,
+  },
+  {
+    to: '/ai',
+    label: 'AI',
+    description: 'Credits and models',
+    icon: BrainCircuit,
   },
   {
     to: '/downloads',
@@ -334,7 +341,7 @@ export function Sidebar({
           <div className="h-full w-full admin-grid-bg" />
         </div>
 
-        <div className="relative flex items-center justify-between px-5 py-4">
+        <div className="relative flex items-center justify-between px-5 py-3">
           <Logo
             variant="light"
             withWordmark={!collapsed}
@@ -368,25 +375,25 @@ export function Sidebar({
 
         <div
           className={cn(
-            'relative mx-4 overflow-hidden rounded-lg border border-white/10 bg-white/10 px-4 py-2.5 transition-all duration-300',
+            'relative mx-3 overflow-hidden rounded-lg border border-white/10 bg-white/10 px-4 py-2 transition-all duration-300',
             collapsed && 'lg:mx-3 lg:max-h-0 lg:border-0 lg:p-0 lg:opacity-0',
           )}
         >
-          <p className="text-xs font-semibold uppercase text-white/55">
+          <p className="text-[11px] font-semibold uppercase leading-4 text-white/55">
             {consoleLabel}
           </p>
-          <p className="mt-1 text-sm font-semibold text-white">
+          <p className="mt-0.5 text-sm font-semibold leading-5 text-white">
             {user?.role ? ROLE_LABEL[user.role] : 'Administrator'}
           </p>
         </div>
 
         <nav
           className={cn(
-            'relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-2 transition-all duration-300',
+            'relative min-h-0 flex-1 overflow-hidden px-3 py-1.5 transition-all duration-300',
             collapsed && 'lg:px-2',
           )}
         >
-          <ul className="space-y-0.5">
+          <ul className="space-y-0">
             {navItems.map((item) => (
               <li key={item.to}>
                 <NavLink
@@ -395,7 +402,7 @@ export function Sidebar({
                   title={collapsed ? item.label : undefined}
                   className={({ isActive }) =>
                     cn(
-                      'group relative flex items-center gap-3 overflow-hidden rounded-lg px-3 py-1.5 text-sm transition-all duration-200',
+                      'group relative flex items-center gap-2.5 overflow-hidden rounded-lg px-3 py-1 text-sm transition-all duration-200',
                       isActive
                         ? 'bg-white text-brand-navy shadow-sidebar'
                         : 'text-white/75 hover:bg-white/10 hover:text-white',
@@ -408,9 +415,9 @@ export function Sidebar({
                       {isActive && (
                         <span className="absolute left-0 top-1/2 hidden h-8 w-1 -translate-y-1/2 rounded-r-full bg-brand-orange lg:block" />
                       )}
-                      <span
-                        className={cn(
-                          'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105',
+                        <span
+                          className={cn(
+                          'flex h-6 w-6 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105',
                           isActive
                             ? 'bg-brand-orange/15 text-brand-orange'
                             : 'bg-white/10 text-white/80',
@@ -441,7 +448,7 @@ export function Sidebar({
                         </span>
                         <span
                           className={cn(
-                            'block truncate text-xs',
+                            'block truncate text-[11px] leading-4',
                             isActive ? 'text-brand-navy/60' : 'text-white/45',
                           )}
                         >
@@ -461,7 +468,7 @@ export function Sidebar({
 
         <div
           className={cn(
-            'relative border-t border-white/10 p-3 transition-all duration-300',
+            'relative border-t border-white/10 p-2 transition-all duration-300',
             collapsed && 'lg:px-2',
           )}
         >
@@ -469,11 +476,11 @@ export function Sidebar({
             <DropdownMenuTrigger asChild>
               <button
                 className={cn(
-                  'flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-white transition hover:bg-white/10 focus:outline-none',
+                  'flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-white transition hover:bg-white/10 focus:outline-none',
                   collapsed && 'lg:justify-center',
                 )}
               >
-                <Avatar className="h-10 w-10 border border-white/15">
+                <Avatar className="h-9 w-9 border border-white/15">
                   <AvatarImage src={user?.avatar ?? undefined} />
                   <AvatarFallback className="bg-brand-orange text-white">
                     {initials(user?.name ?? user?.email, 'A')}

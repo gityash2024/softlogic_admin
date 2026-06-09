@@ -88,7 +88,7 @@ export function LoginScreen() {
               Turn admin work into command-center clarity.
             </h1>
             <p className="mt-5 max-w-lg text-base leading-7 text-white/72">
-              Manage organizations, seats, licenses, AI settings, and audit
+              Manage organizations, seats, licenses, AI credits, and audit
               trails with the same polished SoftLogic experience as the app.
             </p>
           </div>

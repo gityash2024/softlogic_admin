@@ -22,6 +22,9 @@ export type LiveSessionStatus = 'SCHEDULED' | 'LIVE' | 'ENDED' | 'CANCELLED';
 export type ExportStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 export type ExportFormat = 'PDF' | 'PNG' | 'JPG' | 'SVG';
 export type ContentImportStatus = 'PENDING' | 'PROCESSING' | 'CONVERTED' | 'FAILED';
+export type AiCreditScope = 'MASTER' | 'ORGANIZATION' | 'USER' | 'HARDWARE';
+export type AiCreditAccountStatus = 'ACTIVE' | 'EXHAUSTED' | 'DISABLED';
+export type AiWarningLevel = 'NONE' | 'LOW_20' | 'LOW_10' | 'LOW_5' | 'EXHAUSTED';
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -193,6 +196,106 @@ export interface AdminOrganization {
     canvases: number;
     subscriptions: number;
   };
+}
+
+export interface AiConfigSummary {
+  id: string;
+  provider: string;
+  enabled: boolean;
+  hasGeminiApiKey: boolean;
+  maskedGeminiApiKey: string | null;
+  geminiTextModel: string;
+  geminiImageModel: string;
+  geminiTtsModel: string;
+  lastTestedAt: string | null;
+  lastTestStatus: string | null;
+  lastTestMessage: string | null;
+  updatedAt: string;
+}
+
+export interface AiCreditAccountSummary {
+  id: string;
+  scope: AiCreditScope;
+  parentAccountId: string | null;
+  organizationId: string | null;
+  userId: string | null;
+  allocatedTokens: number;
+  usedTokens: number;
+  reservedTokens: number;
+  childAllocatedTokens: number;
+  availableTokens: number;
+  percentRemaining: number;
+  warningLevel: AiWarningLevel;
+  unlimited: boolean;
+  status: AiCreditAccountStatus;
+  organization?: {
+    id: string;
+    name: string;
+    slug?: string;
+    kind?: OrganizationKind;
+    parentOrganizationId?: string | null;
+  } | null;
+  user?: {
+    id: string;
+    email: string;
+    name: string | null;
+    role: UserRole;
+    primaryOrganizationId?: string | null;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiLedgerEntry {
+  id: string;
+  accountId: string;
+  actorUserId: string | null;
+  type: string;
+  amountTokens: number;
+  oldTokenBalance: number;
+  newTokenBalance: number;
+  reason: string | null;
+  referenceNote: string | null;
+  createdAt: string;
+  actorUser?: {
+    id: string;
+    email: string;
+    name: string | null;
+    role: UserRole;
+  } | null;
+  account?: {
+    id: string;
+    scope: AiCreditScope;
+    organizationId: string | null;
+    userId: string | null;
+    organization?: { id: string; name: string } | null;
+    user?: { id: string; email: string; name: string | null } | null;
+  };
+}
+
+export interface AiOverview {
+  generatedAt: string;
+  scope: { type: 'GLOBAL' | 'MANAGED'; organizationIds: string[] | null };
+  config: AiConfigSummary;
+  master: AiCreditAccountSummary;
+  accounts: AiCreditAccountSummary[];
+  organizations: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    kind: OrganizationKind;
+    parentOrganizationId: string | null;
+    status: OrganizationStatus;
+  }>;
+  users: Array<{
+    id: string;
+    email: string;
+    name: string | null;
+    role: UserRole;
+    primaryOrganizationId: string | null;
+    status: UserStatus;
+  }>;
+  recentLedger: AiLedgerEntry[];
 }
 
 export interface OrganizationStorageConnection {

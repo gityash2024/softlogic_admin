@@ -64,7 +64,6 @@ import {
   setSearchParam,
   type FilterChip,
 } from '@/features/admin/admin-list-utils';
-import { AiSettingsDialog } from './AiSettingsDialog';
 
 const PER_PAGE = 20;
 const ORGANIZATION_ACTION_BUTTON_CLASS = 'h-7 w-7 shrink-0 p-0';
@@ -80,11 +79,6 @@ function organizationStatusLabel(organization: AdminOrganization) {
   return organization.status === 'ACTIVE' ? 'Active' : 'Inactive';
 }
 
-function hasAiSettings(org: AdminOrganization) {
-  const ai = (org.settings as Record<string, unknown> | undefined)?.ai;
-  return Boolean(ai && typeof ai === 'object' && Object.keys(ai).length > 0);
-}
-
 export function OrganizationsPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -92,7 +86,6 @@ export function OrganizationsPage() {
   const queryClient = useQueryClient();
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
   const [exporting, setExporting] = useState<AdminExportFormat | null>(null);
-  const [aiTarget, setAiTarget] = useState<AdminOrganization | null>(null);
   const [logoRemoval, setLogoRemoval] = useState<AdminOrganization | null>(null);
   const [archiveAction, setArchiveAction] = useState<AdminOrganization | null>(null);
   const [statusAction, setStatusAction] = useState<{
@@ -106,7 +99,6 @@ export function OrganizationsPage() {
   const status = params.get('status') ?? 'ALL';
   const parentOrganizationId = params.get('parentOrganizationId') ?? 'ALL';
   const hasLogo = params.get('hasLogo') ?? 'ALL';
-  const aiConfigured = params.get('aiConfigured') ?? 'ALL';
   const createdFrom = params.get('createdFrom') ?? '';
   const createdTo = params.get('createdTo') ?? '';
   const updatedFrom = params.get('updatedFrom') ?? '';
@@ -121,7 +113,6 @@ export function OrganizationsPage() {
       status: cleanFilterValue(status),
       parentOrganizationId: cleanFilterValue(parentOrganizationId),
       hasLogo: hasLogo === 'ALL' ? undefined : hasLogo === 'true',
-      aiConfigured: aiConfigured === 'ALL' ? undefined : aiConfigured === 'true',
       createdFrom,
       createdTo,
       updatedFrom,
@@ -130,7 +121,6 @@ export function OrganizationsPage() {
       sortOrder: params.get('sortOrder') ?? 'asc',
     }),
     [
-      aiConfigured,
       createdFrom,
       createdTo,
       hasLogo,
@@ -158,7 +148,7 @@ export function OrganizationsPage() {
   const meta = organizationsQuery.data?.meta;
   const activeCount = organizations.filter((org) => org.status === 'ACTIVE').length;
   const logoCount = organizations.filter((org) => Boolean(org.logoUrl)).length;
-  const aiCount = organizations.filter(hasAiSettings).length;
+  const aiCount = organizations.length;
   const customerCount = organizations.filter((org) => org.kind === 'CUSTOMER').length;
   const { canCreate } = canCreateOrganizationKind(actor?.role);
 
@@ -182,18 +172,12 @@ export function OrganizationsPage() {
         label: 'Logo',
         value: hasLogo === 'true' ? 'Present' : 'Missing',
       },
-      aiConfigured !== 'ALL' && {
-        key: 'aiConfigured',
-        label: 'AI',
-        value: aiConfigured === 'true' ? 'Configured' : 'Missing',
-      },
       createdFrom && { key: 'createdFrom', label: 'Created from', value: createdFrom },
       createdTo && { key: 'createdTo', label: 'Created to', value: createdTo },
       updatedFrom && { key: 'updatedFrom', label: 'Updated from', value: updatedFrom },
       updatedTo && { key: 'updatedTo', label: 'Updated to', value: updatedTo },
     ].filter(Boolean) as FilterChip[];
   }, [
-    aiConfigured,
     allOrgsQuery.data,
     createdFrom,
     createdTo,
@@ -290,9 +274,9 @@ export function OrganizationsPage() {
           tone="orange"
         />
         <StatCard
-          label="AI configured"
+          label="Centralized AI"
           value={aiCount}
-          detail="Current page organizations"
+          detail="Organizations use the master AI pool"
           tone="purple"
         />
       </div>
@@ -302,7 +286,7 @@ export function OrganizationsPage() {
           <div>
             <h2 className="text-lg font-semibold text-ink-900">Organizations</h2>
             <p className="text-sm text-ink-500">
-              Manage partner hierarchy, customers, branding, status, and AI keys.
+              Manage partner hierarchy, customers, branding, status, and AI credit access.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -387,7 +371,7 @@ export function OrganizationsPage() {
             </Select>
           </div>
 
-          <div className="grid gap-3 lg:grid-cols-6">
+          <div className="grid gap-3 lg:grid-cols-5">
             <Select
               value={hasLogo}
               onValueChange={(value) =>
@@ -401,21 +385,6 @@ export function OrganizationsPage() {
                 <SelectItem value="ALL">Any logo</SelectItem>
                 <SelectItem value="true">Logo present</SelectItem>
                 <SelectItem value="false">No logo</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select
-              value={aiConfigured}
-              onValueChange={(value) =>
-                setSearchParam(params, setParams, 'aiConfigured', value)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Any AI state</SelectItem>
-                <SelectItem value="true">AI configured</SelectItem>
-                <SelectItem value="false">AI missing</SelectItem>
               </SelectContent>
             </Select>
             <Input
@@ -540,9 +509,7 @@ export function OrganizationsPage() {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={hasAiSettings(org) ? 'success' : 'default'}>
-                      {hasAiSettings(org) ? 'Configured' : 'Missing'}
-                    </Badge>
+                    <Badge variant="info">Centralized</Badge>
                   </TableCell>
                   <TableCell className="w-[264px] px-1.5 text-right">
                     <div className="flex justify-end gap-px whitespace-nowrap">
@@ -574,8 +541,8 @@ export function OrganizationsPage() {
                         size="icon"
                         variant="ghost"
                         disabled={Boolean(org.deletedAt)}
-                        title="AI settings"
-                        onClick={() => setAiTarget(org)}
+                        title="Open centralized AI module"
+                        onClick={() => navigate('/ai')}
                       >
                         <Sliders className="h-4 w-4 text-ink-500" />
                       </Button>
@@ -697,11 +664,6 @@ export function OrganizationsPage() {
         />
       </Card>
 
-      <AiSettingsDialog
-        open={!!aiTarget}
-        onOpenChange={(open) => !open && setAiTarget(null)}
-        organization={aiTarget}
-      />
       <ConfirmationDialog
         open={!!logoRemoval}
         onOpenChange={(open) => !open && setLogoRemoval(null)}

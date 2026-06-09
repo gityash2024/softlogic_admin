@@ -12,6 +12,7 @@ import {
   HelpCircle,
   Inbox,
   KeyRound,
+  BrainCircuit,
   Settings,
   Download,
   GraduationCap,
@@ -36,6 +37,7 @@ const BASE_NAV_ITEMS: NavCommand[] = [
   { kind: 'nav', to: '/subscriptions', label: 'Subscriptions', hint: 'Plans and seats', icon: CreditCard },
   { kind: 'nav', to: '/activity', label: 'Activity', hint: 'Audit trail', icon: ActivityIcon },
   { kind: 'nav', to: '/license', label: 'License', hint: 'Billing reference', icon: KeyRound },
+  { kind: 'nav', to: '/ai', label: 'AI', hint: 'Credits and models', icon: BrainCircuit },
   { kind: 'nav', to: '/downloads', label: 'Downloads', hint: 'APK and EXE', icon: Download },
   { kind: 'nav', to: '/settings', label: 'Settings', hint: 'Profile and locale', icon: Settings },
 ];

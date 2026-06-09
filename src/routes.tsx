@@ -22,6 +22,7 @@ import { SupportInboxPage } from '@/features/support/SupportInboxPage';
 import { ContentPage } from '@/features/content/ContentPage';
 import { ActivityPage } from '@/features/activity/ActivityPage';
 import { LicensePage } from '@/features/license/LicensePage';
+import { AiPage } from '@/features/ai/AiPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { RolePortalPage, RolePortalRedirect } from '@/features/portal/RolePortalPage';
 import { DownloadsPage } from '@/features/downloads/DownloadsPage';
@@ -57,6 +58,7 @@ export const router = createBrowserRouter([
               { path: '/subscriptions/:id/edit', element: <SubscriptionFormPage /> },
               { path: '/subscriptions/:id/details', element: <SubscriptionDetailPage /> },
               { path: '/activity', element: <ActivityPage /> },
+              { path: '/ai', element: <AiPage /> },
               { path: '/license', element: <LicensePage /> },
               { path: '/help', element: <HelpThreadsPage /> },
               { path: '/help/new', element: <NewSupportThreadPage /> },
