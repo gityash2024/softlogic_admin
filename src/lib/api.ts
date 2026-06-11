@@ -10,7 +10,7 @@ const sameOriginApiBaseUrl =
 const baseURL =
   import.meta.env.VITE_API_BASE_URL ??
   sameOriginApiBaseUrl ??
-  'https://softlogic-whiteboard-backend-testin.vercel.app/api/v1';
+  'https://softlogic-api.mymultimeds.com/api/v1';
 
 const clientSessionId = (() => {
   if (typeof window === 'undefined') return 'web-panel-server-session';

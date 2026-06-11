@@ -28,6 +28,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
+import { AiCreditInfoButton } from '@/components/ai/AiCreditInfoButton';
 import {
   Select,
   SelectContent,
@@ -98,6 +99,7 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
   const { user: actor } = useAuthStore();
   const queryClient = useQueryClient();
   const pendingAiCreditTokensRef = useRef(0);
+  const initializedAiCreditsRef = useRef(false);
   const allowedRoles = manageableRoles(actor?.role);
   const defaultRole = allowedRoles.includes('TEACHER')
     ? 'TEACHER'
@@ -161,10 +163,10 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
       const tokensToAllocate = pendingAiCreditTokensRef.current;
       pendingAiCreditTokensRef.current = 0;
       if (tokensToAllocate > 0) {
-        await aiApi.allocate({
+        await aiApi.setAllocation({
           scope: 'USER',
           userId: user.id,
-          amountTokens: tokensToAllocate,
+          allocatedTokens: tokensToAllocate,
           reason: 'User create allocation',
         });
       }
@@ -187,14 +189,12 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
     onSuccess: async (user) => {
       const tokensToAllocate = pendingAiCreditTokensRef.current;
       pendingAiCreditTokensRef.current = 0;
-      if (tokensToAllocate > 0) {
-        await aiApi.allocate({
-          scope: 'USER',
-          userId: user.id,
-          amountTokens: tokensToAllocate,
-          reason: 'User edit allocation',
-        });
-      }
+      await aiApi.setAllocation({
+        scope: 'USER',
+        userId: user.id,
+        allocatedTokens: tokensToAllocate,
+        reason: 'User edit allocation',
+      });
       queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['ai-overview'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
@@ -286,7 +286,24 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
   const sourceAvailableAiTokens = canAssignAiCredits
     ? sourceAiAccount?.availableTokens ?? 0
     : 0;
-  const afterAiAllocation = Math.max(sourceAvailableAiTokens - aiCreditTokens, 0);
+  const currentUserAiAccount = userId
+    ? aiOverviewQuery.data?.accounts.find(
+        (account) => account.scope === 'USER' && account.userId === userId,
+      )
+    : null;
+  const currentAssignedAiTokens = canAssignAiCredits
+    ? currentUserAiAccount?.allocatedTokens ?? 0
+    : 0;
+  const assignableAiTokens = sourceAvailableAiTokens + currentAssignedAiTokens;
+  const aiAllocationDelta = aiCreditTokens - currentAssignedAiTokens;
+  const afterAiAllocation = Math.max(assignableAiTokens - aiCreditTokens, 0);
+
+  useEffect(() => {
+    if (!isEdit || initializedAiCreditsRef.current || !canAssignAiCredits) return;
+    if (!aiOverviewQuery.data) return;
+    setValue('aiCreditTokens', currentAssignedAiTokens, { shouldDirty: false });
+    initializedAiCreditsRef.current = true;
+  }, [aiOverviewQuery.data, canAssignAiCredits, currentAssignedAiTokens, isEdit, setValue]);
 
   const roleDisabledReason = (candidateRole: UserRole): string | null => {
     const policyReason = rolePolicyBlockReason(selectedOrganization, candidateRole);
@@ -325,8 +342,8 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
     if (values.role === 'STUDENT' || values.role === 'PARENT') {
       values.aiCreditTokens = 0;
     }
-    if ((values.aiCreditTokens ?? 0) > sourceAvailableAiTokens) {
-      toast.error(`Only ${sourceAvailableAiTokens.toLocaleString('en-IN')} AI token credits are available`);
+    if ((values.aiCreditTokens ?? 0) > assignableAiTokens) {
+      toast.error(`Only ${assignableAiTokens.toLocaleString('en-IN')} AI credits are assignable`);
       return;
     }
     setPendingValues(values);
@@ -402,9 +419,16 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
       if ((v.aiCreditTokens ?? 0) > 0) {
         rows.push({
           label: 'AI pool after allocation',
-          value: Math.max(sourceAvailableAiTokens - Number(v.aiCreditTokens ?? 0), 0).toLocaleString('en-IN'),
+          value: Math.max(assignableAiTokens - Number(v.aiCreditTokens ?? 0), 0).toLocaleString('en-IN'),
         });
       }
+      rows.push({
+        label: 'AI allocation change',
+        value:
+          Number(v.aiCreditTokens ?? 0) - currentAssignedAiTokens === 0
+            ? 'No change'
+            : (Number(v.aiCreditTokens ?? 0) - currentAssignedAiTokens).toLocaleString('en-IN'),
+      });
     }
     return rows;
   };
@@ -560,6 +584,53 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
               </div>
             </div>
           )}
+          {canAssignAiCredits && (
+            <div className="grid gap-3 rounded-lg border border-line bg-surface-variant px-4 py-4 text-sm text-ink-700">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-1">
+                    <p className="font-semibold text-ink-900">AI Credits</p>
+                    <AiCreditInfoButton />
+                  </div>
+                  <p className="text-xs text-ink-500">
+                    Leave zero for no personal limit; usage will draw from the organization pool.
+                  </p>
+                </div>
+                <div className="text-right text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  <p>{currentAssignedAiTokens.toLocaleString('en-IN')} assigned</p>
+                  <p>{sourceAvailableAiTokens.toLocaleString('en-IN')} source available</p>
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Assign user AI credits</label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={assignableAiTokens}
+                    {...register('aiCreditTokens', { valueAsNumber: true })}
+                  />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Change</p>
+                  <p className="mt-1 text-lg font-black text-ink-900">
+                    {aiAllocationDelta === 0 ? 'No change' : aiAllocationDelta.toLocaleString('en-IN')}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Pool after allocation</p>
+                  <p className="mt-1 text-lg font-black text-ink-900">
+                    {afterAiAllocation.toLocaleString('en-IN')}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          {(role === 'STUDENT' || role === 'PARENT') && (
+            <p className="rounded-lg border border-line bg-surface-variant px-3 py-3 text-xs text-ink-500">
+              Students and parents cannot run AI tools on the whiteboard, so no AI credits are assigned.
+            </p>
+          )}
         </Card>
 
         <Card className="space-y-4 px-6 py-5">
@@ -595,43 +666,6 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
               <Input placeholder="en" {...register('language')} />
             </div>
           </div>
-          {canAssignAiCredits && (
-            <div className="grid gap-3 rounded-lg border border-line bg-surface-variant px-3 py-3 text-sm text-ink-700">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="font-semibold text-ink-900">AI Credits</p>
-                  <p className="text-xs text-ink-500">
-                    Leave zero for no personal limit; usage will draw from the organization pool.
-                  </p>
-                </div>
-                <span className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-                  {sourceAvailableAiTokens.toLocaleString('en-IN')} available
-                </span>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Assign user tokens</label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={sourceAvailableAiTokens}
-                    {...register('aiCreditTokens', { valueAsNumber: true })}
-                  />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">After allocation</p>
-                  <p className="mt-1 text-lg font-black text-ink-900">
-                    {afterAiAllocation.toLocaleString('en-IN')}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-          {(role === 'STUDENT' || role === 'PARENT') && (
-            <p className="rounded-lg border border-line bg-surface-variant px-3 py-3 text-xs text-ink-500">
-              Students and parents cannot run AI tools on the whiteboard, so no AI credits are assigned.
-            </p>
-          )}
         </Card>
       </div>
 

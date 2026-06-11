@@ -32,7 +32,7 @@ const PATH_TO_TITLE: Record<string, { title: string; subtitle: string }> = {
   },
   '/ai': {
     title: 'AI',
-    subtitle: 'Master key, token credits, and live usage',
+    subtitle: 'Master key, AI credits, and live usage',
   },
   '/portal': {
     title: 'Role Portal',

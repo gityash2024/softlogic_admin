@@ -27,6 +27,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
+import { AiCreditInfoButton } from '@/components/ai/AiCreditInfoButton';
 import {
   Select,
   SelectContent,
@@ -123,7 +124,8 @@ function OrganizationFormEditor({
   const { user: actor } = useAuthStore();
   const queryClient = useQueryClient();
   const logoInputRef = useRef<HTMLInputElement>(null);
-  const pendingAiCreditTokensRef = useRef(0);
+  const pendingAiCreditTokensRef = useRef<number | null>(0);
+  const initializedAiCreditsRef = useRef(false);
   const { allowedKinds } = canCreateOrganizationKind(actor?.role);
   const isSuperAdmin = actor?.role === 'SUPER_ADMIN';
   const canConfigureStorage =
@@ -213,11 +215,11 @@ function OrganizationFormEditor({
     onSuccess: async (created) => {
       const tokensToAllocate = pendingAiCreditTokensRef.current;
       pendingAiCreditTokensRef.current = 0;
-      if (tokensToAllocate > 0) {
-        await aiApi.allocate({
+      if (tokensToAllocate !== null && tokensToAllocate > 0) {
+        await aiApi.setAllocation({
           scope: 'ORGANIZATION',
           organizationId: created.id,
-          amountTokens: tokensToAllocate,
+          allocatedTokens: tokensToAllocate,
           reason: 'Organization create allocation',
         });
       }
@@ -242,11 +244,11 @@ function OrganizationFormEditor({
     onSuccess: async (updated) => {
       const tokensToAllocate = pendingAiCreditTokensRef.current;
       pendingAiCreditTokensRef.current = 0;
-      if (tokensToAllocate > 0) {
-        await aiApi.allocate({
+      if (tokensToAllocate !== null) {
+        await aiApi.setAllocation({
           scope: 'ORGANIZATION',
           organizationId: updated.id,
-          amountTokens: tokensToAllocate,
+          allocatedTokens: tokensToAllocate,
           reason: 'Organization edit allocation',
         });
       }
@@ -314,8 +316,23 @@ function OrganizationFormEditor({
             account.scope === 'ORGANIZATION' &&
             account.organizationId === actor?.primaryOrganization?.id,
         );
-  const sourceAvailableAiTokens = sourceAiAccount?.availableTokens ?? 0;
-  const afterAiAllocation = Math.max(sourceAvailableAiTokens - aiCreditTokens, 0);
+  const currentOrgAiAccount = organizationId
+    ? aiOverviewQuery.data?.accounts.find(
+        (account) => account.scope === 'ORGANIZATION' && account.organizationId === organizationId,
+      )
+    : null;
+  const canAssignOrgAiCredits = !currentOrgAiAccount || currentOrgAiAccount.id !== sourceAiAccount?.id;
+  const sourceAvailableAiTokens = canAssignOrgAiCredits ? sourceAiAccount?.availableTokens ?? 0 : 0;
+  const currentAssignedAiTokens = currentOrgAiAccount?.allocatedTokens ?? 0;
+  const assignableAiTokens = sourceAvailableAiTokens + currentAssignedAiTokens;
+  const aiAllocationDelta = aiCreditTokens - currentAssignedAiTokens;
+  const afterAiAllocation = Math.max(assignableAiTokens - aiCreditTokens, 0);
+
+  useEffect(() => {
+    if (!isEdit || initializedAiCreditsRef.current || !aiOverviewQuery.data) return;
+    setValue('aiCreditTokens', currentAssignedAiTokens, { shouldDirty: false });
+    initializedAiCreditsRef.current = true;
+  }, [aiOverviewQuery.data, currentAssignedAiTokens, isEdit, setValue]);
 
   useEffect(() => {
     if (!teacherOnlyMode) return;
@@ -418,8 +435,8 @@ function OrganizationFormEditor({
         return;
       }
     }
-    if ((values.aiCreditTokens ?? 0) > sourceAvailableAiTokens) {
-      toast.error(`Only ${sourceAvailableAiTokens.toLocaleString('en-IN')} AI token credits are available`);
+    if (canAssignOrgAiCredits && (values.aiCreditTokens ?? 0) > assignableAiTokens) {
+      toast.error(`Only ${assignableAiTokens.toLocaleString('en-IN')} AI credits are assignable`);
       return;
     }
     setPendingValues(values);
@@ -429,7 +446,9 @@ function OrganizationFormEditor({
   const runSubmit = () => {
     const values = pendingValues;
     if (!values) return;
-    pendingAiCreditTokensRef.current = Number(values.aiCreditTokens ?? 0);
+    pendingAiCreditTokensRef.current = canAssignOrgAiCredits
+      ? Number(values.aiCreditTokens ?? 0)
+      : null;
     const normalizedTeacherOnly = Boolean(values.teacherOnlyMode);
     const normalizedParentLogin =
       !normalizedTeacherOnly && Boolean(values.parentLoginEnabled);
@@ -556,12 +575,19 @@ function OrganizationFormEditor({
       });
     }
     if ((v.aiCreditTokens ?? 0) > 0) {
-      rows.push({ label: 'AI tokens to allocate', value: Number(v.aiCreditTokens ?? 0) });
+      rows.push({ label: 'Assigned AI credits', value: Number(v.aiCreditTokens ?? 0) });
       rows.push({
-        label: 'AI tokens after allocation',
-        value: Math.max(sourceAvailableAiTokens - Number(v.aiCreditTokens ?? 0), 0),
+        label: 'AI credits after allocation',
+        value: Math.max(assignableAiTokens - Number(v.aiCreditTokens ?? 0), 0),
       });
     }
+    rows.push({
+      label: 'AI allocation change',
+      value:
+        Number(v.aiCreditTokens ?? 0) - currentAssignedAiTokens === 0
+          ? 'No change'
+          : Number(v.aiCreditTokens ?? 0) - currentAssignedAiTokens,
+    });
     if (canConfigureStorage) {
       const providers = (v.storageProviders ?? []) as string[];
       rows.push({
@@ -725,24 +751,37 @@ function OrganizationFormEditor({
               )}
             </div>
           </div>
-          <div className="grid gap-4 rounded-lg border border-line bg-surface-variant px-4 py-4 sm:grid-cols-[1fr_1fr_1fr]">
+          <div className="grid gap-4 rounded-lg border border-line bg-surface-variant px-4 py-4 sm:grid-cols-[1fr_1fr_1fr_1fr]">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">AI tokens available</p>
+              <div className="flex items-center gap-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Assigned AI credits</p>
+                <AiCreditInfoButton />
+              </div>
               <p className="mt-1 text-lg font-black text-ink-900">
-                {sourceAvailableAiTokens.toLocaleString('en-IN')}
+                {currentAssignedAiTokens.toLocaleString('en-IN')}
+              </p>
+              <p className="text-xs text-ink-500">
+                {sourceAvailableAiTokens.toLocaleString('en-IN')} source available
               </p>
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Allocate AI tokens</label>
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Set AI credits</label>
               <Input
                 type="number"
                 min={0}
-                max={sourceAvailableAiTokens}
+                max={assignableAiTokens}
+                disabled={!canAssignOrgAiCredits}
                 {...register('aiCreditTokens', { valueAsNumber: true })}
               />
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">After allocation</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Change</p>
+              <p className="mt-1 text-lg font-black text-ink-900">
+                {aiAllocationDelta === 0 ? 'No change' : aiAllocationDelta.toLocaleString('en-IN')}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Source after allocation</p>
               <p className="mt-1 text-lg font-black text-ink-900">
                 {afterAiAllocation.toLocaleString('en-IN')}
               </p>

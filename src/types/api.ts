@@ -207,10 +207,25 @@ export interface AiConfigSummary {
   geminiTextModel: string;
   geminiImageModel: string;
   geminiTtsModel: string;
+  googleSearchGroundingEnabled: boolean;
   lastTestedAt: string | null;
   lastTestStatus: string | null;
   lastTestMessage: string | null;
   updatedAt: string;
+}
+
+export interface AiModelPricingSummary {
+  id: string;
+  provider: string;
+  modelId: string;
+  billingType: 'token' | 'image' | 'audio' | 'tool' | string;
+  inputUsdMicrosPerMillion: number;
+  outputUsdMicrosPerMillion: number;
+  imageUsdMicrosEach: number;
+  searchUsdMicrosPerThousand: number;
+  enabled: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface AiCreditAccountSummary {
@@ -254,6 +269,15 @@ export interface AiLedgerEntry {
   amountTokens: number;
   oldTokenBalance: number;
   newTokenBalance: number;
+  inputTokens: number;
+  outputTokens: number;
+  thinkingTokens: number;
+  totalTokens: number;
+  imageCount: number;
+  searchGroundingCount: number;
+  estimatedCostMicros: number;
+  modelId: string | null;
+  pricingSnapshot?: Record<string, unknown>;
   reason: string | null;
   referenceNote: string | null;
   createdAt: string;
@@ -277,6 +301,8 @@ export interface AiOverview {
   generatedAt: string;
   scope: { type: 'GLOBAL' | 'MANAGED'; organizationIds: string[] | null };
   config: AiConfigSummary;
+  pricing: AiModelPricingSummary[];
+  googleBilling: AiGoogleBillingSummary | null;
   master: AiCreditAccountSummary;
   accounts: AiCreditAccountSummary[];
   organizations: Array<{
@@ -296,6 +322,56 @@ export interface AiOverview {
     status: UserStatus;
   }>;
   recentLedger: AiLedgerEntry[];
+}
+
+export interface AiGoogleBillingSummary {
+  config: {
+    enabled: boolean;
+    projectId: string;
+    billingTableProjectId: string | null;
+    billingDatasetId: string | null;
+    billingTableName: string | null;
+    monthlyCapMicros: number;
+    currency: string;
+    lastSyncAt: string | null;
+    lastSyncStatus: string | null;
+    lastSyncMessage: string | null;
+    updatedAt: string;
+  };
+  connected: boolean;
+  status: 'DISABLED' | 'NEEDS_CONFIGURATION' | 'READY' | 'SUCCESS' | 'ERROR';
+  message: string | null;
+  lastSyncAt: string | null;
+  googleCurrentMonthCostMicros: number;
+  googleGrossCostMicros: number;
+  googleCreditsMicros: number;
+  softlogicCurrentMonthCostMicros: number;
+  varianceMicros: number;
+  monthlyCapMicros: number;
+  remainingBudgetMicros: number;
+  recentRows: Array<{
+    id: string;
+    usageDate: string;
+    serviceDescription: string;
+    skuDescription: string;
+    costMicros: number;
+    creditsMicros: number;
+    netCostMicros: number;
+    currency: string;
+    usageAmount: number | null;
+    usageUnit: string | null;
+  }>;
+  recentRuns: Array<{
+    id: string;
+    status: string;
+    month: string;
+    googleSpendMicros: number;
+    softlogicSpendMicros: number;
+    varianceMicros: number;
+    errorMessage: string | null;
+    startedAt: string;
+    completedAt: string | null;
+  }>;
 }
 
 export interface OrganizationStorageConnection {
