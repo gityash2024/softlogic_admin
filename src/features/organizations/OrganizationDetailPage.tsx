@@ -15,7 +15,6 @@ import {
   ExternalLink,
   FileArchive,
   HardDrive,
-  History,
   MonitorPlay,
   Palette,
   Pencil,
@@ -31,6 +30,8 @@ import { organizationsApi } from '@/services/organizations.api';
 import { subscriptionsApi } from '@/services/subscriptions.api';
 import { usersApi } from '@/services/users.api';
 import { extractApiError } from '@/lib/api';
+import { useAuthStore } from '@/lib/auth-store';
+import { canAccessAiModule } from '@/lib/ai-access';
 import { formatDate, formatDateTime, initials } from '@/lib/utils';
 import { BoardPreviewTile } from '@/features/content/WhiteboardPreview';
 import {
@@ -186,7 +187,7 @@ function SectionHeader({
 }) {
   const navigate = useNavigate();
   return (
-    <div className="flex flex-col gap-3 border-b border-line px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 border-b border-line px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
       <div>
         <h3 className="text-base font-semibold text-ink-900">{title}</h3>
         <p className="text-xs leading-5 text-ink-500">{description}</p>
@@ -237,7 +238,7 @@ function UserCell({ user }: { user: AdminUser }) {
 function UserTable({ rows, loading }: { rows: AdminUser[]; loading: boolean }) {
   if (loading) return <LoadingBlock />;
   return (
-    <Table>
+    <Table className="min-w-[780px]">
       <TableHeader>
         <TableRow>
           <TableHead>User</TableHead>
@@ -289,7 +290,7 @@ function SubscriptionTable({
   const navigate = useNavigate();
   if (loading) return <LoadingBlock />;
   return (
-    <Table>
+    <Table className="min-w-[820px]">
       <TableHeader>
         <TableRow>
           <TableHead>Plan</TableHead>
@@ -344,7 +345,7 @@ function ActivationKeysTable({
 }) {
   if (loading) return <LoadingBlock />;
   return (
-    <Table>
+    <Table className="min-w-[860px]">
       <TableHeader>
         <TableRow>
           <TableHead>Key Label</TableHead>
@@ -390,7 +391,7 @@ function CanvasTable({
 }) {
   if (loading) return <LoadingBlock />;
   return (
-    <Table>
+    <Table className="min-w-[860px]">
       <TableHeader>
         <TableRow>
           <TableHead>Canvas</TableHead>
@@ -453,7 +454,7 @@ function LiveSessionsTable({
 }) {
   if (loading) return <LoadingBlock />;
   return (
-    <Table>
+    <Table className="min-w-[860px]">
       <TableHeader>
         <TableRow>
           <TableHead>Session</TableHead>
@@ -503,7 +504,7 @@ function ExportsTable({
 }) {
   if (loading) return <LoadingBlock />;
   return (
-    <Table>
+    <Table className="min-w-[980px]">
       <TableHeader>
         <TableRow>
           <TableHead>Export</TableHead>
@@ -557,7 +558,7 @@ function ActivityTable({
 }) {
   if (loading) return <LoadingBlock />;
   return (
-    <Table>
+    <Table className="min-w-[820px]">
       <TableHeader>
         <TableRow>
           <TableHead>Actor</TableHead>
@@ -623,6 +624,7 @@ function DetailItem({
 export function OrganizationDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
   const [tab, setTab] = useState<HubTab>('overview');
 
   const organizationQuery = useQuery({
@@ -761,7 +763,7 @@ export function OrganizationDetailPage() {
 
   if (organizationQuery.isError || !org) {
     return (
-      <Card className="mx-auto max-w-2xl px-6 py-8 text-center">
+      <Card className="mx-auto max-w-2xl px-4 py-8 text-center sm:px-6">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-danger/10 text-danger">
           <Building2 className="h-5 w-5" />
         </div>
@@ -782,7 +784,7 @@ export function OrganizationDetailPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-4 rounded-xl border border-line bg-white px-6 py-5 shadow-card lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-4 rounded-xl border border-line bg-white px-4 py-5 shadow-card sm:px-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 gap-4">
           <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-line bg-surface-variant">
             {org.logoUrl ? (
@@ -809,10 +811,12 @@ export function OrganizationDetailPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => navigate('/ai')}>
-            <Sliders className="h-4 w-4" />
-            AI credits
-          </Button>
+          {canAccessAiModule(user) && (
+            <Button variant="outline" onClick={() => navigate('/ai')}>
+              <Sliders className="h-4 w-4" />
+              AI credits
+            </Button>
+          )}
           <Button variant="primary" onClick={() => navigate(`/organizations/${org.id}/edit`)}>
             <Pencil className="h-4 w-4" />
             Edit
@@ -873,7 +877,7 @@ export function OrganizationDetailPage() {
 
         <TabsContent value="overview" className="space-y-5">
           <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
-            <Card className="px-6 py-5">
+            <Card className="px-4 py-5 sm:px-6">
               <div className="flex items-center gap-2">
                 <Building2 className="h-4 w-4 text-brand-primary" />
                 <h3 className="text-base font-semibold text-ink-900">Organization details</h3>
@@ -900,7 +904,7 @@ export function OrganizationDetailPage() {
               </div>
             </Card>
 
-            <Card className="px-6 py-5">
+            <Card className="px-4 py-5 sm:px-6">
               <div className="flex items-center gap-2">
                 <Palette className="h-4 w-4 text-brand-orange" />
                 <h3 className="text-base font-semibold text-ink-900">Brand & AI</h3>
@@ -949,7 +953,7 @@ export function OrganizationDetailPage() {
                 title="Hierarchy"
                 description="Parent organization and child organizations."
               />
-              <div className="space-y-4 px-6 py-5">
+              <div className="space-y-4 px-4 py-5 sm:px-6">
                 <div className="rounded-lg border border-line p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
                     Parent
@@ -1011,7 +1015,7 @@ export function OrganizationDetailPage() {
                 title="Storage connections"
                 description="Connected organization storage providers and validation state."
               />
-              <div className="px-6 py-5">
+              <div className="px-4 py-5 sm:px-6">
                 {org.storageConnections?.length ? (
                   <div className="space-y-3">
                     {org.storageConnections.map((connection) => (

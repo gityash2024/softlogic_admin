@@ -82,7 +82,7 @@ export function SupportInboxPage() {
         </p>
       </div>
 
-      <Card className="space-y-4 px-6 py-5">
+      <Card className="space-y-4 px-4 py-5 sm:px-6">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
@@ -162,7 +162,7 @@ export function SupportInboxPage() {
             <Spinner className="h-6 w-6 text-brand-primary" />
           </div>
         ) : (
-          <Table>
+          <Table className="min-w-[980px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Subject</TableHead>

@@ -99,6 +99,7 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
   const { user: actor } = useAuthStore();
   const queryClient = useQueryClient();
   const pendingAiCreditTokensRef = useRef(0);
+  const pendingAiCreditSourceAccountIdRef = useRef<string | null>(null);
   const initializedAiCreditsRef = useRef(false);
   const allowedRoles = manageableRoles(actor?.role);
   const defaultRole = allowedRoles.includes('TEACHER')
@@ -161,9 +162,12 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
     mutationFn: usersApi.create,
     onSuccess: async (user) => {
       const tokensToAllocate = pendingAiCreditTokensRef.current;
+      const sourceAccountId = pendingAiCreditSourceAccountIdRef.current;
       pendingAiCreditTokensRef.current = 0;
+      pendingAiCreditSourceAccountIdRef.current = null;
       if (tokensToAllocate > 0) {
         await aiApi.setAllocation({
+          sourceAccountId: sourceAccountId ?? undefined,
           scope: 'USER',
           userId: user.id,
           allocatedTokens: tokensToAllocate,
@@ -188,8 +192,11 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
       usersApi.update(targetId, payload),
     onSuccess: async (user) => {
       const tokensToAllocate = pendingAiCreditTokensRef.current;
+      const sourceAccountId = pendingAiCreditSourceAccountIdRef.current;
       pendingAiCreditTokensRef.current = 0;
+      pendingAiCreditSourceAccountIdRef.current = null;
       await aiApi.setAllocation({
+        sourceAccountId: sourceAccountId ?? undefined,
         scope: 'USER',
         userId: user.id,
         allocatedTokens: tokensToAllocate,
@@ -213,7 +220,6 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
   const [pendingValues, setPendingValues] = useState<FormValues | null>(null);
   const role = watch('role');
   const organizationId = watch('organizationId');
-  const status = watch('status');
   const linkedStudentIds = watch('linkedStudentIds') ?? [];
   const aiCreditTokens = Number(watch('aiCreditTokens') ?? 0);
   const selectedOrganization = useMemo(
@@ -357,6 +363,10 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
       values.role === 'STUDENT' || values.role === 'PARENT'
         ? 0
         : Number(values.aiCreditTokens ?? 0);
+    pendingAiCreditSourceAccountIdRef.current =
+      values.role === 'STUDENT' || values.role === 'PARENT'
+        ? null
+        : sourceAiAccount?.id ?? null;
     const payload = {
       email: values.email,
       name: values.name,
@@ -455,7 +465,7 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
-        <Card className="space-y-5 px-6 py-5">
+        <Card className="space-y-5 px-4 py-5 sm:px-6">
           <div>
             <h3 className="text-base font-bold text-ink-900">Profile</h3>
             <p className="text-sm text-ink-500">Core account details used for admin access.</p>
@@ -633,7 +643,7 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
           )}
         </Card>
 
-        <Card className="space-y-4 px-6 py-5">
+        <Card className="space-y-4 px-4 py-5 sm:px-6">
           <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
             <ShieldCheck className="h-5 w-5" />
           </div>

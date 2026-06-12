@@ -123,9 +123,9 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           });
 
   return (
-    <header className="sticky top-0 z-30 border-b border-line/80 bg-white/90 px-4 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-3">
+    <header className="sticky top-0 z-30 border-b border-line/80 bg-white/90 px-3 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
+      <div className="flex min-w-0 items-center justify-between gap-3 sm:gap-4">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <Button
             type="button"
             variant="outline"
@@ -135,7 +135,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           >
             <Menu className="h-4 w-4" />
           </Button>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <h1 className="truncate text-lg font-bold text-ink-900 sm:text-xl">
                 {meta.title}
@@ -150,7 +150,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+        <div className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
           <div className="hidden items-center gap-2 rounded-lg border border-line bg-white px-3 py-2 text-xs font-medium text-ink-500 shadow-sm md:flex">
             <CalendarDays className="h-4 w-4 text-brand-primary" />
             {new Date().toLocaleDateString(undefined, {

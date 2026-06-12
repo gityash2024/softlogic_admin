@@ -25,6 +25,7 @@ import {
 import { isAdminRole, type UserRole } from '@/types/api';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/lib/auth-store';
+import { canAccessAiModule } from '@/lib/ai-access';
 import { usersApi } from '@/services/users.api';
 import { organizationsApi } from '@/services/organizations.api';
 import { subscriptionsApi } from '@/services/subscriptions.api';
@@ -60,14 +61,17 @@ const HELP_ITEM: NavCommand = {
 
 // Mirrors Sidebar.getNavItems so the palette surfaces the same destinations,
 // including role-specific Support/Help entries, without altering the sidebar.
-function getNavCommands(role: UserRole | undefined): NavCommand[] {
+function getNavCommands(role: UserRole | undefined, showAiModule: boolean): NavCommand[] {
   if (role === 'TEACHER' || role === 'STUDENT' || role === 'PARENT') {
     return [
       { kind: 'nav', to: '/portal', label: 'Portal', hint: 'Role workspace', icon: GraduationCap },
       { kind: 'nav', to: '/downloads', label: 'Downloads', hint: 'APK and EXE', icon: Download },
     ];
   }
-  const items = [...BASE_NAV_ITEMS];
+  let items = [...BASE_NAV_ITEMS];
+  if (!showAiModule) {
+    items = items.filter((item) => item.to !== '/ai');
+  }
   const insertAt = items.findIndex((item) => item.to === '/license');
   const supportEntry =
     role === 'SUPER_ADMIN'
@@ -108,7 +112,8 @@ const matches = (query: string, ...fields: (string | null | undefined)[]) => {
 
 export function CommandPalette() {
   const navigate = useNavigate();
-  const role = useAuthStore((state) => state.user?.role);
+  const user = useAuthStore((state) => state.user);
+  const role = user?.role;
   const canSearchAdminRecords = isAdminRole(role);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -116,25 +121,25 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
+  const handleOpenChange = useCallback((nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (!nextOpen) {
+      setQuery('');
+      setActiveIndex(0);
+    }
+  }, []);
+
   // Global Cmd/Ctrl+K toggle. Esc + backdrop close are handled by Radix Dialog.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
-        setOpen((prev) => !prev);
+        handleOpenChange(!open);
       }
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, []);
-
-  // Reset transient state whenever the palette closes.
-  useEffect(() => {
-    if (!open) {
-      setQuery('');
-      setActiveIndex(0);
-    }
-  }, [open]);
+  }, [handleOpenChange, open]);
 
   const trimmed = query.trim();
   const hasQuery = trimmed.length > 0;
@@ -159,8 +164,11 @@ export function CommandPalette() {
   });
 
   const navCommands = useMemo(
-    () => getNavCommands(role).filter((item) => matches(query, item.label, item.hint)),
-    [role, query],
+    () =>
+      getNavCommands(role, canAccessAiModule(user)).filter((item) =>
+        matches(query, item.label, item.hint),
+      ),
+    [role, user, query],
   );
 
   const recordCommands = useMemo<RecordCommand[]>(() => {
@@ -218,38 +226,38 @@ export function CommandPalette() {
     () => [...navCommands, ...recordCommands],
     [navCommands, recordCommands],
   );
-
-  // Keep the active index within range as results change.
-  useEffect(() => {
-    setActiveIndex((prev) =>
-      flatCommands.length === 0 ? 0 : Math.min(prev, flatCommands.length - 1),
-    );
-  }, [flatCommands.length]);
+  const clampedActiveIndex =
+    flatCommands.length === 0
+      ? 0
+      : Math.min(activeIndex, flatCommands.length - 1);
 
   const runCommand = useCallback(
     (command: Command) => {
-      setOpen(false);
+      handleOpenChange(false);
       navigate(command.to);
     },
-    [navigate],
+    [handleOpenChange, navigate],
   );
 
   const onInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'ArrowDown') {
       event.preventDefault();
       setActiveIndex((prev) =>
-        flatCommands.length === 0 ? 0 : (prev + 1) % flatCommands.length,
+        flatCommands.length === 0
+          ? 0
+          : (Math.min(prev, flatCommands.length - 1) + 1) % flatCommands.length,
       );
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
       setActiveIndex((prev) =>
         flatCommands.length === 0
           ? 0
-          : (prev - 1 + flatCommands.length) % flatCommands.length,
+          : (Math.min(prev, flatCommands.length - 1) - 1 + flatCommands.length) %
+            flatCommands.length,
       );
     } else if (event.key === 'Enter') {
       event.preventDefault();
-      const command = flatCommands[activeIndex];
+      const command = flatCommands[clampedActiveIndex];
       if (command) runCommand(command);
     }
   };
@@ -257,10 +265,10 @@ export function CommandPalette() {
   // Keep the active row scrolled into view as selection moves.
   useEffect(() => {
     const node = listRef.current?.querySelector<HTMLElement>(
-      `[data-index="${activeIndex}"]`,
+      `[data-index="${clampedActiveIndex}"]`,
     );
     node?.scrollIntoView({ block: 'nearest' });
-  }, [activeIndex]);
+  }, [clampedActiveIndex]);
 
   const recordsLoading =
     hasQuery &&
@@ -283,7 +291,7 @@ export function CommandPalette() {
   );
 
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
+    <DialogPrimitive.Root open={open} onOpenChange={handleOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-ink-900/40 backdrop-blur-sm animate-fade-in" />
         <DialogPrimitive.Content
@@ -292,7 +300,7 @@ export function CommandPalette() {
             inputRef.current?.focus();
           }}
           aria-label="Command palette"
-          className="fixed left-1/2 top-[12vh] z-50 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 overflow-hidden rounded-xl border border-line bg-white shadow-elevated animate-slide-up"
+          className="fixed left-1/2 top-[8vh] z-50 w-[calc(100%-1rem)] max-w-xl -translate-x-1/2 overflow-hidden rounded-xl border border-line bg-white shadow-elevated animate-slide-up sm:top-[12vh] sm:w-[calc(100%-2rem)]"
         >
           <DialogPrimitive.Title className="sr-only">
             Command palette
@@ -329,14 +337,14 @@ export function CommandPalette() {
                 </p>
                 <ul>
                   {navCommands.map((command) => (
-                    <CommandRow
-                      key={command.to}
-                      command={command}
-                      index={indexOf(command)}
-                      activeIndex={activeIndex}
-                      onHover={setActiveIndex}
-                      onSelect={runCommand}
-                    />
+                      <CommandRow
+                        key={command.to}
+                        command={command}
+                        index={indexOf(command)}
+                        activeIndex={clampedActiveIndex}
+                        onHover={setActiveIndex}
+                        onSelect={runCommand}
+                      />
                   ))}
                 </ul>
               </div>
@@ -357,7 +365,7 @@ export function CommandPalette() {
                           key={command.to}
                           command={command}
                           index={indexOf(command)}
-                          activeIndex={activeIndex}
+                          activeIndex={clampedActiveIndex}
                           onHover={setActiveIndex}
                           onSelect={runCommand}
                         />
@@ -378,8 +386,8 @@ export function CommandPalette() {
             )}
           </div>
 
-          <div className="flex items-center justify-between gap-3 border-t border-line bg-surface-variant/60 px-4 py-2 text-[11px] text-ink-500">
-            <span className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line bg-surface-variant/60 px-3 py-2 text-[11px] text-ink-500 sm:px-4">
+            <span className="hidden items-center gap-3 sm:flex">
               <span className="flex items-center gap-1">
                 <Kbd>
                   <ArrowUp className="h-3 w-3" />

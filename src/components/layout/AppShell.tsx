@@ -25,7 +25,7 @@ function ImpersonationBanner() {
   };
 
   return (
-    <div className="flex items-center justify-center gap-3 bg-amber-500 px-4 py-2 text-sm font-medium text-amber-950">
+    <div className="flex min-w-0 items-center justify-center gap-2 bg-amber-500 px-3 py-2 text-sm font-medium text-amber-950 sm:gap-3 sm:px-4">
       <Eye className="h-4 w-4 shrink-0" />
       <span className="truncate">
         Viewing as <strong>{label}</strong> ({impersonation.user.role})
@@ -78,7 +78,7 @@ export function AppShell() {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <ImpersonationBanner />
         <Topbar onMenuClick={() => setSidebarOpen(true)} />
-        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-5 scrollbar-thin sm:px-6 lg:px-8">
+        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 scrollbar-thin sm:px-6 sm:py-5 lg:px-8">
           <Outlet />
         </main>
       </div>

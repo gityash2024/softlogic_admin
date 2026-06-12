@@ -1,6 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
-import { AdminRoute, ProtectedRoute, RoleRoute } from '@/components/layout/ProtectedRoute';
+import { AdminRoute, AiModuleRoute, ProtectedRoute, RoleRoute } from '@/components/layout/ProtectedRoute';
 import { SplashScreen } from '@/features/auth/SplashScreen';
 import { LoginScreen } from '@/features/auth/LoginScreen';
 import { SetupPasswordScreen } from '@/features/auth/SetupPasswordScreen';
@@ -58,7 +58,10 @@ export const router = createBrowserRouter([
               { path: '/subscriptions/:id/edit', element: <SubscriptionFormPage /> },
               { path: '/subscriptions/:id/details', element: <SubscriptionDetailPage /> },
               { path: '/activity', element: <ActivityPage /> },
-              { path: '/ai', element: <AiPage /> },
+              {
+                element: <AiModuleRoute />,
+                children: [{ path: '/ai', element: <AiPage /> }],
+              },
               { path: '/license', element: <LicensePage /> },
               { path: '/help', element: <HelpThreadsPage /> },
               { path: '/help/new', element: <NewSupportThreadPage /> },

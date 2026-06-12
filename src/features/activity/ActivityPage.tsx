@@ -182,7 +182,7 @@ export function ActivityPage() {
       </div>
 
       <Card>
-        <div className="flex flex-col gap-4 border-b border-line px-6 py-5 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-col gap-4 border-b border-line px-4 py-5 sm:px-6 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-ink-900">Audit Log</h2>
             <p className="text-sm text-ink-500">
@@ -196,7 +196,7 @@ export function ActivityPage() {
           />
         </div>
 
-        <div className="space-y-3 px-6 py-4">
+        <div className="space-y-3 px-4 py-4 sm:px-6">
           <div className="grid gap-3 xl:grid-cols-[1fr_220px_220px_160px]">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
@@ -301,7 +301,7 @@ export function ActivityPage() {
             <Spinner className="h-6 w-6 text-brand-primary" />
           </div>
         ) : (
-          <Table>
+          <Table className="min-w-[820px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Actor</TableHead>

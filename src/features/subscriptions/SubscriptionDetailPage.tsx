@@ -388,8 +388,8 @@ export function SubscriptionDetailPage() {
         </div>
       </div>
 
-      <Card className="space-y-4 px-6 py-5">
-        <div className="flex items-center justify-between">
+      <Card className="space-y-4 px-4 py-5 sm:px-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-base font-semibold text-ink-900">Plan summary</h3>
           <Badge variant={subscription.status === 'ACTIVE' ? 'success' : 'warning'}>
             {SUBSCRIPTION_STATUS_LABEL[subscription.status]}
@@ -435,13 +435,13 @@ export function SubscriptionDetailPage() {
       </Card>
 
       <Card>
-        <div className="border-b border-line px-6 py-4">
+        <div className="border-b border-line px-4 py-4 sm:px-6">
           <h3 className="text-base font-semibold text-ink-900">Activation keys</h3>
           <p className="text-xs text-ink-500">
             Reveal each key to copy it, or email all keys to the organization admin.
           </p>
         </div>
-        <Table>
+        <Table className="min-w-[980px]">
           <TableHeader>
             <TableRow>
               <TableHead>Label</TableHead>
@@ -550,13 +550,13 @@ export function SubscriptionDetailPage() {
       </Card>
 
       <Card>
-        <div className="border-b border-line px-6 py-4">
+        <div className="border-b border-line px-4 py-4 sm:px-6">
           <h3 className="text-base font-semibold text-ink-900">Active devices</h3>
           <p className="text-xs text-ink-500">
             Each activation key activates one board/device for users in the same organization.
           </p>
         </div>
-        <Table>
+        <Table className="min-w-[980px]">
           <TableHeader>
             <TableRow>
               <TableHead>Device</TableHead>
@@ -630,7 +630,7 @@ export function SubscriptionDetailPage() {
       </Card>
 
       <Card>
-        <div className="flex items-center gap-2 border-b border-line px-6 py-4">
+        <div className="flex items-center gap-2 border-b border-line px-4 py-4 sm:px-6">
           <CreditCard className="h-4 w-4 text-brand-primary" />
           <div>
             <h3 className="text-base font-semibold text-ink-900">Payment history</h3>
@@ -639,7 +639,7 @@ export function SubscriptionDetailPage() {
             </p>
           </div>
         </div>
-        <Table>
+        <Table className="min-w-[980px]">
           <TableHeader>
             <TableRow>
               <TableHead>Date</TableHead>
@@ -720,7 +720,7 @@ export function SubscriptionDetailPage() {
       </Card>
 
       <Card>
-        <div className="flex items-center gap-2 border-b border-line px-6 py-4">
+        <div className="flex items-center gap-2 border-b border-line px-4 py-4 sm:px-6">
           <History className="h-4 w-4 text-brand-primary" />
           <div>
             <h3 className="text-base font-semibold text-ink-900">Timeline</h3>
@@ -729,7 +729,7 @@ export function SubscriptionDetailPage() {
             </p>
           </div>
         </div>
-        <div className="px-6 py-5">
+        <div className="px-4 py-5 sm:px-6">
           {timelineLoading ? (
             <div className="flex justify-center py-6">
               <Spinner className="h-5 w-5 text-brand-primary" />
@@ -781,7 +781,7 @@ export function SubscriptionDetailPage() {
         </div>
       </Card>
 
-      <Card className="relative px-6 py-5">
+      <Card className="relative px-4 py-5 sm:px-6">
         <Badge variant="info" className="absolute right-4 top-4">
           Coming Soon
         </Badge>

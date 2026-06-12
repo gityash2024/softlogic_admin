@@ -30,7 +30,7 @@ export function DownloadsPage() {
 
   if (!query.data || query.isError) {
     return (
-      <Card className="px-5 py-5">
+      <Card className="px-4 py-5 sm:px-5">
         <p className="font-semibold text-ink-900">Downloads are unavailable.</p>
         <p className="mt-1 text-sm text-ink-500">
           The release manifest could not be loaded from the SoftLogic download page.
@@ -47,7 +47,7 @@ export function DownloadsPage() {
 
   return (
     <div className="space-y-5">
-      <section className="rounded-lg bg-brand-navy px-5 py-5 text-white shadow-elevated">
+      <section className="rounded-lg bg-brand-navy px-4 py-5 text-white shadow-elevated sm:px-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/60">
@@ -70,8 +70,8 @@ export function DownloadsPage() {
         {artifacts.map((artifact) => {
           const Icon = artifactIcon(artifact);
           return (
-            <Card key={`${artifact.platform}-${artifact.format}`} className="px-5 py-5">
-              <div className="flex items-start gap-4">
+            <Card key={`${artifact.platform}-${artifact.format}`} className="px-4 py-5 sm:px-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
                   <Icon className="h-6 w-6" />
                 </div>

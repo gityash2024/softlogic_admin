@@ -178,7 +178,7 @@ export function ThreadDetailPage({ variant }: ThreadDetailPageProps) {
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
-        <Card className="space-y-4 px-6 py-5">
+        <Card className="space-y-4 px-4 py-5 sm:px-6">
           {timeline.length === 0 ? (
             <p className="text-sm text-ink-500">No messages yet.</p>
           ) : (
@@ -231,7 +231,7 @@ export function ThreadDetailPage({ variant }: ThreadDetailPageProps) {
 
         <div className="space-y-5">
           {variant === 'super' && (
-            <Card className="space-y-3 px-6 py-5">
+            <Card className="space-y-3 px-4 py-5 sm:px-6">
               <h3 className="text-sm font-bold text-ink-900">Triage</h3>
               <div className="space-y-2">
                 <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
@@ -275,7 +275,7 @@ export function ThreadDetailPage({ variant }: ThreadDetailPageProps) {
           )}
 
           {variant === 'super' && preset?.actionable && (
-            <Card className="space-y-3 px-6 py-5">
+            <Card className="space-y-3 px-4 py-5 sm:px-6">
               <h3 className="text-sm font-bold text-ink-900">Inline action</h3>
               <ActionPanel
                 category={thread.category}
@@ -294,7 +294,7 @@ export function ThreadDetailPage({ variant }: ThreadDetailPageProps) {
           )}
 
           {variant === 'org' && thread.status !== 'CLOSED' && (
-            <Card className="space-y-3 px-6 py-5">
+            <Card className="space-y-3 px-4 py-5 sm:px-6">
               <h3 className="text-sm font-bold text-ink-900">Actions</h3>
               <Button
                 variant="outline"
@@ -309,7 +309,7 @@ export function ThreadDetailPage({ variant }: ThreadDetailPageProps) {
           )}
 
           {thread.status === 'RESOLVED' && (
-            <Card className="px-6 py-5 text-sm text-ink-700">
+            <Card className="px-4 py-5 text-sm text-ink-700 sm:px-6">
               <p className="flex items-center gap-2 font-semibold text-success">
                 <CheckCircle2 className="h-4 w-4" />
                 Resolved

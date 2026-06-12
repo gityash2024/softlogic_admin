@@ -340,7 +340,7 @@ export function SubscriptionsPage() {
       </div>
 
       <Card>
-        <div className="flex flex-col gap-4 border-b border-line px-6 py-5 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-col gap-4 border-b border-line px-4 py-5 sm:px-6 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-ink-900">Subscriptions</h2>
             <p className="text-sm text-ink-500">
@@ -360,7 +360,7 @@ export function SubscriptionsPage() {
           </div>
         </div>
 
-        <div className="space-y-3 px-6 py-4">
+        <div className="space-y-3 px-4 py-4 sm:px-6">
           <div className="grid gap-3 xl:grid-cols-[1fr_170px_200px_200px]">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
@@ -500,7 +500,7 @@ export function SubscriptionsPage() {
             <Spinner className="h-6 w-6 text-brand-primary" />
           </div>
         ) : (
-          <Table>
+          <Table className="min-w-[900px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Scope</TableHead>
@@ -559,7 +559,7 @@ export function SubscriptionsPage() {
                       </p>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
+                      <div className="flex justify-end gap-1 whitespace-nowrap">
                         {isSuperAdmin && s.status === 'PENDING_APPROVAL' && (
                           <>
                             <Button

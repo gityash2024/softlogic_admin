@@ -141,7 +141,7 @@ export function DashboardPage() {
 
   if (isError || !data) {
     return (
-      <Card className="mx-auto mt-12 max-w-lg px-6 py-8 text-center">
+      <Card className="mx-auto mt-12 max-w-lg px-4 py-8 text-center sm:px-6">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-danger/10 text-danger">
           <Activity className="h-5 w-5" />
         </div>
@@ -174,7 +174,7 @@ export function DashboardPage() {
   return (
     <div className="space-y-5">
       <section className="overflow-hidden rounded-lg bg-brand-navy text-white shadow-elevated">
-        <div className="grid gap-6 px-5 py-5 sm:px-6 lg:grid-cols-[1fr_360px] lg:px-7">
+        <div className="grid gap-6 px-4 py-5 sm:px-6 lg:grid-cols-[1fr_360px] lg:px-7">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase text-white/70">
               <ShieldCheck className="h-4 w-4 text-brand-orange" />
@@ -300,7 +300,7 @@ export function DashboardPage() {
         </ChartCard>
 
         <ChartCard title="Seat Utilization" subtitle="Current allocation">
-          <div className="grid h-full grid-cols-[1fr_130px] items-center gap-2">
+          <div className="grid h-full gap-3 sm:grid-cols-[1fr_130px] sm:items-center">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -331,7 +331,7 @@ export function DashboardPage() {
 
       <section className="grid gap-5 xl:grid-cols-[1fr_360px]">
         <Card>
-          <div className="flex items-center justify-between border-b border-line px-5 py-4">
+          <div className="flex flex-col gap-3 border-b border-line px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div>
               <h3 className="text-base font-bold text-ink-900">Recent Activity</h3>
               <p className="text-xs text-ink-500">Latest administrative changes</p>
@@ -426,7 +426,7 @@ export function DashboardPage() {
           </Card>
 
           <Card>
-            <div className="grid grid-cols-3 divide-x divide-line">
+            <div className="grid divide-y divide-line sm:grid-cols-3 sm:divide-x sm:divide-y-0">
               <div className="px-4 py-4 text-center">
                 <Database className="mx-auto h-5 w-5 text-brand-primary" />
                 <p className="mt-2 text-lg font-black text-ink-900">

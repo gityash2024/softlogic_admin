@@ -90,11 +90,11 @@ export function PaginationFooter({
   const end = Math.min(page * perPage, total);
 
   return (
-    <div className="flex flex-col gap-3 border-t border-line px-5 py-4 text-sm text-ink-500 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 border-t border-line px-4 py-4 text-sm text-ink-500 sm:flex-row sm:items-center sm:justify-between sm:px-5">
       <span>
         Showing {start}-{end} of {total}
       </span>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           type="button"
           variant="outline"

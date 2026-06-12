@@ -178,10 +178,10 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr,320px]">
+    <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
       <div className="space-y-5">
         <Card>
-        <div className="border-b border-line px-6 py-5">
+        <div className="border-b border-line px-4 py-5 sm:px-6">
           <h2 className="text-lg font-semibold text-ink-900">Personal profile</h2>
           <p className="text-sm text-ink-500">
             How your name and locale appear across the SoftLogic web panel
@@ -192,7 +192,7 @@ export function SettingsPage() {
             e.preventDefault();
             mutation.mutate();
           }}
-          className="space-y-5 px-6 py-5"
+          className="space-y-5 px-4 py-5 sm:px-6"
         >
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
@@ -248,7 +248,7 @@ export function SettingsPage() {
       </Card>
 
         <Card>
-          <div className="border-b border-line px-6 py-5">
+          <div className="border-b border-line px-4 py-5 sm:px-6">
             <h2 className="text-lg font-semibold text-ink-900">Security</h2>
             <p className="text-sm text-ink-500">
               Change the password you use to sign in to the SoftLogic web panel
@@ -256,7 +256,7 @@ export function SettingsPage() {
           </div>
           <form
             onSubmit={handlePasswordSubmit((values) => passwordMutation.mutate(values))}
-            className="space-y-5 px-6 py-5"
+            className="space-y-5 px-4 py-5 sm:px-6"
             noValidate
           >
             <div className="space-y-1.5">
@@ -340,7 +340,7 @@ export function SettingsPage() {
         </Card>
 
         <Card>
-          <div className="border-b border-line px-6 py-5">
+          <div className="border-b border-line px-4 py-5 sm:px-6">
             <h2 className="text-lg font-semibold text-ink-900">
               Login sessions / Devices
             </h2>
@@ -348,7 +348,7 @@ export function SettingsPage() {
               Review where your account is signed in across the SoftLogic web panel and whiteboard app.
             </p>
           </div>
-          <div className="space-y-3 px-6 py-5">
+          <div className="space-y-3 px-4 py-5 sm:px-6">
             {sessionsQuery.isLoading ? (
               <div className="flex items-center gap-2 text-sm text-ink-500">
                 <Spinner className="h-4 w-4 text-brand-primary" />
@@ -431,13 +431,13 @@ export function SettingsPage() {
 
         {showOrgCard && org && (
           <Card>
-            <div className="border-b border-line px-6 py-5">
+            <div className="border-b border-line px-4 py-5 sm:px-6">
               <h2 className="text-lg font-semibold text-ink-900">Organization</h2>
               <p className="text-sm text-ink-500">
                 Your workspace details. These are managed by SoftLogic.
               </p>
             </div>
-            <div className="space-y-5 px-6 py-5">
+            <div className="space-y-5 px-4 py-5 sm:px-6">
               <div className="flex items-center gap-3">
                 {org.logoUrl ? (
                   <img
@@ -511,7 +511,7 @@ export function SettingsPage() {
       </div>
 
       <Card>
-        <div className="px-6 py-6">
+        <div className="px-4 py-6 sm:px-6">
           <div className="flex flex-col items-center text-center">
             <Avatar className="h-20 w-20">
               <AvatarImage src={user?.avatar ?? undefined} />

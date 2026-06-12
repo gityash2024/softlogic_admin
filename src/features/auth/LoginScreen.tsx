@@ -71,8 +71,8 @@ export function LoginScreen() {
   };
 
   return (
-    <div className="h-screen overflow-hidden bg-[#F5F7FB] p-3 sm:p-4">
-      <div className="grid h-full min-h-0 overflow-hidden rounded-[28px] border border-line bg-white shadow-2xl lg:grid-cols-[1.08fr_0.92fr]">
+    <div className="min-h-screen overflow-y-auto bg-[#F5F7FB] p-3 sm:p-4 lg:h-screen lg:overflow-hidden">
+      <div className="grid min-h-[calc(100vh-1.5rem)] overflow-hidden rounded-[28px] border border-line bg-white shadow-2xl sm:min-h-[calc(100vh-2rem)] lg:h-full lg:min-h-0 lg:grid-cols-[1.08fr_0.92fr]">
         <aside className="relative hidden overflow-hidden bg-brand-navy px-8 py-8 text-white lg:flex lg:flex-col">
           <BlueprintBackdrop />
           <div className="relative z-10 flex items-center">
@@ -118,7 +118,7 @@ export function LoginScreen() {
           </div>
         </aside>
 
-        <main className="flex items-center justify-center px-5 py-10 sm:px-8 lg:px-12">
+        <main className="flex items-center justify-center px-4 py-8 sm:px-8 sm:py-10 lg:px-12">
           <div className="w-full max-w-[430px]">
             <div className="mb-9 text-center lg:text-left">
               <div className="mb-6 inline-flex items-center gap-3 lg:hidden">

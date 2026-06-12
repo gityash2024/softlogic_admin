@@ -449,7 +449,7 @@ export function ContentPage() {
       </div>
 
       <Card>
-        <div className="flex flex-col gap-4 border-b border-line px-6 py-5 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-col gap-4 border-b border-line px-4 py-5 sm:px-6 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-ink-900">Content Operations</h2>
             <p className="text-sm text-ink-500">
@@ -464,7 +464,7 @@ export function ContentPage() {
         </div>
 
         <Tabs value={tab} onValueChange={(value) => setTab(value as ContentTab)}>
-          <div className="flex flex-col gap-4 px-6 py-4">
+          <div className="flex flex-col gap-4 px-4 py-4 sm:px-6">
             <TabsList className="w-fit">
               <TabsTrigger value="canvases">
                 <Presentation className="h-4 w-4" />
@@ -846,7 +846,7 @@ function CanvasTable({
 }) {
   if (loading) return <TableLoading />;
   return (
-    <Table>
+    <Table className="min-w-[900px]">
       <TableHeader>
         <TableRow>
           <TableHead>Canvas</TableHead>
@@ -926,7 +926,7 @@ function LiveSessionsTable({
 }) {
   if (loading) return <TableLoading />;
   return (
-    <Table>
+    <Table className="min-w-[900px]">
       <TableHeader>
         <TableRow>
           <TableHead>Session</TableHead>
@@ -998,7 +998,7 @@ function ExportsTable({
 }) {
   if (loading) return <TableLoading />;
   return (
-    <Table>
+    <Table className="min-w-[980px]">
       <TableHeader>
         <TableRow>
           <TableHead>Export</TableHead>
@@ -1109,7 +1109,7 @@ function ImportsTable({
 }) {
   if (loading) return <TableLoading />;
   return (
-    <Table>
+    <Table className="min-w-[980px]">
       <TableHeader>
         <TableRow>
           <TableHead>Import</TableHead>

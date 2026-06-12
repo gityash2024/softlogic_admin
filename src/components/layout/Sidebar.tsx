@@ -30,6 +30,7 @@ import {
 import type { UserRole } from '@/types/api';
 import { cn, initials } from '@/lib/utils';
 import { useAuthStore } from '@/lib/auth-store';
+import { canAccessAiModule } from '@/lib/ai-access';
 import { authApi } from '@/services/auth.api';
 import { ROLE_LABEL } from '@/types/api';
 import { Logo } from '@/components/brand/Logo';
@@ -116,7 +117,7 @@ const HELP_ITEM = {
   icon: HelpCircle,
 };
 
-const getNavItems = (role: UserRole | undefined) => {
+const getNavItems = (role: UserRole | undefined, showAiModule: boolean) => {
   if (role === 'TEACHER') {
     return [
       {
@@ -244,6 +245,9 @@ const getNavItems = (role: UserRole | undefined) => {
     ];
   }
   let items = [...BASE_NAV_ITEMS];
+  if (!showAiModule) {
+    items = items.filter((item) => item.to !== '/ai');
+  }
   // Customer/Org admins manage a single workspace, so they don't get the
   // Organizations directory — their own org details are shown read-only in
   // Settings. Super admins and partner admins (who resell to customers) keep it.
@@ -281,7 +285,7 @@ export function Sidebar({
   const { user, tokens, clear } = useAuthStore();
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const navItems = getNavItems(user?.role);
+  const navItems = getNavItems(user?.role, canAccessAiModule(user));
   const showSupportBadge =
     user?.role === 'SUPER_ADMIN' ||
     user?.role === 'PARTNER_ADMIN' ||

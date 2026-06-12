@@ -403,7 +403,7 @@ export function AiPage() {
 
   if (overviewQuery.isError || !data) {
     return (
-      <Card className="px-6 py-6">
+      <Card className="px-4 py-6 sm:px-6">
         <p className="font-semibold text-ink-900">AI module unavailable</p>
         <p className="mt-1 text-sm text-ink-500">{extractApiError(overviewQuery.error)}</p>
       </Card>
@@ -433,7 +433,7 @@ export function AiPage() {
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-        <Card className="space-y-4 px-6 py-5">
+        <Card className="space-y-4 px-4 py-5 sm:px-6">
           <div>
             <h3 className="text-base font-bold text-ink-900">Master AI Configuration</h3>
             <p className="text-sm text-ink-500">Stored centrally and encrypted in the backend.</p>
@@ -479,7 +479,7 @@ export function AiPage() {
               </label>
             </div>
             {isSuperAdmin && (
-              <div className="flex flex-row gap-2 lg:flex-col lg:justify-end">
+              <div className="flex flex-wrap gap-2 lg:flex-col lg:justify-end">
                 <Button type="submit" variant="primary" disabled={configMutation.isPending}>
                   {configMutation.isPending ? <Spinner className="h-4 w-4" /> : <Save className="h-4 w-4" />}
                   Save
@@ -504,8 +504,8 @@ export function AiPage() {
                 </Button>
               )}
             </div>
-            <div className="overflow-auto">
-              <table className="min-w-full text-left text-xs">
+            <div className="overflow-x-auto scrollbar-thin">
+              <table className="min-w-[860px] text-left text-xs">
                 <thead className="uppercase tracking-wide text-ink-500">
                   <tr>
                     <th className="py-2 pr-3">Model</th>
@@ -566,7 +566,7 @@ export function AiPage() {
           </div>
         </Card>
 
-        <Card className="space-y-4 px-6 py-5">
+        <Card className="space-y-4 px-4 py-5 sm:px-6">
           <div>
             <div className="flex items-center gap-1">
               <h3 className="text-base font-bold text-ink-900">Credits</h3>
@@ -666,7 +666,7 @@ export function AiPage() {
       </div>
 
       {isSuperAdmin && data.googleBilling ? (
-        <Card className="space-y-4 px-6 py-5">
+        <Card className="space-y-4 px-4 py-5 sm:px-6">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
             <div>
               <h3 className="text-base font-bold text-ink-900">Google Billing Verification</h3>
@@ -739,8 +739,8 @@ export function AiPage() {
             </div>
           </form>
 
-          <div className="overflow-auto">
-            <table className="min-w-full text-left text-xs">
+          <div className="overflow-x-auto scrollbar-thin">
+            <table className="min-w-[860px] text-left text-xs">
               <thead className="uppercase tracking-wide text-ink-500">
                 <tr>
                   <th className="py-2 pr-4">Date</th>
@@ -778,10 +778,10 @@ export function AiPage() {
         </Card>
       ) : null}
 
-      <Card className="px-6 py-5">
+      <Card className="px-4 py-5 sm:px-6">
         <h3 className="text-base font-bold text-ink-900">Organizations</h3>
-        <div className="mt-4 overflow-auto">
-          <table className="min-w-full text-left text-sm">
+        <div className="mt-4 overflow-x-auto scrollbar-thin">
+          <table className="min-w-[920px] text-left text-sm">
             <thead className="text-xs uppercase tracking-wide text-ink-500">
               <tr>
                 <th className="py-2 pr-4">Organization</th>
@@ -802,10 +802,10 @@ export function AiPage() {
         </div>
       </Card>
 
-      <Card className="px-6 py-5">
+      <Card className="px-4 py-5 sm:px-6">
         <h3 className="text-base font-bold text-ink-900">Users</h3>
-        <div className="mt-4 overflow-auto">
-          <table className="min-w-full text-left text-sm">
+        <div className="mt-4 overflow-x-auto scrollbar-thin">
+          <table className="min-w-[860px] text-left text-sm">
             <thead className="text-xs uppercase tracking-wide text-ink-500">
               <tr>
                 <th className="py-2 pr-4">User</th>
@@ -837,7 +837,7 @@ export function AiPage() {
         </div>
       </Card>
 
-      <Card className="px-6 py-5">
+      <Card className="px-4 py-5 sm:px-6">
         <h3 className="text-base font-bold text-ink-900">Live Ledger</h3>
         <div className="mt-4 grid gap-3 rounded-lg border border-line bg-surface-variant p-3 lg:grid-cols-4">
           <Input

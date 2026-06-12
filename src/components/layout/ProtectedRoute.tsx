@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/lib/auth-store';
+import { canAccessAiModule } from '@/lib/ai-access';
 import { isAdminRole, type UserRole } from '@/types/api';
 import { Spinner } from '@/components/ui/spinner';
 
@@ -35,5 +36,12 @@ export function RoleRoute({ roles }: { roles: UserRole[] }) {
   if (!roles.includes(user.role)) {
     return <Navigate to={isAdminRole(user.role) ? '/dashboard' : '/portal'} replace />;
   }
+  return <Outlet />;
+}
+
+export function AiModuleRoute() {
+  const { user } = useAuthStore();
+  if (!user) return <Navigate to="/login" replace />;
+  if (!canAccessAiModule(user)) return <Navigate to="/forbidden" replace />;
   return <Outlet />;
 }

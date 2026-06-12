@@ -349,7 +349,7 @@ export function SubscriptionFormPage() {
       )}
 
       <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
-        <Card className="space-y-5 px-6 py-5">
+        <Card className="space-y-5 px-4 py-5 sm:px-6">
           <div>
             <h3 className="text-base font-bold text-ink-900">Subscription Details</h3>
             <p className="text-sm text-ink-500">Billing and access allocation metadata.</p>
@@ -494,7 +494,7 @@ export function SubscriptionFormPage() {
         </Card>
 
         <div className="flex flex-col gap-5">
-          <Card className="space-y-4 px-6 py-5">
+          <Card className="space-y-4 px-4 py-5 sm:px-6">
             <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
               <CreditCard className="h-5 w-5" />
             </div>
@@ -663,7 +663,7 @@ function WhiteLabelOrgBranding({ org }: { org: AdminOrganization }) {
   });
 
   return (
-    <Card className="space-y-5 px-6 py-5">
+    <Card className="space-y-5 px-4 py-5 sm:px-6">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-brand-orange/10 text-brand-orange">

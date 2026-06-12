@@ -93,7 +93,7 @@ export function NewSupportThreadPage() {
         </Button>
       </div>
 
-      <Card className="space-y-4 px-6 py-5">
+      <Card className="space-y-4 px-4 py-5 sm:px-6">
         <h3 className="text-base font-semibold text-ink-900">Category</h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {SUPPORT_CATEGORY_PRESETS.map((option) => {
@@ -120,7 +120,7 @@ export function NewSupportThreadPage() {
         </div>
       </Card>
 
-      <Card className="space-y-5 px-6 py-5">
+      <Card className="space-y-5 px-4 py-5 sm:px-6">
         <div className="space-y-1.5">
           <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
             Subject

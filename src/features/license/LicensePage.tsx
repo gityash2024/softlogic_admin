@@ -491,7 +491,7 @@ export function LicensePage() {
 
       {globalMode && (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Card className="px-6 py-5">
+          <Card className="px-4 py-5 sm:px-6">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
               Organizations
             </p>
@@ -500,7 +500,7 @@ export function LicensePage() {
             </p>
             <p className="mt-1 text-sm text-ink-500">Managed launch workspaces</p>
           </Card>
-          <Card className="px-6 py-5">
+          <Card className="px-4 py-5 sm:px-6">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
               Active plans
             </p>
@@ -509,7 +509,7 @@ export function LicensePage() {
             </p>
             <p className="mt-1 text-sm text-ink-500">Active or trial subscriptions</p>
           </Card>
-          <Card className="px-6 py-5">
+          <Card className="px-4 py-5 sm:px-6">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
               Seats
             </p>
@@ -528,7 +528,7 @@ export function LicensePage() {
             </p>
             <p className="mt-1 text-sm text-ink-500">Across all organizations</p>
           </Card>
-          <Card className="px-6 py-5 relative">
+          <Card className="relative px-4 py-5 sm:px-6">
             <Badge variant="info" className="absolute right-4 top-4">Coming Soon</Badge>
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
               AI Credits
@@ -542,7 +542,7 @@ export function LicensePage() {
       {!globalMode && (
         <div className="grid gap-5 lg:grid-cols-2">
           <Card>
-            <div className="flex items-center justify-between border-b border-line px-6 py-4">
+            <div className="flex flex-col gap-3 border-b border-line px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
               <div>
                 <h3 className="flex items-center gap-2 text-base font-semibold text-ink-900">
                   <KeyRound className="h-4 w-4 text-brand-primary" />
@@ -556,7 +556,7 @@ export function LicensePage() {
                 {primarySub ? SUBSCRIPTION_STATUS_LABEL[primarySub.status] : 'No plan'}
               </Badge>
             </div>
-            <div className="space-y-3 px-6 py-5">
+            <div className="space-y-3 px-4 py-5 sm:px-6">
               <p className="text-xs uppercase tracking-wide text-ink-500">Branding</p>
               <p className="text-sm text-ink-700">
                 {primarySub ? BRANDING_MODE_LABEL[primarySub.brandingMode] : '—'}
@@ -601,14 +601,14 @@ export function LicensePage() {
           </Card>
 
           <Card>
-            <div className="border-b border-line px-6 py-4">
+            <div className="border-b border-line px-4 py-4 sm:px-6">
               <h3 className="flex items-center gap-2 text-base font-semibold text-ink-900">
                 <Sofa className="h-4 w-4 text-brand-primary" />
                 Seats
               </h3>
               <p className="text-xs text-ink-500">Active organization users</p>
             </div>
-            <div className="space-y-4 px-6 py-5">
+            <div className="space-y-4 px-4 py-5 sm:px-6">
               {primarySub && (
                 <SeatsBanner
                   seatLimit={primarySub.seatLimit}
@@ -632,7 +632,7 @@ export function LicensePage() {
 
       {isSuperAdmin && (
         <div className="space-y-5">
-          <Card className="space-y-4 px-6 py-5">
+          <Card className="space-y-4 px-4 py-5 sm:px-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="flex items-center gap-2 text-base font-semibold text-ink-900">
@@ -648,7 +648,7 @@ export function LicensePage() {
           </Card>
 
           <div className="grid gap-5 xl:grid-cols-2">
-            <Card className="space-y-4 px-6 py-5">
+            <Card className="space-y-4 px-4 py-5 sm:px-6">
               <div>
                 <h3 className="flex items-center gap-2 text-base font-semibold text-ink-900">
                   <WalletCards className="h-4 w-4 text-brand-primary" />
@@ -706,7 +706,7 @@ export function LicensePage() {
               </div>
             </Card>
 
-            <Card className="space-y-5 px-6 py-5 relative">
+            <Card className="relative space-y-5 px-4 py-5 sm:px-6">
               <div>
                 <h3 className="flex items-center gap-2 text-base font-semibold text-ink-900">
                   <Cpu className="h-4 w-4 text-brand-primary" />
@@ -809,7 +809,7 @@ export function LicensePage() {
       {!globalMode && selectedOrganization && (
         <>
           <Card>
-            <div className="flex flex-col gap-3 border-b border-line px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 border-b border-line px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
               <div>
                 <h3 className="text-base font-semibold text-ink-900">Activation Keys</h3>
                 <p className="text-xs text-ink-500">
@@ -848,7 +848,7 @@ export function LicensePage() {
                 )}
               </div>
             </div>
-            <Table>
+            <Table className="min-w-[980px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Label</TableHead>
@@ -977,13 +977,13 @@ export function LicensePage() {
           </Card>
 
           <Card>
-            <div className="border-b border-line px-6 py-4">
+            <div className="border-b border-line px-4 py-4 sm:px-6">
               <h3 className="text-base font-semibold text-ink-900">Active Devices</h3>
               <p className="text-xs text-ink-500">
                 One activation per device. Reset a row to allow re-binding on a new device.
               </p>
             </div>
-            <Table>
+            <Table className="min-w-[980px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Device</TableHead>
@@ -1062,7 +1062,7 @@ export function LicensePage() {
 
       {!globalMode && (
         <Card>
-          <div className="flex items-center justify-between border-b border-line px-6 py-4">
+          <div className="flex flex-col gap-3 border-b border-line px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <div>
               <h3 className="text-base font-semibold text-ink-900">Billing History</h3>
               <p className="text-xs text-ink-500">
@@ -1070,7 +1070,7 @@ export function LicensePage() {
               </p>
             </div>
           </div>
-          <Table>
+          <Table className="min-w-[920px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Reference</TableHead>

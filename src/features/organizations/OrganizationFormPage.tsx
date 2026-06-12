@@ -125,6 +125,7 @@ function OrganizationFormEditor({
   const queryClient = useQueryClient();
   const logoInputRef = useRef<HTMLInputElement>(null);
   const pendingAiCreditTokensRef = useRef<number | null>(0);
+  const pendingAiCreditSourceAccountIdRef = useRef<string | null>(null);
   const initializedAiCreditsRef = useRef(false);
   const { allowedKinds } = canCreateOrganizationKind(actor?.role);
   const isSuperAdmin = actor?.role === 'SUPER_ADMIN';
@@ -214,9 +215,12 @@ function OrganizationFormEditor({
     mutationFn: organizationsApi.create,
     onSuccess: async (created) => {
       const tokensToAllocate = pendingAiCreditTokensRef.current;
+      const sourceAccountId = pendingAiCreditSourceAccountIdRef.current;
       pendingAiCreditTokensRef.current = 0;
+      pendingAiCreditSourceAccountIdRef.current = null;
       if (tokensToAllocate !== null && tokensToAllocate > 0) {
         await aiApi.setAllocation({
+          sourceAccountId: sourceAccountId ?? undefined,
           scope: 'ORGANIZATION',
           organizationId: created.id,
           allocatedTokens: tokensToAllocate,
@@ -243,9 +247,12 @@ function OrganizationFormEditor({
       organizationsApi.update(orgId, payload),
     onSuccess: async (updated) => {
       const tokensToAllocate = pendingAiCreditTokensRef.current;
+      const sourceAccountId = pendingAiCreditSourceAccountIdRef.current;
       pendingAiCreditTokensRef.current = 0;
+      pendingAiCreditSourceAccountIdRef.current = null;
       if (tokensToAllocate !== null) {
         await aiApi.setAllocation({
+          sourceAccountId: sourceAccountId ?? undefined,
           scope: 'ORGANIZATION',
           organizationId: updated.id,
           allocatedTokens: tokensToAllocate,
@@ -449,6 +456,9 @@ function OrganizationFormEditor({
     pendingAiCreditTokensRef.current = canAssignOrgAiCredits
       ? Number(values.aiCreditTokens ?? 0)
       : null;
+    pendingAiCreditSourceAccountIdRef.current = canAssignOrgAiCredits
+      ? sourceAiAccount?.id ?? null
+      : null;
     const normalizedTeacherOnly = Boolean(values.teacherOnlyMode);
     const normalizedParentLogin =
       !normalizedTeacherOnly && Boolean(values.parentLoginEnabled);
@@ -633,7 +643,7 @@ function OrganizationFormEditor({
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
-        <Card className="space-y-5 px-6 py-5">
+        <Card className="space-y-5 px-4 py-5 sm:px-6">
           <div>
             <h3 className="text-base font-bold text-ink-900">Organization Profile</h3>
             <p className="text-sm text-ink-500">Public admin identity and routing details.</p>
@@ -790,7 +800,7 @@ function OrganizationFormEditor({
           </div>
         </Card>
 
-        <Card className="space-y-5 px-6 py-5">
+        <Card className="space-y-5 px-4 py-5 sm:px-6">
           <div>
             <h3 className="text-base font-bold text-ink-900">Launch Policies</h3>
             <p className="text-sm text-ink-500">Commercial login, branding, and storage controls for production.</p>
@@ -1003,7 +1013,7 @@ function OrganizationFormEditor({
           </div>
         </Card>
 
-        <Card className="space-y-4 px-6 py-5">
+        <Card className="space-y-4 px-4 py-5 sm:px-6">
           <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-brand-orange/10 text-brand-orange">
             <Building2 className="h-5 w-5" />
           </div>

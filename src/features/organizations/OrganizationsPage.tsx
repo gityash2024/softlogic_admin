@@ -22,6 +22,7 @@ import { organizationsApi } from '@/services/organizations.api';
 import type { AdminExportFormat, AdminListQuery } from '@/services/admin-api';
 import { extractApiError } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
+import { canAccessAiModule } from '@/lib/ai-access';
 import { canCreateOrganizationKind } from '@/lib/role-access';
 import {
   ORG_KIND_LABEL,
@@ -151,6 +152,7 @@ export function OrganizationsPage() {
   const aiCount = organizations.length;
   const customerCount = organizations.filter((org) => org.kind === 'CUSTOMER').length;
   const { canCreate } = canCreateOrganizationKind(actor?.role);
+  const canOpenAiModule = canAccessAiModule(actor);
 
   const activeFilters = useMemo<FilterChip[]>(() => {
     const parent = allOrgsQuery.data?.find((org) => org.id === parentOrganizationId);
@@ -282,7 +284,7 @@ export function OrganizationsPage() {
       </div>
 
       <Card>
-        <div className="flex flex-col gap-4 border-b border-line px-6 py-5 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-col gap-4 border-b border-line px-4 py-5 sm:px-6 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-ink-900">Organizations</h2>
             <p className="text-sm text-ink-500">
@@ -306,7 +308,7 @@ export function OrganizationsPage() {
           </div>
         </div>
 
-        <div className="space-y-3 px-6 py-4">
+        <div className="space-y-3 px-4 py-4 sm:px-6">
           <div className="grid gap-3 xl:grid-cols-[1fr_170px_170px_220px]">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
@@ -433,7 +435,7 @@ export function OrganizationsPage() {
             <Spinner className="h-6 w-6 text-brand-primary" />
           </div>
         ) : (
-          <Table>
+          <Table className="min-w-[980px]">
             <colgroup>
               <col />
               <col className="w-[14%]" />
@@ -536,16 +538,18 @@ export function OrganizationsPage() {
                           <RotateCcw className="h-4 w-4 text-success" />
                         )}
                       </Button>
-                      <Button
-                        className={ORGANIZATION_ACTION_BUTTON_CLASS}
-                        size="icon"
-                        variant="ghost"
-                        disabled={Boolean(org.deletedAt)}
-                        title="Open centralized AI module"
-                        onClick={() => navigate('/ai')}
-                      >
-                        <Sliders className="h-4 w-4 text-ink-500" />
-                      </Button>
+                      {canOpenAiModule && (
+                        <Button
+                          className={ORGANIZATION_ACTION_BUTTON_CLASS}
+                          size="icon"
+                          variant="ghost"
+                          disabled={Boolean(org.deletedAt)}
+                          title="Open centralized AI module"
+                          onClick={() => navigate('/ai')}
+                        >
+                          <Sliders className="h-4 w-4 text-ink-500" />
+                        </Button>
+                      )}
                       <Button
                         className={ORGANIZATION_ACTION_BUTTON_CLASS}
                         size="icon"

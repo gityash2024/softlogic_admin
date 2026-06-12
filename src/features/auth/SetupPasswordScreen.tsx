@@ -110,12 +110,12 @@ export function SetupPasswordScreen() {
 
   return (
     <div className="min-h-screen bg-[#F5F7FB] p-3 sm:p-4">
-      <div className="relative flex min-h-[calc(100vh-2rem)] overflow-hidden rounded-[28px] border border-line bg-white shadow-2xl">
+      <div className="relative flex min-h-[calc(100vh-1.5rem)] overflow-hidden rounded-[28px] border border-line bg-white shadow-2xl sm:min-h-[calc(100vh-2rem)]">
         <div className="absolute inset-0 hidden bg-brand-navy lg:block">
           <BlueprintBackdrop />
         </div>
-        <main className="relative z-10 mx-auto flex w-full max-w-[520px] items-center px-5 py-10">
-          <div className="w-full rounded-2xl border border-line bg-white px-6 py-7 shadow-xl sm:px-8">
+        <main className="relative z-10 mx-auto flex w-full max-w-[520px] items-center px-4 py-8 sm:px-5 sm:py-10">
+          <div className="w-full rounded-2xl border border-line bg-white px-4 py-7 shadow-xl sm:px-8">
             <div className="mb-7 flex justify-center">
               <Logo />
             </div>

@@ -513,7 +513,7 @@ function DashboardModule({ summary }: { summary: ClassroomSummary }) {
   ).slice(0, 5);
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_360px]">
-      <Card className="px-5 py-5">
+      <Card className="px-4 py-5 sm:px-5">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-wide text-ink-400">
@@ -552,7 +552,7 @@ function DashboardModule({ summary }: { summary: ClassroomSummary }) {
         </div>
       </Card>
 
-      <Card className="px-5 py-5">
+      <Card className="px-4 py-5 sm:px-5">
         <div className="flex items-center gap-3">
           <CalendarClock className="h-5 w-5 text-brand-primary" />
           <h3 className="font-bold text-ink-900">Next Session</h3>
@@ -578,7 +578,7 @@ function DashboardModule({ summary }: { summary: ClassroomSummary }) {
 
       {summary.role === "TEACHER" && <TeacherQuickActions summary={summary} />}
 
-      <Card className="px-5 py-5 xl:col-span-2">
+      <Card className="px-4 py-5 sm:px-5 xl:col-span-2">
         <div className="flex items-center gap-3">
           <ClipboardList className="h-5 w-5 text-brand-orange" />
           <h3 className="font-bold text-ink-900">Recent Activity</h3>
@@ -613,7 +613,7 @@ function TeacherQuickActions({ summary }: { summary: ClassroomSummary }) {
   const firstBoard = summary.canvases[0];
   const liveSession = summary.sessions.find((item) => item.status === "LIVE");
   return (
-    <Card className="px-5 py-5 xl:col-span-2">
+    <Card className="px-4 py-5 sm:px-5 xl:col-span-2">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h3 className="font-bold text-ink-900">Main Actions</h3>
@@ -722,7 +722,7 @@ function BoardsModule({ summary }: { summary: ClassroomSummary }) {
               <div className="grid gap-3 sm:grid-cols-[190px_1fr]">
                 <BoardPreviewTile board={board} compact />
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <p className="truncate text-sm font-bold text-ink-900">
                       {board.title}
                     </p>
@@ -874,7 +874,7 @@ function SessionCard({
   const canEnd = session.status === "LIVE";
   return (
     <Card className="px-4 py-4">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="truncate text-sm font-bold text-ink-900">
             {session.title ?? session.canvas?.name ?? "Live Session"}
@@ -1062,7 +1062,7 @@ function MaterialsModule({ summary }: { summary: ClassroomSummary }) {
 function BoardContentDetail({ detail }: { detail: ClassroomContentCanvasDetail }) {
   return (
     <div className="space-y-4">
-      <Card className="px-5 py-5">
+      <Card className="px-4 py-5 sm:px-5">
         <div className="flex flex-col gap-4 lg:flex-row">
           <div className="w-full lg:w-80">
             <BoardPreviewTile board={detail} />
@@ -1152,7 +1152,7 @@ function ContentSection({
   }>;
 }) {
   return (
-    <Card className="px-5 py-5">
+    <Card className="px-4 py-5 sm:px-5">
       <h3 className="font-bold text-ink-900">{title}</h3>
       <div className="mt-4 grid gap-2">
         {items.length === 0 ? (
@@ -1211,7 +1211,7 @@ function JoinSessionModule({ summary }: { summary: ClassroomSummary }) {
     summary.sessions.find((session) => session.status === "LIVE") ?? null;
   return (
     <div className="grid gap-4 xl:grid-cols-[420px_1fr]">
-      <Card className="px-5 py-5">
+      <Card className="px-4 py-5 sm:px-5">
         <div className="flex items-center gap-3">
           <MonitorPlay className="h-5 w-5 text-brand-primary" />
           <h3 className="font-bold text-ink-900">Join by Code</h3>
@@ -1233,7 +1233,7 @@ function JoinSessionModule({ summary }: { summary: ClassroomSummary }) {
           </Button>
         </div>
       </Card>
-      <Card className="px-5 py-5">
+      <Card className="px-4 py-5 sm:px-5">
         <h3 className="font-bold text-ink-900">Live Session</h3>
         {liveSession ? (
           <SessionCard session={liveSession} canManage={false} />
@@ -1296,7 +1296,7 @@ function ParentLinkedStudentsModule({
           icon={ClipboardList}
         />
       </div>
-      <Card className="px-5 py-5">
+      <Card className="px-4 py-5 sm:px-5">
         <h3 className="font-bold text-ink-900">Linked Student Scope</h3>
         <p className="mt-2 text-sm text-ink-500">
           This portal only shows sessions, boards, and reports for students
@@ -1419,7 +1419,7 @@ export function RolePortalPage({
 
   if (!summary || query.isError) {
     return (
-      <Card className="px-5 py-5">
+      <Card className="px-4 py-5 sm:px-5">
         <p className="font-semibold text-ink-900">
           Portal data is unavailable.
         </p>
