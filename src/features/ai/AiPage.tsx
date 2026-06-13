@@ -160,29 +160,38 @@ export function AiPage() {
   useEffect(() => {
     const config = overviewQuery.data?.config;
     if (!config) return;
-    setConfigForm((current) => ({
-      ...current,
-      enabled: config.enabled,
-      googleSearchGroundingEnabled: config.googleSearchGroundingEnabled,
-    }));
+    const timer = window.setTimeout(() => {
+      setConfigForm((current) => ({
+        ...current,
+        enabled: config.enabled,
+        googleSearchGroundingEnabled: config.googleSearchGroundingEnabled,
+      }));
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [overviewQuery.data?.config]);
 
   useEffect(() => {
     if (!overviewQuery.data?.pricing) return;
-    setPricingForm(overviewQuery.data.pricing.map(pricingRowFromSummary));
+    const timer = window.setTimeout(() => {
+      setPricingForm(overviewQuery.data.pricing.map(pricingRowFromSummary));
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [overviewQuery.data?.pricing]);
 
   useEffect(() => {
     const billing = overviewQuery.data?.googleBilling?.config;
     if (!billing) return;
-    setBillingForm({
-      enabled: billing.enabled,
-      projectId: billing.projectId,
-      billingTableProjectId: billing.billingTableProjectId ?? '',
-      billingDatasetId: billing.billingDatasetId ?? '',
-      billingTableName: billing.billingTableName ?? '',
-      monthlyCapUsd: String((billing.monthlyCapMicros ?? 50_000_000) / 1_000_000),
-    });
+    const timer = window.setTimeout(() => {
+      setBillingForm({
+        enabled: billing.enabled,
+        projectId: billing.projectId,
+        billingTableProjectId: billing.billingTableProjectId ?? '',
+        billingDatasetId: billing.billingDatasetId ?? '',
+        billingTableName: billing.billingTableName ?? '',
+        monthlyCapUsd: String((billing.monthlyCapMicros ?? 50_000_000) / 1_000_000),
+      });
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [overviewQuery.data?.googleBilling?.config]);
 
   const configMutation = useMutation({

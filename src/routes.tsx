@@ -1,6 +1,12 @@
 import { createBrowserRouter } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
-import { AdminRoute, AiModuleRoute, ProtectedRoute, RoleRoute } from '@/components/layout/ProtectedRoute';
+import {
+  AdminRoute,
+  AiModuleRoute,
+  ProtectedRoute,
+  RoleRoute,
+  SuperAdminRoute,
+} from '@/components/layout/ProtectedRoute';
 import { SplashScreen } from '@/features/auth/SplashScreen';
 import { LoginScreen } from '@/features/auth/LoginScreen';
 import { SetupPasswordScreen } from '@/features/auth/SetupPasswordScreen';
@@ -40,7 +46,10 @@ export const router = createBrowserRouter([
         element: <AppShell />,
         children: [
           { path: '/settings', element: <SettingsPage /> },
-          { path: '/downloads', element: <DownloadsPage /> },
+          {
+            element: <SuperAdminRoute />,
+            children: [{ path: '/downloads', element: <DownloadsPage /> }],
+          },
           {
             element: <AdminRoute />,
             children: [

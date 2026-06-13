@@ -158,7 +158,10 @@ export function LicensePage() {
 
   useEffect(() => {
     if (!isSuperAdmin && !selectedOrgId && user?.primaryOrganization?.id) {
-      setSelectedOrgId(user.primaryOrganization.id);
+      const timer = window.setTimeout(() => {
+        setSelectedOrgId(user.primaryOrganization?.id ?? null);
+      }, 0);
+      return () => window.clearTimeout(timer);
     }
   }, [isSuperAdmin, selectedOrgId, user?.primaryOrganization?.id]);
 

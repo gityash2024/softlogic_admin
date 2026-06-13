@@ -68,8 +68,8 @@ export function ForgotPasswordScreen() {
             </h1>
             <p className="mt-2 text-sm leading-6 text-ink-500">
               {sentEmail
-                ? `If an admin account exists for ${sentEmail}, a reset link has been sent. Check your inbox.`
-                : 'Enter your admin email and we will send you a secure link to set a new password.'}
+                ? `If an account exists for ${sentEmail}, a reset link has been sent. Check your inbox.`
+                : 'Enter your account email and we will send you a secure link to set a new password.'}
             </p>
 
             {sentEmail ? (

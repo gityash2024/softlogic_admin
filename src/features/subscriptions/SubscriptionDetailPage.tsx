@@ -791,6 +791,97 @@ export function SubscriptionDetailPage() {
         </p>
       </Card>
 
+      <Dialog open={renewOpen} onOpenChange={(open) => (open ? setRenewOpen(true) : closeRenew())}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Renew subscription</DialogTitle>
+            <DialogDescription>
+              Extend {subscription.planName} and optionally record the offline payment reference.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                New end date
+              </label>
+              <Input
+                type="date"
+                value={renewEndDate}
+                onChange={(event) => setRenewEndDate(event.target.value)}
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-ink-700">
+              <input
+                type="checkbox"
+                checked={renewExtendKeys}
+                onChange={(event) => setRenewExtendKeys(event.target.checked)}
+                className="h-4 w-4 rounded border-line text-brand-primary"
+              />
+              Extend existing activation keys
+            </label>
+            <label className="flex items-center gap-2 text-sm text-ink-700">
+              <input
+                type="checkbox"
+                checked={renewRecordPayment}
+                onChange={(event) => setRenewRecordPayment(event.target.checked)}
+                className="h-4 w-4 rounded border-line text-brand-primary"
+              />
+              Record offline payment
+            </label>
+            {renewRecordPayment && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                    Amount
+                  </label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={renewAmount}
+                    onChange={(event) => setRenewAmount(event.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                    Currency
+                  </label>
+                  <Input
+                    value={renewCurrency}
+                    onChange={(event) => setRenewCurrency(event.target.value.toUpperCase())}
+                    maxLength={3}
+                  />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                    Reference note
+                  </label>
+                  <Input
+                    value={renewReference}
+                    onChange={(event) => setRenewReference(event.target.value)}
+                    placeholder="Invoice or receipt reference"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={closeRenew}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              disabled={!renewEndDate || renewMutation.isPending}
+              onClick={submitRenew}
+            >
+              {renewMutation.isPending ? <Spinner className="h-4 w-4" /> : null}
+              Renew subscription
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog
         open={rejectOpen}
         onOpenChange={(open) => {

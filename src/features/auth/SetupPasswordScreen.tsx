@@ -95,7 +95,7 @@ export function SetupPasswordScreen() {
         submit: 'Reset password',
       }
     : {
-        eyebrow: 'Organization Admin',
+        eyebrow: 'Account Setup',
         heading: 'Set your password',
         loadingHint: 'Checking your setup link...',
         readyHint: (email: string) => `Complete setup for ${email}.`,

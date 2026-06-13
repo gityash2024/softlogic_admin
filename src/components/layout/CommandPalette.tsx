@@ -65,12 +65,14 @@ function getNavCommands(role: UserRole | undefined, showAiModule: boolean): NavC
   if (role === 'TEACHER' || role === 'STUDENT' || role === 'PARENT') {
     return [
       { kind: 'nav', to: '/portal', label: 'Portal', hint: 'Role workspace', icon: GraduationCap },
-      { kind: 'nav', to: '/downloads', label: 'Downloads', hint: 'APK and EXE', icon: Download },
     ];
   }
   let items = [...BASE_NAV_ITEMS];
   if (!showAiModule) {
     items = items.filter((item) => item.to !== '/ai');
+  }
+  if (role !== 'SUPER_ADMIN') {
+    items = items.filter((item) => item.to !== '/downloads');
   }
   const insertAt = items.findIndex((item) => item.to === '/license');
   const supportEntry =

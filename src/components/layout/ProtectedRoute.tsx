@@ -45,3 +45,10 @@ export function AiModuleRoute() {
   if (!canAccessAiModule(user)) return <Navigate to="/forbidden" replace />;
   return <Outlet />;
 }
+
+export function SuperAdminRoute() {
+  const { user } = useAuthStore();
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== 'SUPER_ADMIN') return <Navigate to="/forbidden" replace />;
+  return <Outlet />;
+}

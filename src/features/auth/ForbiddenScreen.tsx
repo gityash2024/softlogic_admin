@@ -2,7 +2,6 @@ import { useNavigate } from 'react-router-dom';
 import { ShieldAlert } from 'lucide-react';
 import { useAuthStore } from '@/lib/auth-store';
 import { Button } from '@/components/ui/button';
-import { Logo } from '@/components/brand/Logo';
 
 export function ForbiddenScreen() {
   const navigate = useNavigate();
@@ -16,9 +15,7 @@ export function ForbiddenScreen() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-6">
       <div className="w-full max-w-md text-center">
-        <div className="mb-6 flex justify-center">
-          <Logo />
-        </div>
+        <div className="mb-6 h-9" aria-hidden="true" />
         <div className="rounded-xl border border-line bg-white p-8 shadow-card">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-danger/10">
             <ShieldAlert className="h-7 w-7 text-danger" />

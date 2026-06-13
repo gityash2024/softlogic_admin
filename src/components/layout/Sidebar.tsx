@@ -146,12 +146,6 @@ const getNavItems = (role: UserRole | undefined, showAiModule: boolean) => {
         icon: Files,
       },
       {
-        to: '/downloads',
-        label: 'Downloads',
-        description: 'APK and EXE',
-        icon: Download,
-      },
-      {
         to: '/settings',
         label: 'Settings',
         description: 'Profile and devices',
@@ -192,12 +186,6 @@ const getNavItems = (role: UserRole | undefined, showAiModule: boolean) => {
         icon: ClipboardList,
       },
       {
-        to: '/downloads',
-        label: 'Downloads',
-        description: 'APK and EXE',
-        icon: Download,
-      },
-      {
         to: '/settings',
         label: 'Settings',
         description: 'Profile and devices',
@@ -232,12 +220,6 @@ const getNavItems = (role: UserRole | undefined, showAiModule: boolean) => {
         icon: ClipboardList,
       },
       {
-        to: '/downloads',
-        label: 'Downloads',
-        description: 'APK and EXE',
-        icon: Download,
-      },
-      {
         to: '/settings',
         label: 'Settings',
         description: 'Profile and devices',
@@ -248,6 +230,9 @@ const getNavItems = (role: UserRole | undefined, showAiModule: boolean) => {
   let items = [...BASE_NAV_ITEMS];
   if (!showAiModule) {
     items = items.filter((item) => item.to !== '/ai');
+  }
+  if (role !== 'SUPER_ADMIN') {
+    items = items.filter((item) => item.to !== '/downloads');
   }
   // Customer/Org admins manage a single workspace, so they don't get the
   // Organizations directory — their own org details are shown read-only in
