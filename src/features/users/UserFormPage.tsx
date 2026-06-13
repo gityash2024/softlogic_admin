@@ -38,6 +38,8 @@ import {
 } from '@/components/ui/select';
 import { ConfirmSubmitDialog, type ConfirmRow } from '@/components/ui/confirm-submit-dialog';
 
+const USER_MODULE_ROLES: UserRole[] = ['TEACHER', 'STUDENT', 'PARENT'];
+
 const schema = z.object({
   email: z.string().email('Enter a valid email'),
   name: z.string().min(1, 'Name is required'),
@@ -101,7 +103,9 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
   const pendingAiCreditTokensRef = useRef(0);
   const pendingAiCreditSourceAccountIdRef = useRef<string | null>(null);
   const initializedAiCreditsRef = useRef(false);
-  const allowedRoles = manageableRoles(actor?.role);
+  const allowedRoles = manageableRoles(actor?.role).filter((candidate) =>
+    USER_MODULE_ROLES.includes(candidate),
+  );
   const defaultRole = allowedRoles.includes('TEACHER')
     ? 'TEACHER'
     : (allowedRoles[0] ?? 'TEACHER');
@@ -122,7 +126,7 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
       return {
         email: userData.email,
         name: userData.name ?? '',
-        role: userData.role,
+        role: USER_MODULE_ROLES.includes(userData.role) ? userData.role : defaultRole,
         organizationId: userData.primaryOrganizationId ?? 'NONE',
         status: userData.status,
         timezone: userData.timezone,
@@ -134,7 +138,7 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
     return {
       email: '',
       name: '',
-      role: defaultRole,
+      role: initialOrganizationId !== 'NONE' ? defaultRole : '',
       organizationId: initialOrganizationId,
       status: 'ACTIVE',
       timezone: 'UTC',
@@ -312,6 +316,7 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
   }, [aiOverviewQuery.data, canAssignAiCredits, currentAssignedAiTokens, isEdit, setValue]);
 
   const roleDisabledReason = (candidateRole: UserRole): string | null => {
+    if (!selectedOrganization) return 'Select an organization first';
     const policyReason = rolePolicyBlockReason(selectedOrganization, candidateRole);
     if (policyReason) return policyReason;
     if (!selectedOrganization || !LICENSED_USER_ROLES.includes(candidateRole)) return null;
@@ -329,8 +334,12 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
   };
 
   useEffect(() => {
+    if (organizationId === 'NONE') {
+      if (role) setValue('role', '', { shouldDirty: true });
+      return;
+    }
     const currentRole = role as UserRole;
-    if (!roleDisabledReason(currentRole)) return;
+    if (currentRole && !roleDisabledReason(currentRole)) return;
     const nextRole = allowedRoles.find((candidate) => !roleDisabledReason(candidate));
     if (nextRole) setValue('role', nextRole, { shouldDirty: true });
   // roleDisabledReason is intentionally evaluated from current form/query state.
@@ -347,6 +356,10 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
   const onSubmit = (values: FormValues) => {
     if (values.role === 'STUDENT' || values.role === 'PARENT') {
       values.aiCreditTokens = 0;
+    }
+    if (!values.organizationId || values.organizationId === 'NONE') {
+      toast.error('Select an organization before choosing a role');
+      return;
     }
     if ((values.aiCreditTokens ?? 0) > assignableAiTokens) {
       toast.error(`Only ${assignableAiTokens.toLocaleString('en-IN')} AI credits are assignable`);
@@ -484,13 +497,39 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Organization</label>
+              <Controller
+                control={control}
+                name="organizationId"
+                render={({ field }) => (
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={lockOrganization}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {isSuperAdmin && <SelectItem value="NONE">Select organization</SelectItem>}
+                      {organizations.map((org) => (
+                        <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+            <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Role</label>
               <Controller
                 control={control}
                 name="role"
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={organizationId === 'NONE'}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
                     <SelectContent>
                       {allowedRoles.map((allowedRole) => {
                         const disabledReason = roleDisabledReason(allowedRole);
@@ -521,28 +560,6 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
                     <SelectContent>
                       <SelectItem value="ACTIVE">Active</SelectItem>
                       <SelectItem value="DISABLED">Disabled</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Organization</label>
-              <Controller
-                control={control}
-                name="organizationId"
-                render={({ field }) => (
-                  <Select
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    disabled={lockOrganization}
-                  >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {isSuperAdmin && <SelectItem value="NONE">Unassigned</SelectItem>}
-                      {organizations.map((org) => (
-                        <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
-                      ))}
                     </SelectContent>
                   </Select>
                 )}

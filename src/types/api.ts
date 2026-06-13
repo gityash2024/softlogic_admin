@@ -16,6 +16,8 @@ export type SubscriptionStatus = 'ACTIVE' | 'EXPIRED' | 'CANCELED' | 'TRIAL' | '
 export type BrandingMode = 'SOFTLOGIC' | 'SOFTLOGIC_PARTNER' | 'WHITE_LABEL' | 'MULTI_BRAND';
 export type OrganizationStorageProvider = 'GOOGLE_DRIVE' | 'DROPBOX' | 'ONEDRIVE';
 export type OrganizationStorageStatus = 'NOT_CONFIGURED' | 'PENDING' | 'CONNECTED' | 'INVALID';
+export type StorageCredentialScope = 'GLOBAL' | 'ORGANIZATION';
+export type StorageCredentialSource = StorageCredentialScope | 'ENV_LEGACY' | 'NONE';
 export type PaymentProvider = 'MANUAL';
 export type PaymentProviderMode = 'TEST' | 'LIVE';
 export type LiveSessionStatus = 'SCHEDULED' | 'LIVE' | 'ENDED' | 'CANCELLED';
@@ -385,6 +387,19 @@ export interface OrganizationStorageConnection {
   validatedAt: string | null;
   disconnectedAt: string | null;
   lastError: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StorageCredentialConfig {
+  id: string;
+  provider: OrganizationStorageProvider;
+  scope: StorageCredentialScope;
+  organizationId: string | null;
+  configured: boolean;
+  clientIdPreview: string | null;
+  redirectUri: string | null;
+  configuredById: string | null;
   createdAt: string;
   updatedAt: string;
 }

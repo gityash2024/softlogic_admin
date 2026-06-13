@@ -30,6 +30,7 @@ import {
 import type { UserRole } from '@/types/api';
 import { cn, initials } from '@/lib/utils';
 import { useAuthStore } from '@/lib/auth-store';
+import { runtimeBrandForOrganization } from '@/lib/branding';
 import { canAccessAiModule } from '@/lib/ai-access';
 import { authApi } from '@/services/auth.api';
 import { ROLE_LABEL } from '@/types/api';
@@ -283,9 +284,14 @@ export function Sidebar({
 }: SidebarProps) {
   const navigate = useNavigate();
   const { user, tokens, clear } = useAuthStore();
+  const brand = runtimeBrandForOrganization(user?.primaryOrganization);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const navItems = getNavItems(user?.role, canAccessAiModule(user));
+  const navItems = getNavItems(user?.role, canAccessAiModule(user)).map((item) =>
+    brand.isWhiteLabel && item.to === '/help'
+      ? { ...item, description: 'Ask support' }
+      : item,
+  );
   const showSupportBadge =
     user?.role === 'SUPER_ADMIN' ||
     user?.role === 'PARTNER_ADMIN' ||
@@ -537,7 +543,7 @@ export function Sidebar({
       <ConfirmationDialog
         open={confirmLogout}
         onOpenChange={setConfirmLogout}
-        title="Sign out of SoftLogic?"
+        title={`Sign out of ${brand.name}?`}
         description="Your local session will be cleared on this device. You can sign back in with your account credentials."
         confirmLabel="Sign out"
         tone="warning"

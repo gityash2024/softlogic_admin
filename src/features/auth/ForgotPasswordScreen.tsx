@@ -11,7 +11,6 @@ const RESEND_COOLDOWN_SECONDS = 60;
 
 import { authApi } from '@/services/auth.api';
 import { extractApiError } from '@/lib/api';
-import { BlueprintBackdrop, Logo } from '@/components/brand/Logo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
@@ -59,16 +58,8 @@ export function ForgotPasswordScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F7FB] p-3 sm:p-4">
-      <div className="relative flex min-h-[calc(100vh-1.5rem)] overflow-hidden rounded-[28px] border border-line bg-white shadow-2xl sm:min-h-[calc(100vh-2rem)]">
-        <div className="absolute inset-0 hidden bg-brand-navy lg:block">
-          <BlueprintBackdrop />
-        </div>
-        <main className="relative z-10 mx-auto flex w-full max-w-[520px] items-center px-4 py-8 sm:px-5 sm:py-10">
-          <div className="w-full rounded-2xl border border-line bg-white px-4 py-7 shadow-xl sm:px-8">
-            <div className="mb-7 flex justify-center">
-              <Logo />
-            </div>
+    <div className="flex min-h-screen items-center justify-center bg-[#F5F7FB] px-4 py-8">
+      <main className="w-full max-w-[520px] rounded-lg border border-line bg-white px-5 py-7 shadow-xl sm:px-8">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-primary">
               Forgot password
             </p>
@@ -158,9 +149,7 @@ export function ForgotPasswordScreen() {
                 </Link>
               </form>
             )}
-          </div>
-        </main>
-      </div>
+      </main>
     </div>
   );
 }

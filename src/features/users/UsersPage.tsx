@@ -81,14 +81,10 @@ import {
 
 const PER_PAGE = 20;
 
-const ALL_USER_ROLES: UserRole[] = [
+const USER_MODULE_ROLES: UserRole[] = [
   'STUDENT',
   'TEACHER',
   'PARENT',
-  'CUSTOMER_ADMIN',
-  'PARTNER_ADMIN',
-  'ADMIN',
-  'SUPER_ADMIN',
 ];
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -150,7 +146,7 @@ function parseInviteCsv(text: string): ParsedInviteRow[] {
       row.error = 'Invalid email';
     } else if (!role) {
       row.error = 'Missing role';
-    } else if (!ALL_USER_ROLES.includes(role as UserRole)) {
+    } else if (!USER_MODULE_ROLES.includes(role as UserRole)) {
       row.error = `Unknown role "${role}"`;
     }
     rows.push(row);
@@ -175,7 +171,9 @@ export function UsersPage() {
   const [bulkResult, setBulkResult] = useState<BulkInviteResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const allowedRoles = manageableRoles(actor?.role);
+  const allowedRoles = manageableRoles(actor?.role).filter((candidate) =>
+    USER_MODULE_ROLES.includes(candidate),
+  );
   const page = numberParam(params.get('page'), 1);
   const search = params.get('search') ?? '';
   const role = params.get('role') ?? 'ALL';
@@ -947,7 +945,7 @@ export function UsersPage() {
               <code className="rounded bg-surface-variant px-1 py-0.5 text-xs text-ink-700">
                 email,name,role[,organizationId]
               </code>
-              . Roles must be one of: {ALL_USER_ROLES.join(', ')}.
+              . Roles must be one of: {USER_MODULE_ROLES.join(', ')}.
             </DialogDescription>
           </DialogHeader>
 

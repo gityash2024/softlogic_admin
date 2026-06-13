@@ -129,6 +129,8 @@ function OrganizationFormEditor({
   const initializedAiCreditsRef = useRef(false);
   const { allowedKinds } = canCreateOrganizationKind(actor?.role);
   const isSuperAdmin = actor?.role === 'SUPER_ADMIN';
+  const canConfigureLaunchPolicies =
+    isSuperAdmin || (actor?.role === 'PARTNER_ADMIN' && !isEdit);
   const canConfigureStorage =
     actor?.role === 'SUPER_ADMIN' || actor?.role === 'PARTNER_ADMIN';
   const aiOverviewQuery = useQuery({
@@ -212,6 +214,16 @@ function OrganizationFormEditor({
     defaultValues,
   });
   const [selectedLogoFile, setSelectedLogoFile] = useState<File | null>(null);
+  const selectedLogoPreviewUrl = useMemo(
+    () => (selectedLogoFile ? URL.createObjectURL(selectedLogoFile) : null),
+    [selectedLogoFile],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (selectedLogoPreviewUrl) URL.revokeObjectURL(selectedLogoPreviewUrl);
+    };
+  }, [selectedLogoPreviewUrl]);
 
   const createMutation = useMutation({
     mutationFn: organizationsApi.create,
@@ -423,7 +435,7 @@ function OrganizationFormEditor({
   };
 
   const onSubmit = (values: FormValues) => {
-    if (isSuperAdmin) {
+    if (canConfigureLaunchPolicies) {
       const hasMode =
         Boolean(values.studentLoginEnabled) ||
         Boolean(values.parentLoginEnabled) ||
@@ -461,6 +473,11 @@ function OrganizationFormEditor({
     setConfirmOpen(true);
   };
 
+  const partnerLimitFor = (field: 'teacherUserLimit' | 'studentUserLimit' | 'parentUserLimit') =>
+    actor?.role === 'PARTNER_ADMIN'
+      ? actor.primaryOrganization?.[field] ?? undefined
+      : undefined;
+
   const runSubmit = () => {
     const values = pendingValues;
     if (!values) return;
@@ -468,7 +485,9 @@ function OrganizationFormEditor({
       ? Number(values.aiCreditTokens ?? 0)
       : null;
     pendingAiCreditSourceAccountIdRef.current = canAssignOrgAiCredits
-      ? sourceAiAccount?.id ?? null
+      ? sourceAiAccount?.id === 'master'
+        ? null
+        : sourceAiAccount?.id ?? null
       : null;
     const normalizedTeacherOnly = Boolean(values.teacherOnlyMode);
     const normalizedParentLogin =
@@ -476,16 +495,20 @@ function OrganizationFormEditor({
     const normalizedStudentLogin =
       !normalizedTeacherOnly &&
       (Boolean(values.studentLoginEnabled) || normalizedParentLogin);
-    const commercialPayload = isSuperAdmin
+    const commercialPayload = canConfigureLaunchPolicies
       ? {
-          brandingMode: values.brandingMode as BrandingMode,
-          brandName: values.brandName?.trim() ? values.brandName.trim() : null,
-          brandPrimaryColor: values.brandPrimaryColor?.trim()
-            ? values.brandPrimaryColor.trim()
-            : null,
-          brandAccentColor: values.brandAccentColor?.trim()
-            ? values.brandAccentColor.trim()
-            : null,
+          ...(isSuperAdmin
+            ? {
+                brandingMode: values.brandingMode as BrandingMode,
+                brandName: values.brandName?.trim() ? values.brandName.trim() : null,
+                brandPrimaryColor: values.brandPrimaryColor?.trim()
+                  ? values.brandPrimaryColor.trim()
+                  : null,
+                brandAccentColor: values.brandAccentColor?.trim()
+                  ? values.brandAccentColor.trim()
+                  : null,
+              }
+            : {}),
           studentLoginEnabled: normalizedStudentLogin,
           parentLoginEnabled: normalizedParentLogin,
           sessionOnlyJoinEnabled: Boolean(values.sessionOnlyJoinEnabled),
@@ -578,6 +601,8 @@ function OrganizationFormEditor({
         if (v.brandAccentColor?.trim())
           rows.push({ label: 'Accent color', value: v.brandAccentColor.trim() });
       }
+    }
+    if (canConfigureLaunchPolicies) {
       rows.push({ label: 'Student login', value: v.studentLoginEnabled ? 'Enabled' : 'Disabled' });
       rows.push({ label: 'Parent login', value: v.parentLoginEnabled ? 'Enabled' : 'Disabled' });
       rows.push({
@@ -733,7 +758,8 @@ function OrganizationFormEditor({
               <Input
                 type="number"
                 min={0}
-                disabled={!isSuperAdmin}
+                disabled={!canConfigureLaunchPolicies}
+                max={partnerLimitFor('teacherUserLimit')}
                 {...register('teacherUserLimit', { valueAsNumber: true })}
               />
               {errors.teacherUserLimit && (
@@ -745,7 +771,8 @@ function OrganizationFormEditor({
               <Input
                 type="number"
                 min={0}
-                disabled={!isSuperAdmin || teacherOnlyMode || !studentLoginEnabled}
+                disabled={!canConfigureLaunchPolicies || teacherOnlyMode || !studentLoginEnabled}
+                max={partnerLimitFor('studentUserLimit')}
                 {...register('studentUserLimit', { valueAsNumber: true })}
               />
               {errors.studentUserLimit && (
@@ -757,7 +784,8 @@ function OrganizationFormEditor({
               <Input
                 type="number"
                 min={0}
-                disabled={!isSuperAdmin || teacherOnlyMode || !parentLoginEnabled}
+                disabled={!canConfigureLaunchPolicies || teacherOnlyMode || !parentLoginEnabled}
+                max={partnerLimitFor('parentUserLimit')}
                 {...register('parentUserLimit', { valueAsNumber: true })}
               />
               {errors.parentUserLimit && (
@@ -814,31 +842,36 @@ function OrganizationFormEditor({
         <Card className="space-y-5 px-4 py-5 sm:px-6">
           <div>
             <h3 className="text-base font-bold text-ink-900">Launch Policies</h3>
-            <p className="text-sm text-ink-500">Commercial login, branding, and storage controls for production.</p>
+            <p className="text-sm text-ink-500">
+              {isSuperAdmin
+                ? 'Commercial login, branding, and storage controls for production.'
+                : 'Commercial login and storage controls for production.'}
+            </p>
           </div>
           <div className="grid gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Branding mode</label>
-              <Select
-                disabled={!isSuperAdmin}
-                value={brandingMode}
-                onValueChange={(value) => setValue('brandingMode', value)}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="SOFTLOGIC">SoftLogic</SelectItem>
-                  <SelectItem value="WHITE_LABEL">White-label</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {isSuperAdmin && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Branding mode</label>
+                <Select
+                  value={brandingMode}
+                  onValueChange={(value) => setValue('brandingMode', value)}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SOFTLOGIC">SoftLogic</SelectItem>
+                    <SelectItem value="WHITE_LABEL">White-label</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {isSuperAdmin && (
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Brand logo</label>
                 <div className="flex items-center gap-3 rounded-lg border border-line bg-white px-3 py-2">
-                  {organization?.logoUrl ? (
+                  {selectedLogoPreviewUrl || organization?.logoUrl ? (
                     <img
-                      src={organization.logoUrl}
+                      src={selectedLogoPreviewUrl ?? organization?.logoUrl ?? ''}
                       alt="Organization logo"
                       className="h-10 w-10 rounded object-contain"
                     />
@@ -899,8 +932,7 @@ function OrganizationFormEditor({
               </div>
             )}
 
-            {/* White-label identity is editable by Super Admin and read-only to other admins. */}
-            {isWhiteLabel && (
+            {isSuperAdmin && isWhiteLabel && (
               <div className="space-y-4 rounded-lg border border-line bg-surface-variant p-3">
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Brand name</label>
@@ -1018,7 +1050,13 @@ function OrganizationFormEditor({
                   <input
                     type="checkbox"
                     disabled={
-                      !isSuperAdmin ||
+                      !canConfigureLaunchPolicies ||
+                      (actor?.role === 'PARTNER_ADMIN' &&
+                        name === 'studentLoginEnabled' &&
+                        !actor.primaryOrganization?.studentLoginEnabled) ||
+                      (actor?.role === 'PARTNER_ADMIN' &&
+                        name === 'parentLoginEnabled' &&
+                        !actor.primaryOrganization?.parentLoginEnabled) ||
                       (teacherOnlyMode &&
                         (name === 'studentLoginEnabled' ||
                           name === 'parentLoginEnabled'))

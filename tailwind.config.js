@@ -46,13 +46,13 @@ export default {
           foreground: 'hsl(var(--card-foreground))',
         },
         brand: {
-          navy: '#08357C',
+          navy: 'var(--brand-navy)',
           'navy-soft': '#0C418F',
-          primary: '#1149B5',
-          blue: '#2563EB',
-          'blue-dark': '#1D4ED8',
+          primary: 'var(--brand-primary)',
+          blue: 'var(--brand-blue)',
+          'blue-dark': 'var(--brand-blue-dark)',
           'blue-light': '#60A5FA',
-          orange: '#FF7A00',
+          orange: 'var(--brand-orange)',
           purple: '#7C3AED',
         },
         surface: {

@@ -6,6 +6,7 @@ import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { CommandPalette } from './CommandPalette';
 import { useAuthStore } from '@/lib/auth-store';
+import { runtimeBrandForOrganization, runtimeBrandStyle } from '@/lib/branding';
 
 function ImpersonationBanner() {
   const impersonation = useAuthStore((s) => s.impersonation);
@@ -44,6 +45,8 @@ function ImpersonationBanner() {
 export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const user = useAuthStore((state) => state.user);
+  const brand = runtimeBrandForOrganization(user?.primaryOrganization);
 
   useEffect(() => {
     const scrollRoots = [document.documentElement, document.body, document.getElementById('root')]
@@ -68,7 +71,10 @@ export function AppShell() {
   }, []);
 
   return (
-    <div className="flex h-dvh min-h-0 overflow-hidden bg-[#F5F7FB] admin-grid-bg">
+    <div
+      className="flex h-dvh min-h-0 overflow-hidden bg-[#F5F7FB] admin-grid-bg"
+      style={runtimeBrandStyle(brand)}
+    >
       <Sidebar
         open={sidebarOpen}
         onOpenChange={setSidebarOpen}

@@ -38,6 +38,11 @@
     --ring: 215 84% 39%;
 
     --radius: 12px;
+    --brand-navy: #08357C;
+    --brand-primary: #1149B5;
+    --brand-blue: #2563EB;
+    --brand-blue-dark: #1D4ED8;
+    --brand-orange: #FF7A00;
   }
 
   * {

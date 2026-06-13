@@ -1,4 +1,6 @@
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/lib/auth-store';
+import { runtimeBrandForOrganization } from '@/lib/branding';
 import appIcon from '@/assets/brand/app-icon.png';
 import logoLight from '@/assets/brand/softlogic-logo.png';
 
@@ -13,6 +15,44 @@ export function Logo({
   variant = 'dark',
   withWordmark = true,
 }: LogoProps) {
+  const user = useAuthStore((state) => state.user);
+  const brand = runtimeBrandForOrganization(user?.primaryOrganization);
+
+  if (brand.isWhiteLabel) {
+    const mark = brand.logoUrl ? (
+      <img
+        src={brand.logoUrl}
+        alt={brand.name}
+        className="block h-9 w-9 rounded-xl object-contain"
+      />
+    ) : (
+      <span
+        className={cn(
+          'flex h-9 w-9 items-center justify-center rounded-xl text-sm font-black',
+          variant === 'light' ? 'bg-white/15 text-white' : 'bg-brand-primary text-white',
+        )}
+      >
+        {brand.name.slice(0, 1).toUpperCase()}
+      </span>
+    );
+
+    return (
+      <div className={cn('inline-flex min-w-0 items-center gap-2.5', className)}>
+        {mark}
+        {withWordmark && (
+          <span
+            className={cn(
+              'truncate text-lg font-black tracking-normal',
+              variant === 'light' ? 'text-white' : 'text-brand-navy',
+            )}
+          >
+            {brand.name}
+          </span>
+        )}
+      </div>
+    );
+  }
+
   if (!withWordmark) {
     return (
       <div className={cn('inline-flex items-center', className)}>

@@ -1,6 +1,7 @@
 import { useLocation } from 'react-router-dom';
 import { CalendarDays, Menu, ShieldCheck } from 'lucide-react';
 import { useAuthStore } from '@/lib/auth-store';
+import { runtimeBrandForOrganization } from '@/lib/branding';
 import { ROLE_LABEL } from '@/types/api';
 import { Button } from '@/components/ui/button';
 
@@ -104,6 +105,7 @@ interface TopbarProps {
 export function Topbar({ onMenuClick }: TopbarProps) {
   const location = useLocation();
   const { user } = useAuthStore();
+  const brand = runtimeBrandForOrganization(user?.primaryOrganization);
   const meta = PATH_TO_TITLE[location.pathname] ??
     (location.pathname.startsWith('/users/')
       ? { title: 'User Form', subtitle: 'Create or edit account access' }
@@ -119,8 +121,12 @@ export function Topbar({ onMenuClick }: TopbarProps) {
             }
           : {
     title: 'SoftLogic Console',
-    subtitle: 'SoftLogic workspace operations',
+            subtitle: `${brand.name} workspace operations`,
           });
+  const displayMeta =
+    brand.isWhiteLabel && location.pathname === '/downloads'
+      ? { ...meta, subtitle: 'AI Smart Board Android and Windows installers' }
+      : meta;
 
   return (
     <header className="sticky top-0 z-30 border-b border-line/80 bg-white/90 px-3 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
@@ -138,14 +144,14 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <h1 className="truncate text-lg font-bold text-ink-900 sm:text-xl">
-                {meta.title}
+                {displayMeta.title}
               </h1>
               <span className="hidden rounded-full border border-brand-primary/15 bg-brand-primary/10 px-2 py-0.5 text-xs font-semibold text-brand-primary sm:inline-flex">
                 Live
               </span>
             </div>
             <p className="truncate text-xs text-ink-500 sm:text-sm">
-              {meta.subtitle}
+              {displayMeta.subtitle}
             </p>
           </div>
         </div>
