@@ -16,6 +16,17 @@ export interface DownloadRelease {
   title?: string;
   summary?: string;
   artifacts: DownloadArtifact[];
+  downloadGroups?: Array<{
+    title: string;
+    badge?: string;
+    description?: string;
+    artifacts: Array<{
+      format: string;
+      label: string;
+      href: string;
+      description?: string;
+    }>;
+  }>;
 }
 
 interface SoftlogicReleaseManifest {

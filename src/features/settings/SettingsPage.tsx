@@ -35,6 +35,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { formatDateTime, initials } from '@/lib/utils';
+import { StorageIntegrationsCard } from './StorageIntegrationsCard';
 
 const passwordSchema = z
   .object({
@@ -428,6 +429,8 @@ export function SettingsPage() {
             )}
           </div>
         </Card>
+
+        <StorageIntegrationsCard />
 
         {showOrgCard && org && (
           <Card>

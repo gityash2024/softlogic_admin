@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Download, MonitorDown, Smartphone } from 'lucide-react';
 
 import { downloadsApi, type DownloadArtifact } from '@/services/downloads.api';
+import { useAuthStore } from '@/lib/auth-store';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +15,7 @@ function artifactIcon(artifact: DownloadArtifact) {
 }
 
 export function DownloadsPage() {
+  const { user } = useAuthStore();
   const query = useQuery({
     queryKey: ['downloads', 'current-release'],
     queryFn: downloadsApi.currentRelease,
@@ -40,10 +42,40 @@ export function DownloadsPage() {
   }
 
   const release = query.data;
-  const artifacts = release.artifacts.filter((artifact) =>
-    ['APK', 'EXE'].includes(artifact.format) &&
-    artifact.platform.toLowerCase().startsWith('softlogic'),
-  );
+  const showBoth =
+    user?.role === 'SUPER_ADMIN' &&
+    user.email.trim().toLowerCase() === 'anirudha@softlogic.co.in';
+  const whiteLabel = user?.primaryOrganization?.brandingMode === 'WHITE_LABEL';
+  const groupNames = showBoth
+    ? ['SoftLogic', 'AI Smart Board']
+    : [whiteLabel ? 'AI Smart Board' : 'SoftLogic'];
+  const groupedArtifacts: DownloadArtifact[] = (release.downloadGroups ?? [])
+    .filter((group) => groupNames.includes(group.title))
+    .flatMap((group) =>
+      group.artifacts
+        .filter((artifact) => ['APK', 'EXE'].includes(artifact.format))
+        .map((artifact) => ({
+          platform: `${group.title} ${artifact.format === 'APK' ? 'Android' : 'Windows'}`,
+          format: artifact.format,
+          label: artifact.label,
+          href: artifact.href,
+          description:
+            artifact.description ??
+            `${group.title} ${artifact.format} installer for the current production release.`,
+        })),
+    );
+  const artifacts = groupedArtifacts.length
+    ? groupedArtifacts
+    : release.artifacts.filter((artifact) => {
+        if (!['APK', 'EXE'].includes(artifact.format)) return false;
+        const platform = artifact.platform.toLowerCase();
+        if (showBoth) {
+          return platform.startsWith('softlogic') || platform.startsWith('ai smart board');
+        }
+        return whiteLabel
+          ? platform.startsWith('ai smart board')
+          : platform.startsWith('softlogic');
+      });
 
   return (
     <div className="space-y-5">
@@ -51,13 +83,13 @@ export function DownloadsPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/60">
-              SoftLogic Whiteboard
+              {showBoth ? 'SoftLogic & AI Smart Board' : whiteLabel ? 'AI Smart Board' : 'SoftLogic Whiteboard'}
             </p>
             <h2 className="mt-2 text-2xl font-black text-white">
               {release.version} Downloads
             </h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-white/72">
-              Android and Windows installers are loaded from the published SoftLogic release manifest.
+              Android and Windows installers are loaded from the published production release manifest.
             </p>
           </div>
           <Badge variant="info" className="w-fit border-white/20 bg-white/10 text-white">

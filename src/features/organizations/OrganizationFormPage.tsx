@@ -144,7 +144,8 @@ function OrganizationFormEditor({
         kind: organization.kind,
         parentOrganizationId: organization.parentOrganizationId ?? 'NONE',
         status: organization.status,
-        brandingMode: organization.brandingMode,
+        brandingMode:
+          organization.brandingMode === 'WHITE_LABEL' ? 'WHITE_LABEL' : 'SOFTLOGIC',
         brandName: organization.brandName ?? '',
         brandPrimaryColor: organization.brandPrimaryColor ?? '',
         brandAccentColor: organization.brandAccentColor ?? '',
@@ -210,10 +211,20 @@ function OrganizationFormEditor({
     resolver: zodResolver(schema),
     defaultValues,
   });
+  const [selectedLogoFile, setSelectedLogoFile] = useState<File | null>(null);
 
   const createMutation = useMutation({
     mutationFn: organizationsApi.create,
     onSuccess: async (created) => {
+      if (selectedLogoFile) {
+        try {
+          await organizationsApi.uploadLogo(created.id, selectedLogoFile);
+        } catch (error) {
+          toast.warning(
+            `Organization created, but the logo could not be uploaded: ${extractApiError(error)}`,
+          );
+        }
+      }
       const tokensToAllocate = pendingAiCreditTokensRef.current;
       const sourceAccountId = pendingAiCreditSourceAccountIdRef.current;
       pendingAiCreditTokensRef.current = 0;
@@ -312,7 +323,7 @@ function OrganizationFormEditor({
   const parentUserLimit = Number(watch('parentUserLimit') ?? 0);
   const totalUserLimit = teacherUserLimit + studentUserLimit + parentUserLimit;
   const submitting = createMutation.isPending || updateMutation.isPending;
-  const isWhiteLabel = brandingMode !== 'SOFTLOGIC';
+  const isWhiteLabel = brandingMode === 'WHITE_LABEL';
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingValues, setPendingValues] = useState<FormValues | null>(null);
   const sourceAiAccount =
@@ -815,15 +826,80 @@ function OrganizationFormEditor({
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {Object.entries(BRANDING_MODE_LABEL).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>{label}</SelectItem>
-                  ))}
+                  <SelectItem value="SOFTLOGIC">SoftLogic</SelectItem>
+                  <SelectItem value="WHITE_LABEL">White-label</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {/* White-label identity: only meaningful when branding != SoftLogic.
-                Editable by Super Admin, shown read-only to other admins. */}
+            {isSuperAdmin && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Brand logo</label>
+                <div className="flex items-center gap-3 rounded-lg border border-line bg-white px-3 py-2">
+                  {organization?.logoUrl ? (
+                    <img
+                      src={organization.logoUrl}
+                      alt="Organization logo"
+                      className="h-10 w-10 rounded object-contain"
+                    />
+                  ) : (
+                    <div className="flex h-10 w-10 items-center justify-center rounded bg-surface-variant text-ink-400">
+                      <ImageIcon className="h-5 w-5" />
+                    </div>
+                  )}
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) {
+                        if (isEdit) uploadLogoMutation.mutate(file);
+                        else setSelectedLogoFile(file);
+                      }
+                      event.target.value = '';
+                    }}
+                  />
+                  <div className="min-w-0 flex-1">
+                    {selectedLogoFile && !isEdit && (
+                      <p className="mb-1 truncate text-xs text-ink-500">{selectedLogoFile.name}</p>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => logoInputRef.current?.click()}
+                        disabled={uploadLogoMutation.isPending}
+                      >
+                        {uploadLogoMutation.isPending
+                          ? 'Uploading...'
+                          : organization?.logoUrl || selectedLogoFile
+                            ? 'Replace'
+                            : 'Upload'}
+                      </Button>
+                      {(organization?.logoUrl || selectedLogoFile) && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (isEdit && organization?.logoUrl) removeLogoMutation.mutate();
+                            else setSelectedLogoFile(null);
+                          }}
+                          disabled={removeLogoMutation.isPending}
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* White-label identity is editable by Super Admin and read-only to other admins. */}
             {isWhiteLabel && (
               <div className="space-y-4 rounded-lg border border-line bg-surface-variant p-3">
                 <div className="space-y-1.5">
@@ -869,57 +945,6 @@ function OrganizationFormEditor({
                     </div>
                   </div>
                 </div>
-                {isEdit && isSuperAdmin && (
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Brand logo</label>
-                    <div className="flex items-center gap-3 rounded-lg border border-line bg-white px-3 py-2">
-                      {organization?.logoUrl ? (
-                        <img
-                          src={organization.logoUrl}
-                          alt="Organization logo"
-                          className="h-10 w-10 rounded object-contain"
-                        />
-                      ) : (
-                        <div className="flex h-10 w-10 items-center justify-center rounded bg-surface-variant text-ink-400">
-                          <ImageIcon className="h-5 w-5" />
-                        </div>
-                      )}
-                      <input
-                        ref={logoInputRef}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(event) => {
-                          const file = event.target.files?.[0];
-                          if (file) uploadLogoMutation.mutate(file);
-                          event.target.value = '';
-                        }}
-                      />
-                      <div className="flex items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => logoInputRef.current?.click()}
-                          disabled={uploadLogoMutation.isPending}
-                        >
-                          {uploadLogoMutation.isPending ? 'Uploading…' : 'Upload'}
-                        </Button>
-                        {organization?.logoUrl && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeLogoMutation.mutate()}
-                            disabled={removeLogoMutation.isPending}
-                          >
-                            Remove
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 
