@@ -26,12 +26,16 @@ import {
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { extractApiError } from '@/lib/api';
+import { useAuthStore } from '@/lib/auth-store';
+import { runtimeBrandForOrganization } from '@/lib/branding';
 import {
+  currentAdminEnvironment,
   downloadsApi,
   type AppRelease,
   type AppReleaseBrand,
   type AppReleaseEnvironment,
   type AppReleasePlatform,
+  type CurrentAppDownload,
   type PublishReleaseArtifact,
 } from '@/services/downloads.api';
 
@@ -88,6 +92,16 @@ const nextPatchVersion = (version: string) => {
 };
 
 export function DownloadsPage() {
+  const user = useAuthStore((state) => state.user);
+
+  if (user?.role !== 'SUPER_ADMIN') {
+    return <BrandDownloadsPage />;
+  }
+
+  return <SuperAdminDownloadsPage />;
+}
+
+function SuperAdminDownloadsPage() {
   const queryClient = useQueryClient();
   const [publishOpen, setPublishOpen] = useState(false);
   const [editing, setEditing] = useState<AppRelease | null>(null);
@@ -410,6 +424,140 @@ export function DownloadsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function BrandDownloadsPage() {
+  const user = useAuthStore((state) => state.user);
+  const runtimeBrand = runtimeBrandForOrganization(user?.primaryOrganization);
+  const environment = currentAdminEnvironment();
+  const releaseBrand: AppReleaseBrand = runtimeBrand.isWhiteLabel
+    ? 'ai_smart_board'
+    : 'softlogic';
+  const displayName = releaseBrand === 'ai_smart_board' ? 'AI Smart Board' : 'SoftLogic';
+
+  const downloadsQuery = useQuery({
+    queryKey: ['app-downloads', environment, releaseBrand],
+    queryFn: () =>
+      downloadsApi.current({
+        environment,
+        brand: releaseBrand,
+      }),
+  });
+
+  const downloadsByPlatform = useMemo(
+    () =>
+      new Map(
+        (downloadsQuery.data ?? []).map((release) => [release.platform, release]),
+      ),
+    [downloadsQuery.data],
+  );
+
+  if (downloadsQuery.isLoading) {
+    return (
+      <div className="flex min-h-[420px] items-center justify-center">
+        <Spinner className="h-6 w-6 text-brand-primary" />
+      </div>
+    );
+  }
+
+  if (downloadsQuery.isError) {
+    return (
+      <Card className="p-5">
+        <Badge variant="danger">Downloads unavailable</Badge>
+        <p className="mt-3 text-sm text-ink-500">
+          {extractApiError(downloadsQuery.error)}
+        </p>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <section className="rounded-lg border border-line bg-white p-5">
+        <Badge variant={environment === 'production' ? 'success' : 'navy'}>
+          {environment}
+        </Badge>
+        <h2 className="mt-3 text-2xl font-black text-ink-900">
+          {displayName} downloads
+        </h2>
+        <p className="mt-1 max-w-2xl text-sm leading-6 text-ink-500">
+          Download the latest Android APK and Windows EXE for your workspace.
+        </p>
+      </section>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <DownloadCard
+          title={`${displayName} Android APK`}
+          icon={<Smartphone className="h-5 w-5" />}
+          release={downloadsByPlatform.get('android')}
+        />
+        <DownloadCard
+          title={`${displayName} Windows EXE`}
+          icon={<MonitorDown className="h-5 w-5" />}
+          release={downloadsByPlatform.get('windows')}
+        />
+      </div>
+    </div>
+  );
+}
+
+function DownloadCard({
+  title,
+  icon,
+  release,
+}: {
+  title: string;
+  icon: ReactNode;
+  release?: CurrentAppDownload;
+}) {
+  return (
+    <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
+      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
+        {icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap gap-2">
+          {release ? (
+            <Badge>
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Current
+            </Badge>
+          ) : (
+            <Badge variant="danger">Not available</Badge>
+          )}
+        </div>
+        <h3 className="mt-2 text-lg font-black text-ink-900">{title}</h3>
+        {release ? (
+          <>
+            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-500">
+              <span>v{release.versionName}+{release.buildNumber}</span>
+              <span className="inline-flex items-center gap-1">
+                <CalendarDays className="h-3.5 w-3.5" />
+                {release.releaseDate}
+              </span>
+            </div>
+            {release.notes && (
+              <p className="mt-2 line-clamp-2 text-sm leading-6 text-ink-500">
+                {release.notes}
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="mt-1 text-sm text-ink-500">
+            The latest installer has not been published yet.
+          </p>
+        )}
+      </div>
+      {release && (
+        <Button asChild>
+          <a href={release.downloadUrl} target="_blank" rel="noreferrer">
+            <Download className="h-4 w-4" />
+            Download
+          </a>
+        </Button>
+      )}
+    </Card>
   );
 }
 

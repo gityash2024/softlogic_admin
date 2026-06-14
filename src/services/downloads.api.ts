@@ -21,6 +21,17 @@ export interface AppRelease {
   updatedAt: string;
 }
 
+export interface CurrentAppDownload {
+  environment: AppReleaseEnvironment;
+  brand: AppReleaseBrand;
+  platform: AppReleasePlatform;
+  versionName: string;
+  buildNumber: number;
+  releaseDate: string;
+  notes: string | null;
+  downloadUrl: string;
+}
+
 export interface PublishReleaseArtifact {
   environment: AppReleaseEnvironment;
   brand: AppReleaseBrand;
@@ -46,7 +57,23 @@ export interface UpdateReleasePayload {
   isActive?: boolean;
 }
 
+export const currentAdminEnvironment = (): AppReleaseEnvironment => {
+  const configured = String(import.meta.env.VITE_API_BASE_URL ?? '').toLowerCase();
+  return configured.includes('api.softeractive.com') ? 'production' : 'staging';
+};
+
 export const downloadsApi = {
+  current: async (params: {
+    environment: AppReleaseEnvironment;
+    brand: AppReleaseBrand;
+  }) => {
+    const response = await api.get<ApiResponse<CurrentAppDownload[]>>(
+      '/app-updates/current',
+      { params },
+    );
+    return response.data.data;
+  },
+
   list: async () => {
     const response = await api.get<ApiResponse<AppRelease[]>>('/admin/app-releases');
     return response.data.data;

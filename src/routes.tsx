@@ -5,7 +5,6 @@ import {
   AiModuleRoute,
   ProtectedRoute,
   RoleRoute,
-  SuperAdminRoute,
 } from '@/components/layout/ProtectedRoute';
 import { SplashScreen } from '@/features/auth/SplashScreen';
 import { LoginScreen } from '@/features/auth/LoginScreen';
@@ -46,10 +45,7 @@ export const router = createBrowserRouter([
         element: <AppShell />,
         children: [
           { path: '/settings', element: <SettingsPage /> },
-          {
-            element: <SuperAdminRoute />,
-            children: [{ path: '/downloads', element: <DownloadsPage /> }],
-          },
+          { path: '/downloads', element: <DownloadsPage /> },
           {
             element: <AdminRoute />,
             children: [
