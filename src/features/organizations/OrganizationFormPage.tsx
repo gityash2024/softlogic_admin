@@ -134,8 +134,8 @@ function OrganizationFormEditor({
   const canConfigureStorage =
     actor?.role === 'SUPER_ADMIN' || actor?.role === 'PARTNER_ADMIN';
   const aiOverviewQuery = useQuery({
-    queryKey: ['ai-overview'],
-    queryFn: aiApi.overview,
+    queryKey: ['ai-allocation-overview'],
+    queryFn: aiApi.allocationOverview,
   });
 
   const defaultValues: FormValues = useMemo(() => {
@@ -251,7 +251,7 @@ function OrganizationFormEditor({
         });
       }
       queryClient.invalidateQueries({ queryKey: ['organizations'] });
-      queryClient.invalidateQueries({ queryKey: ['ai-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['ai-allocation-overview'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
       if (created.setupEmailSent === false) {
         toast.warning('Organization created, but setup email could not be delivered');
@@ -283,7 +283,7 @@ function OrganizationFormEditor({
         });
       }
       queryClient.invalidateQueries({ queryKey: ['organizations'] });
-      queryClient.invalidateQueries({ queryKey: ['ai-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['ai-allocation-overview'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
       if (updated.setupEmailSent === false) {
         toast.warning('Organization updated, but setup email could not be delivered');

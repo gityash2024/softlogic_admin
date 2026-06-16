@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { io } from 'socket.io-client';
-import { BrainCircuit, CheckCircle2, CloudCog, Database, KeyRound, RefreshCw, Save, Send, Wallet } from 'lucide-react';
+import { BrainCircuit, CheckCircle2, CloudCog, Database, KeyRound, RefreshCw, Save, Send, Undo2, Wallet } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -110,6 +110,12 @@ export function AiPage() {
   });
   const [topUpTokens, setTopUpTokens] = useState('');
   const [allocation, setAllocation] = useState({
+    targetType: 'ORGANIZATION',
+    organizationId: '',
+    userId: '',
+    amountTokens: '',
+  });
+  const [reclaim, setReclaim] = useState({
     targetType: 'ORGANIZATION',
     organizationId: '',
     userId: '',
@@ -298,6 +304,7 @@ export function AiPage() {
       toast.success('AI credits allocated');
       setAllocation((current) => ({ ...current, amountTokens: '' }));
       queryClient.invalidateQueries({ queryKey: ['ai-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['ai-allocation-overview'] });
     },
     onError: (error) => toast.error(extractApiError(error)),
   });
@@ -309,6 +316,44 @@ export function AiPage() {
       : data && allocation.targetType === 'USER' && allocation.userId
         ? accountForUser(data, allocation.userId)
         : null;
+  const selectedReclaimAccount =
+    data && reclaim.targetType === 'ORGANIZATION' && reclaim.organizationId
+      ? accountForOrg(data, reclaim.organizationId)
+      : data && reclaim.targetType === 'USER' && reclaim.userId
+        ? accountForUser(data, reclaim.userId)
+        : null;
+  const minimumReclaimAllocation = selectedReclaimAccount
+    ? selectedReclaimAccount.usedTokens +
+      selectedReclaimAccount.reservedTokens +
+      selectedReclaimAccount.childAllocatedTokens
+    : 0;
+  const reclaimableTokens = selectedReclaimAccount
+    ? Math.max(selectedReclaimAccount.allocatedTokens - minimumReclaimAllocation, 0)
+    : 0;
+  const reclaimMutation = useMutation({
+    mutationFn: () => {
+      if (!selectedReclaimAccount) {
+        throw new Error('Select an account with assigned AI credits');
+      }
+      const amount = Number(reclaim.amountTokens);
+      return aiApi.setAllocation({
+        sourceAccountId: selectedReclaimAccount.parentAccountId ?? undefined,
+        scope: reclaim.targetType === 'USER' ? 'USER' : 'ORGANIZATION',
+        organizationId:
+          reclaim.targetType === 'ORGANIZATION' ? reclaim.organizationId : undefined,
+        userId: reclaim.targetType === 'USER' ? reclaim.userId : undefined,
+        allocatedTokens: selectedReclaimAccount.allocatedTokens - amount,
+        reason: 'Super Admin AI credit reclaim',
+      });
+    },
+    onSuccess: () => {
+      toast.success('AI credits reclaimed');
+      setReclaim((current) => ({ ...current, amountTokens: '' }));
+      queryClient.invalidateQueries({ queryKey: ['ai-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['ai-allocation-overview'] });
+    },
+    onError: (error) => toast.error(extractApiError(error)),
+  });
   const visibleOrgRows = useMemo(
     () =>
       (data?.organizations ?? []).map((organization) => ({
@@ -404,6 +449,24 @@ export function AiPage() {
       return;
     }
     allocationMutation.mutate();
+  };
+
+  const submitReclaim = (event: FormEvent) => {
+    event.preventDefault();
+    const amount = Number(reclaim.amountTokens);
+    if (!selectedReclaimAccount) {
+      toast.error('Select an account with assigned AI credits');
+      return;
+    }
+    if (!amount || amount < 1) {
+      toast.error('Enter AI credits to reclaim');
+      return;
+    }
+    if (amount > reclaimableTokens) {
+      toast.error(`Only ${formatTokens(reclaimableTokens)} unused credits can be reclaimed`);
+      return;
+    }
+    reclaimMutation.mutate();
   };
 
   if (overviewQuery.isLoading) {
@@ -669,8 +732,141 @@ export function AiPage() {
               {allocationMutation.isPending ? <Spinner className="h-4 w-4" /> : <Send className="h-4 w-4" />}
               Allocate credits
             </Button>
-          </form>
+            </form>
           </section>
+          {isSuperAdmin && (
+            <section className="rounded-lg border border-line bg-white px-4 py-4">
+              <div className="mb-3">
+                <h4 className="text-sm font-bold text-ink-900">Reclaim granted credits</h4>
+                <p className="text-xs text-ink-500">
+                  Return unused assigned credits to the account they came from.
+                </p>
+              </div>
+              <form onSubmit={submitReclaim} className="grid gap-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Select
+                    value={reclaim.targetType}
+                    onValueChange={(value) =>
+                      setReclaim({
+                        targetType: value,
+                        organizationId: '',
+                        userId: '',
+                        amountTokens: '',
+                      })
+                    }
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ORGANIZATION">Organization</SelectItem>
+                      <SelectItem value="USER">User</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {reclaim.targetType === 'ORGANIZATION' ? (
+                    <Select
+                      value={reclaim.organizationId}
+                      onValueChange={(value) =>
+                        setReclaim((current) => ({
+                          ...current,
+                          organizationId: value,
+                          amountTokens: '',
+                        }))
+                      }
+                    >
+                      <SelectTrigger><SelectValue placeholder="Select organization" /></SelectTrigger>
+                      <SelectContent>
+                        {data.organizations.map((organization) => (
+                          <SelectItem key={organization.id} value={organization.id}>
+                            {organization.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Select
+                      value={reclaim.userId}
+                      onValueChange={(value) =>
+                        setReclaim((current) => ({
+                          ...current,
+                          userId: value,
+                          amountTokens: '',
+                        }))
+                      }
+                    >
+                      <SelectTrigger><SelectValue placeholder="Select teacher/admin user" /></SelectTrigger>
+                      <SelectContent>
+                        {visibleUserRows
+                          .filter(({ user: row }) => row.role !== 'SUPER_ADMIN')
+                          .map(({ user: row }) => (
+                            <SelectItem key={row.id} value={row.id}>
+                              {row.name ?? row.email}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+                {selectedReclaimAccount && (
+                  <div className="grid gap-2 rounded-lg bg-surface-variant px-3 py-3 text-xs text-ink-600 sm:grid-cols-3">
+                    <span>
+                      Assigned: <strong className="text-ink-900">
+                        {formatTokens(selectedReclaimAccount.allocatedTokens)}
+                      </strong>
+                    </span>
+                    <span>
+                      Must retain: <strong className="text-ink-900">
+                        {formatTokens(minimumReclaimAllocation)}
+                      </strong>
+                    </span>
+                    <span>
+                      Reclaimable: <strong className="text-ink-900">
+                        {formatTokens(reclaimableTokens)}
+                      </strong>
+                    </span>
+                  </div>
+                )}
+                <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={reclaimableTokens || undefined}
+                    placeholder="AI credits to reclaim"
+                    value={reclaim.amountTokens}
+                    onChange={(event) =>
+                      setReclaim((current) => ({
+                        ...current,
+                        amountTokens: event.target.value,
+                      }))
+                    }
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!reclaimableTokens}
+                    onClick={() =>
+                      setReclaim((current) => ({
+                        ...current,
+                        amountTokens: String(reclaimableTokens),
+                      }))
+                    }
+                  >
+                    Reclaim all available
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="destructive"
+                    disabled={reclaimMutation.isPending || !reclaimableTokens}
+                  >
+                    {reclaimMutation.isPending ? (
+                      <Spinner className="h-4 w-4" />
+                    ) : (
+                      <Undo2 className="h-4 w-4" />
+                    )}
+                    Reclaim
+                  </Button>
+                </div>
+              </form>
+            </section>
+          )}
         </Card>
       </div>
 

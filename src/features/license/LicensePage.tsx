@@ -12,6 +12,7 @@ import {
   KeyRound,
   Layers,
   Mail,
+  Pencil,
   Plus,
   RefreshCw,
   Sofa,
@@ -49,6 +50,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
+import { ActivationKeyLabelDialog } from '@/components/license/ActivationKeyLabelDialog';
+import { EmailActivationKeysDialog } from '@/components/license/EmailActivationKeysDialog';
 import {
   Table,
   TableHeader,
@@ -141,6 +144,8 @@ export function LicensePage() {
   const [isExporting, setIsExporting] = useState(false);
   const [revokeKeyId, setRevokeKeyId] = useState<string | null>(null);
   const [replaceKeyId, setReplaceKeyId] = useState<string | null>(null);
+  const [labelEdit, setLabelEdit] = useState<{ id: string; label: string } | null>(null);
+  const [emailKeysOpen, setEmailKeysOpen] = useState(false);
 
   const subscriptionsQuery = useQuery({
     queryKey: ['subscriptions', 'all'],
@@ -235,18 +240,6 @@ export function LicensePage() {
       queryClient.invalidateQueries({ queryKey: ['license-details'] });
       setBulkResult(data);
       toast.success(`Created ${data.createdCount} activation key(s)`);
-    },
-    onError: (error) => toast.error(extractApiError(error)),
-  });
-
-  const emailKeysMutation = useMutation({
-    mutationFn: licensingApi.emailActivationKeysToOrgAdmin,
-    onSuccess: (data) => {
-      toast.success(
-        data.delivered
-          ? `Emailed ${data.keyCount} key(s) to ${data.recipient}`
-          : 'Activation key email queued',
-      );
     },
     onError: (error) => toast.error(extractApiError(error)),
   });
@@ -788,14 +781,11 @@ export function LicensePage() {
               <Button
                 variant="outline"
                 className="w-full"
-                disabled={!selectedOrganization || emailKeysMutation.isPending}
-                onClick={() => {
-                  if (!selectedOrganization) return;
-                  emailKeysMutation.mutate(selectedOrganization.id);
-                }}
+                disabled={!selectedOrganization || activationKeys.length === 0}
+                onClick={() => setEmailKeysOpen(true)}
               >
-                {emailKeysMutation.isPending ? <Spinner className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
-                Email all keys to organization admin
+                <Mail className="h-4 w-4" />
+                Choose keys to email org admin
               </Button>
 
               <div className="pointer-events-none absolute inset-x-6 bottom-3 rounded-lg border border-line bg-surface-variant px-3 py-2 text-xs text-ink-500">
@@ -842,10 +832,10 @@ export function LicensePage() {
                 {isSuperAdmin && (
                   <Button
                     variant="outline"
-                    disabled={emailKeysMutation.isPending}
-                    onClick={() => emailKeysMutation.mutate(selectedOrganization.id)}
+                    disabled={activationKeys.length === 0}
+                    onClick={() => setEmailKeysOpen(true)}
                   >
-                    {emailKeysMutation.isPending ? <Spinner className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
+                    <Mail className="h-4 w-4" />
                     Email org admin
                   </Button>
                 )}
@@ -868,7 +858,21 @@ export function LicensePage() {
                   const plain = key.activationKey ?? '';
                   return (
                     <TableRow key={key.id}>
-                      <TableCell>{key.label ?? '—'}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <span>{key.label ?? '—'}</span>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8"
+                            title="Edit label"
+                            onClick={() => setLabelEdit({ id: key.id, label: key.label ?? '' })}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <code className="rounded border border-line bg-surface-variant px-2 py-1 font-mono text-xs">
@@ -1358,6 +1362,28 @@ export function LicensePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {labelEdit && (
+        <ActivationKeyLabelDialog
+          keyId={labelEdit.id}
+          currentLabel={labelEdit.label}
+          open
+          onOpenChange={(open) => !open && setLabelEdit(null)}
+          onSaved={invalidateCommercialQueries}
+        />
+      )}
+
+      {selectedOrganization && emailKeysOpen && (
+        <EmailActivationKeysDialog
+          key={selectedOrganization.id}
+          open
+          organizationId={selectedOrganization.id}
+          organizationName={selectedOrganization.name}
+          keys={activationKeys}
+          onOpenChange={(open) => setEmailKeysOpen(open)}
+          onSent={invalidateCommercialQueries}
+        />
+      )}
 
       <ConfirmationDialog
         open={!!revokeKeyId}

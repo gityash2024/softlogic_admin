@@ -106,10 +106,16 @@ export const licensingApi = {
       { organizationId },
       format,
     ),
-  emailActivationKeysToOrgAdmin: async (organizationId: string) => {
+  emailActivationKeysToOrgAdmin: async (
+    input: string | { organizationId: string; activationKeyIds?: string[] },
+  ) => {
+    const payload =
+      typeof input === 'string'
+        ? { organizationId: input }
+        : input;
     const res = await api.post<ApiResponse<EmailActivationKeysResponse>>(
       '/admin/hardware/activation-keys/email-org-admin',
-      { organizationId },
+      payload,
     );
     return res.data.data;
   },
@@ -122,6 +128,13 @@ export const licensingApi = {
   revokeActivationKey: async (keyId: string) => {
     const res = await api.post<ApiResponse<unknown>>(
       `/admin/hardware/activation-keys/${keyId}/revoke`,
+    );
+    return res.data.data;
+  },
+  updateActivationKeyLabel: async (keyId: string, label: string) => {
+    const res = await api.patch<ApiResponse<HardwareActivationKeyRecord>>(
+      `/admin/hardware/activation-keys/${keyId}/label`,
+      { label },
     );
     return res.data.data;
   },

@@ -326,6 +326,29 @@ export interface AiOverview {
   recentLedger: AiLedgerEntry[];
 }
 
+export interface AiAllocationOverview {
+  generatedAt: string;
+  scope: { type: 'GLOBAL' | 'MANAGED'; organizationIds: string[] | null };
+  master: AiCreditAccountSummary | null;
+  accounts: AiCreditAccountSummary[];
+  organizations: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    kind: OrganizationKind;
+    parentOrganizationId: string | null;
+    status: OrganizationStatus;
+  }>;
+  users: Array<{
+    id: string;
+    email: string;
+    name: string | null;
+    role: UserRole;
+    primaryOrganizationId: string | null;
+    status: UserStatus;
+  }>;
+}
+
 export interface AiGoogleBillingSummary {
   config: {
     enabled: boolean;
@@ -467,6 +490,7 @@ export interface HardwareActivationKeyRecord {
     name: string | null;
   } | null;
   expiresAt: string | null;
+  emailSentAt?: string | null;
   createdAt: string;
   updatedAt: string;
   activations: HardwareActivationRecord[];

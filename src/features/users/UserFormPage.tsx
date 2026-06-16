@@ -179,7 +179,7 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
         });
       }
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      queryClient.invalidateQueries({ queryKey: ['ai-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['ai-allocation-overview'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
       toast.success('User created');
       navigate(
@@ -207,7 +207,7 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
         reason: 'User edit allocation',
       });
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      queryClient.invalidateQueries({ queryKey: ['ai-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['ai-allocation-overview'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
       toast.success('User updated');
       navigate(
@@ -241,8 +241,8 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
     enabled: organizationId !== 'NONE',
   });
   const aiOverviewQuery = useQuery({
-    queryKey: ['ai-overview'],
-    queryFn: aiApi.overview,
+    queryKey: ['ai-allocation-overview'],
+    queryFn: aiApi.allocationOverview,
   });
   const activeSubscription = selectedOrganization?.subscriptions?.find(
     (subscription) =>

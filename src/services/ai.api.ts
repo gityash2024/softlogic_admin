@@ -1,5 +1,6 @@
 import { api } from '@/lib/api';
 import type {
+  AiAllocationOverview,
   AiConfigSummary,
   AiCreditAccountSummary,
   AiCreditScope,
@@ -68,6 +69,12 @@ export interface UpdateAiGoogleBillingPayload {
 }
 
 export const aiApi = {
+  allocationOverview: async () => {
+    const res = await api.get<ApiResponse<AiAllocationOverview>>(
+      '/admin/ai/allocation-overview',
+    );
+    return res.data.data;
+  },
   overview: async () => {
     const res = await api.get<ApiResponse<AiOverview>>('/admin/ai/overview');
     return res.data.data;

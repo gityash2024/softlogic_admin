@@ -9,9 +9,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { canAccessAiModule } from '@/lib/ai-access';
+import { useAuthStore } from '@/lib/auth-store';
 
 export function AiCreditInfoButton() {
   const [open, setOpen] = useState(false);
+  const { user } = useAuthStore();
+
+  if (!canAccessAiModule(user)) return null;
 
   return (
     <>

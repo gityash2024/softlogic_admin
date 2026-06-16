@@ -44,6 +44,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
+import { ActivationKeyLabelDialog } from '@/components/license/ActivationKeyLabelDialog';
+import { EmailActivationKeysDialog } from '@/components/license/EmailActivationKeysDialog';
 import {
   Table,
   TableHeader,
@@ -158,6 +160,8 @@ export function SubscriptionDetailPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [revokeKeyId, setRevokeKeyId] = useState<string | null>(null);
   const [replaceKeyId, setReplaceKeyId] = useState<string | null>(null);
+  const [labelEdit, setLabelEdit] = useState<{ id: string; label: string } | null>(null);
+  const [emailKeysOpen, setEmailKeysOpen] = useState(false);
 
   const detailQuery = useQuery({
     queryKey: ['subscription-details', id],
@@ -175,17 +179,6 @@ export function SubscriptionDetailPage() {
     queryKey: ['subscription-timeline', id],
     queryFn: () => subscriptionsApi.timeline(id!),
     enabled: !!id,
-  });
-
-  const emailKeysMutation = useMutation({
-    mutationFn: licensingApi.emailActivationKeysToOrgAdmin,
-    onSuccess: (data) =>
-      toast.success(
-        data.delivered
-          ? `Emailed ${data.keyCount} key(s) to ${data.recipient}`
-          : 'Activation key email queued',
-      ),
-    onError: (error) => toast.error(extractApiError(error)),
   });
 
   const resetActivationMutation = useMutation({
@@ -359,14 +352,10 @@ export function SubscriptionDetailPage() {
           {isSuperAdmin && subscription.organizationId && (
             <Button
               variant="outline"
-              disabled={emailKeysMutation.isPending}
-              onClick={() => emailKeysMutation.mutate(subscription.organizationId!)}
+              disabled={subscription.hardwareActivationKeys.length === 0}
+              onClick={() => setEmailKeysOpen(true)}
             >
-              {emailKeysMutation.isPending ? (
-                <Spinner className="h-4 w-4" />
-              ) : (
-                <Mail className="h-4 w-4" />
-              )}
+              <Mail className="h-4 w-4" />
               Email org admin
             </Button>
           )}
@@ -458,7 +447,21 @@ export function SubscriptionDetailPage() {
               const plain = key.activationKey ?? '';
               return (
                 <TableRow key={key.id}>
-                  <TableCell>{key.label ?? '—'}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <span>{key.label ?? '—'}</span>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        title="Edit label"
+                        onClick={() => setLabelEdit({ id: key.id, label: key.label ?? '' })}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <code className="rounded border border-line bg-surface-variant px-2 py-1 font-mono text-xs">
@@ -933,6 +936,34 @@ export function SubscriptionDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {labelEdit && (
+        <ActivationKeyLabelDialog
+          keyId={labelEdit.id}
+          currentLabel={labelEdit.label}
+          open
+          onOpenChange={(open) => !open && setLabelEdit(null)}
+          onSaved={() => {
+            queryClient.invalidateQueries({ queryKey: ['subscription-details', id] });
+            queryClient.invalidateQueries({ queryKey: ['license-details'] });
+          }}
+        />
+      )}
+
+      {subscription.organizationId && emailKeysOpen && (
+        <EmailActivationKeysDialog
+          key={subscription.organizationId}
+          open
+          organizationId={subscription.organizationId}
+          organizationName={subscription.organization?.name}
+          keys={subscription.hardwareActivationKeys}
+          onOpenChange={(open) => setEmailKeysOpen(open)}
+          onSent={() => {
+            queryClient.invalidateQueries({ queryKey: ['subscription-details', id] });
+            queryClient.invalidateQueries({ queryKey: ['license-details'] });
+          }}
+        />
+      )}
 
       <ConfirmationDialog
         open={!!revokeKeyId}
