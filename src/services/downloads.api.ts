@@ -1,9 +1,9 @@
-import { api } from '@/lib/api';
-import type { ApiResponse } from '@/types/api';
+import { api } from "@/lib/api";
+import type { ApiResponse } from "@/types/api";
 
-export type AppReleaseEnvironment = 'staging' | 'production';
-export type AppReleaseBrand = 'softlogic' | 'ai_smart_board';
-export type AppReleasePlatform = 'android' | 'windows';
+export type AppReleaseEnvironment = "staging" | "production";
+export type AppReleaseBrand = "softlogic" | "ai_smart_board";
+export type AppReleasePlatform = "android" | "windows";
 
 export interface AppRelease {
   id: string;
@@ -17,6 +17,7 @@ export interface AppRelease {
   downloadUrl: string;
   isCurrent: boolean;
   isActive: boolean;
+  isForced: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -30,6 +31,7 @@ export interface CurrentAppDownload {
   releaseDate: string;
   notes: string | null;
   downloadUrl: string;
+  isForced: boolean;
 }
 
 export interface PublishReleaseArtifact {
@@ -44,6 +46,7 @@ export interface PublishFullReleasePayload {
   buildNumber: number;
   releaseDate: string;
   notes?: string | null;
+  isForced: boolean;
   artifacts: PublishReleaseArtifact[];
 }
 
@@ -55,11 +58,14 @@ export interface UpdateReleasePayload {
   downloadUrl?: string;
   isCurrent?: boolean;
   isActive?: boolean;
+  isForced?: boolean;
 }
 
 export const currentAdminEnvironment = (): AppReleaseEnvironment => {
-  const configured = String(import.meta.env.VITE_API_BASE_URL ?? '').toLowerCase();
-  return configured.includes('api.softeractive.com') ? 'production' : 'staging';
+  const configured = String(
+    import.meta.env.VITE_API_BASE_URL ?? "",
+  ).toLowerCase();
+  return configured.includes("api.softeractive.com") ? "production" : "staging";
 };
 
 export const downloadsApi = {
@@ -68,20 +74,22 @@ export const downloadsApi = {
     brand: AppReleaseBrand;
   }) => {
     const response = await api.get<ApiResponse<CurrentAppDownload[]>>(
-      '/app-updates/current',
+      "/app-updates/current",
       { params },
     );
     return response.data.data;
   },
 
   list: async () => {
-    const response = await api.get<ApiResponse<AppRelease[]>>('/admin/app-releases');
+    const response = await api.get<ApiResponse<AppRelease[]>>(
+      "/admin/app-releases",
+    );
     return response.data.data;
   },
 
   publishFullRelease: async (payload: PublishFullReleasePayload) => {
     const response = await api.post<ApiResponse<AppRelease[]>>(
-      '/admin/app-releases/full-release',
+      "/admin/app-releases/full-release",
       payload,
     );
     return response.data.data;

@@ -9,6 +9,7 @@ import {
   EyeOff,
   LockKeyhole,
   Mail,
+  QrCode,
   ShieldCheck,
   Sparkles,
 } from 'lucide-react';
@@ -24,6 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import appIcon from '@/assets/brand/ai-smart-board-app-icon.png';
 import signinVisual from '@/assets/brand/signin-panel-main-visual.png';
+import { QrLoginPanel } from './QrLoginPanel';
 
 const schema = z.object({
   email: z.string().email('Enter a valid email address'),
@@ -37,6 +39,7 @@ export function LoginScreen() {
   const { user, setSession } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [mode, setMode] = useState<'password' | 'qr'>('password');
 
   const {
     register,
@@ -68,6 +71,12 @@ export function LoginScreen() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleQrCompleted = (result: Awaited<ReturnType<typeof authApi.adminLogin>>) => {
+    setSession(result);
+    toast.success(`Welcome, ${result.user.name ?? result.user.email}`);
+    navigate(isAdminRole(result.user.role) ? '/dashboard' : '/portal', { replace: true });
   };
 
   return (
@@ -137,10 +146,40 @@ export function LoginScreen() {
                 Sign in securely
               </h2>
               <p className="mt-2 text-sm leading-6 text-ink-500">
-                Use your account email and password to open this workspace.
+                Use your account email and password or scan a secure QR code.
               </p>
             </div>
 
+            <div className="mb-5 grid grid-cols-2 rounded-lg bg-[#F7F9FC] p-1">
+              <button
+                type="button"
+                onClick={() => setMode('password')}
+                className={`flex h-10 items-center justify-center gap-2 rounded-md text-sm font-semibold transition ${
+                  mode === 'password'
+                    ? 'bg-white text-brand-primary shadow-sm'
+                    : 'text-ink-500 hover:text-ink-800'
+                }`}
+              >
+                <ShieldCheck className="h-4 w-4" />
+                Password
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('qr')}
+                className={`flex h-10 items-center justify-center gap-2 rounded-md text-sm font-semibold transition ${
+                  mode === 'qr'
+                    ? 'bg-white text-brand-primary shadow-sm'
+                    : 'text-ink-500 hover:text-ink-800'
+                }`}
+              >
+                <QrCode className="h-4 w-4" />
+                QR Login
+              </button>
+            </div>
+
+            {mode === 'qr' ? (
+              <QrLoginPanel onCompleted={handleQrCompleted} />
+            ) : (
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
               <div className="space-y-2">
                 <label
@@ -227,6 +266,7 @@ export function LoginScreen() {
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </form>
+            )}
           </div>
         </main>
       </div>

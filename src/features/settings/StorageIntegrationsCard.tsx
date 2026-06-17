@@ -141,22 +141,22 @@ function ProviderCredentialForm({
   const canSave = hasExisting || (clientId.trim().length > 0 && clientSecret.trim().length > 0);
 
   return (
-    <div className="rounded-lg border border-line bg-white px-4 py-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+    <div className="min-w-0 max-w-full rounded-lg border border-line bg-white px-4 py-4">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-semibold text-ink-900">{details.label}</p>
             <Badge variant={hasExisting ? 'success' : 'default'}>
               {hasExisting ? 'Credentials saved' : 'Not saved'}
             </Badge>
           </div>
-          <p className="mt-1 text-xs leading-5 text-ink-500">
+          <p className="mt-1 break-words text-xs leading-5 text-ink-500">
             {scope === 'GLOBAL'
               ? 'SoftLogic-wide default credentials for organizations without their own override.'
               : 'Optional organization override. Leave empty to use SoftLogic global credentials.'}
           </p>
           {record?.clientIdPreview && (
-            <p className="mt-1 text-xs text-ink-500">
+            <p className="mt-1 break-all text-xs text-ink-500">
               Client ID: <span className="font-medium text-ink-700">{record.clientIdPreview}</span>
             </p>
           )}
@@ -166,6 +166,7 @@ function ProviderCredentialForm({
             type="button"
             size="sm"
             variant="ghost"
+            className="w-full sm:w-auto"
             onClick={() => deleteMutation.mutate()}
             disabled={deleteMutation.isPending}
           >
@@ -175,7 +176,7 @@ function ProviderCredentialForm({
         )}
       </div>
 
-      <details className="mt-3 border-t border-line pt-3">
+      <details className="mt-3 min-w-0 border-t border-line pt-3">
         <summary className="cursor-pointer text-xs font-semibold text-brand-primary">
           Credential setup steps
         </summary>
@@ -192,14 +193,14 @@ function ProviderCredentialForm({
             </a>{' '}
             and create an OAuth web application.
           </li>
-          <li>2. Enable permissions: <code>{details.scopes}</code></li>
+          <li className="break-all">2. Enable permissions: <code>{details.scopes}</code></li>
           <li className="break-all">3. Register redirect URI: <code>{callbackUrl}</code></li>
           <li>4. Paste the client ID and secret below, save, then connect the provider.</li>
         </ol>
       </details>
 
-      <div className="mt-3 grid gap-3 lg:grid-cols-3">
-        <div className="space-y-1.5">
+      <div className="mt-3 grid min-w-0 gap-3 lg:grid-cols-3">
+        <div className="min-w-0 space-y-1.5">
           <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
             Client ID
           </label>
@@ -209,7 +210,7 @@ function ProviderCredentialForm({
             placeholder={record?.clientIdPreview ?? 'OAuth client ID'}
           />
         </div>
-        <div className="space-y-1.5">
+        <div className="min-w-0 space-y-1.5">
           <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
             Client secret
           </label>
@@ -220,7 +221,7 @@ function ProviderCredentialForm({
             placeholder={hasExisting ? 'Leave blank to keep existing' : 'OAuth client secret'}
           />
         </div>
-        <div className="space-y-1.5">
+        <div className="min-w-0 space-y-1.5">
           <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
             Redirect URI
           </label>
@@ -231,11 +232,12 @@ function ProviderCredentialForm({
           />
         </div>
       </div>
-      <div className="mt-3 flex justify-end">
+      <div className="mt-3 flex justify-stretch sm:justify-end">
         <Button
           type="button"
           size="sm"
           variant="primary"
+          className="w-full sm:w-auto"
           onClick={() => saveMutation.mutate()}
           disabled={!canSave || saveMutation.isPending}
         >
@@ -285,9 +287,9 @@ function ProviderConnection({
   const credentialReady = status?.credentialConfigured ?? status?.configured;
 
   return (
-    <div className="rounded-lg border border-line bg-white px-4 py-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+    <div className="min-w-0 max-w-full rounded-lg border border-line bg-white px-4 py-4">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-semibold text-ink-900">{details.label}</p>
             <Badge
@@ -302,19 +304,19 @@ function ProviderConnection({
                     : 'Credentials required'}
             </Badge>
           </div>
-          <p className="mt-1 text-xs leading-5 text-ink-500">
+          <p className="mt-1 break-words text-xs leading-5 text-ink-500">
             {status?.message || `Connect ${details.label} for organization-wide import and export.`}
           </p>
-          <p className="mt-1 text-xs font-medium text-ink-600">
+          <p className="mt-1 break-words text-xs font-medium text-ink-600">
             {credentialSourceLabel(status?.credentialSource)}
           </p>
           {status?.externalAccountEmail && (
-            <p className="mt-1 text-xs font-medium text-ink-600">
+            <p className="mt-1 break-all text-xs font-medium text-ink-600">
               Account: {status.externalAccountEmail}
             </p>
           )}
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto sm:self-start">
           <Button
             type="button"
             size="sm"
@@ -331,6 +333,7 @@ function ProviderConnection({
               type="button"
               size="sm"
               variant="outline"
+              className="flex-1 sm:flex-none"
               onClick={() => disconnectMutation.mutate()}
               disabled={disconnectMutation.isPending}
             >
@@ -342,6 +345,7 @@ function ProviderConnection({
               type="button"
               size="sm"
               variant="primary"
+              className="flex-1 sm:flex-none"
               onClick={() => connectMutation.mutate()}
               disabled={connectMutation.isPending || !credentialReady}
             >
@@ -405,26 +409,26 @@ export function StorageIntegrationsCard() {
   const organizationCredentials = organizationCredentialsQuery.data ?? [];
 
   return (
-    <Card>
+    <Card className="max-w-full">
       <div className="border-b border-line px-4 py-5 sm:px-6">
-        <div className="flex items-start gap-3">
+        <div className="flex min-w-0 items-start gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
             <Cloud className="h-4 w-4" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h2 className="text-lg font-semibold text-ink-900">Storage integrations</h2>
-            <p className="text-sm text-ink-500">
+            <p className="break-words text-sm text-ink-500">
               Save provider credentials in the web panel and connect organization storage accounts.
             </p>
           </div>
         </div>
       </div>
-      <div className="space-y-5 px-4 py-5 sm:px-6">
+      <div className="min-w-0 space-y-5 px-4 py-5 sm:px-6">
         {isSuperAdmin && (
-          <section className="space-y-3">
-            <div>
+          <section className="min-w-0 space-y-3">
+            <div className="min-w-0">
               <h3 className="text-sm font-semibold text-ink-900">Global storage credentials</h3>
-              <p className="text-xs leading-5 text-ink-500">
+              <p className="break-words text-xs leading-5 text-ink-500">
                 SoftLogic defaults used by internal workspaces and organizations without an override.
               </p>
             </div>
@@ -440,15 +444,15 @@ export function StorageIntegrationsCard() {
           </section>
         )}
 
-        <section className="space-y-3">
-          <div>
+        <section className="min-w-0 space-y-3">
+          <div className="min-w-0">
             <h3 className="text-sm font-semibold text-ink-900">Organization storage</h3>
-            <p className="text-xs leading-5 text-ink-500">
+            <p className="break-words text-xs leading-5 text-ink-500">
               Connect the account Flutter will use for import, open, and export.
             </p>
           </div>
           {isSuperAdmin && (
-            <div className="space-y-1.5">
+            <div className="min-w-0 space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
                 Organization
               </label>
@@ -476,9 +480,9 @@ export function StorageIntegrationsCard() {
               No organization is available for storage configuration.
             </p>
           ) : providers.length ? (
-            <div className="space-y-3">
+            <div className="min-w-0 space-y-3">
               {providers.map((provider) => (
-                <div key={`${selected.id}-${provider}`} className="space-y-3">
+                <div key={`${selected.id}-${provider}`} className="min-w-0 space-y-3">
                   <ProviderCredentialForm
                     key={`${selected.id}-${provider}-${organizationCredentials.find((item) => item.provider === provider)?.updatedAt ?? 'new'}`}
                     provider={provider}

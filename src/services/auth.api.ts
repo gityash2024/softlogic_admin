@@ -13,6 +13,31 @@ export interface AuthLoginSession {
   isCurrent: boolean;
 }
 
+export interface QrLoginStartResponse {
+  attemptId: string;
+  expiresAt: string;
+  pollIntervalMs: number;
+  qrPayload: string;
+  secret: string;
+}
+
+export interface QrLoginApprovalResponse {
+  approvedFor: {
+    email: string;
+    id: string;
+    name: string | null;
+    role: string;
+  };
+  message: string;
+  targetClientType: string;
+}
+
+export interface QrLoginStatusResponse {
+  status: 'pending' | 'completed' | 'failed' | 'expired';
+  message?: string;
+  session?: AuthResponse;
+}
+
 export const authApi = {
   adminLogin: async (email: string, password: string) => {
     const res = await api.post<ApiResponse<AuthResponse>>('/auth/admin/login', {
@@ -87,6 +112,24 @@ export const authApi = {
     await api.delete(`/auth/sessions/${sessionId}`, {
       headers: refreshToken ? { 'x-refresh-token': refreshToken } : undefined,
     });
+  },
+  qrStart: async () => {
+    const res = await api.post<ApiResponse<QrLoginStartResponse>>('/auth/qr/start', {});
+    return res.data.data;
+  },
+  qrStatus: async (attemptId: string, secret: string) => {
+    const res = await api.post<ApiResponse<QrLoginStatusResponse>>('/auth/qr/status', {
+      attemptId,
+      secret,
+    });
+    return res.data.data;
+  },
+  qrApprove: async (attemptId: string, secret: string) => {
+    const res = await api.post<ApiResponse<QrLoginApprovalResponse>>('/auth/qr/approve', {
+      attemptId,
+      secret,
+    });
+    return res.data.data;
   },
   impersonate: async (userId: string) => {
     const res = await api.post<ApiResponse<{

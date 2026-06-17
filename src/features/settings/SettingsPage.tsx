@@ -36,6 +36,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { formatDateTime, initials } from '@/lib/utils';
 import { StorageIntegrationsCard } from './StorageIntegrationsCard';
+import { QrLoginScannerCard } from './QrLoginScannerCard';
 
 const passwordSchema = z
   .object({
@@ -56,9 +57,9 @@ type PasswordFormValues = z.infer<typeof passwordSchema>;
 
 function ReadOnlyField({ label, value }: { label: string; value: string }) {
   return (
-    <div>
+    <div className="min-w-0">
       <dt className="text-xs font-semibold uppercase tracking-wide text-ink-500">{label}</dt>
-      <dd className="mt-1 text-sm font-medium text-ink-900">{value}</dd>
+      <dd className="mt-1 break-words text-sm font-medium text-ink-900">{value}</dd>
     </div>
   );
 }
@@ -179,9 +180,9 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
-      <div className="space-y-5">
-        <Card>
+    <div className="grid min-w-0 max-w-full gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="min-w-0 max-w-full space-y-5">
+        <Card className="max-w-full">
         <div className="border-b border-line px-4 py-5 sm:px-6">
           <h2 className="text-lg font-semibold text-ink-900">Personal profile</h2>
           <p className="text-sm text-ink-500">
@@ -193,22 +194,22 @@ export function SettingsPage() {
             e.preventDefault();
             mutation.mutate();
           }}
-          className="space-y-5 px-4 py-5 sm:px-6"
+          className="min-w-0 space-y-5 px-4 py-5 sm:px-6"
         >
-          <div className="space-y-1.5">
+          <div className="min-w-0 space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
               Email
             </label>
             <Input value={user?.email ?? ''} readOnly disabled />
           </div>
-          <div className="space-y-1.5">
+          <div className="min-w-0 space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
               Display name
             </label>
             <Input value={name} onChange={(e) => setName(e.target.value)} />
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
+          <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+            <div className="min-w-0 space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
                 Timezone
               </label>
@@ -218,7 +219,7 @@ export function SettingsPage() {
                 placeholder="UTC"
               />
             </div>
-            <div className="space-y-1.5">
+            <div className="min-w-0 space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
                 Language
               </label>
@@ -229,10 +230,11 @@ export function SettingsPage() {
               />
             </div>
           </div>
-          <div className="flex justify-end">
+          <div className="flex justify-stretch sm:justify-end">
             <Button
               type="submit"
               variant="primary"
+              className="w-full sm:w-auto"
               disabled={mutation.isPending}
             >
               {mutation.isPending ? (
@@ -248,7 +250,7 @@ export function SettingsPage() {
         </form>
       </Card>
 
-        <Card>
+        <Card className="max-w-full">
           <div className="border-b border-line px-4 py-5 sm:px-6">
             <h2 className="text-lg font-semibold text-ink-900">Security</h2>
             <p className="text-sm text-ink-500">
@@ -257,10 +259,10 @@ export function SettingsPage() {
           </div>
           <form
             onSubmit={handlePasswordSubmit((values) => passwordMutation.mutate(values))}
-            className="space-y-5 px-4 py-5 sm:px-6"
+            className="min-w-0 space-y-5 px-4 py-5 sm:px-6"
             noValidate
           >
-            <div className="space-y-1.5">
+            <div className="min-w-0 space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
                 Current password
               </label>
@@ -290,7 +292,7 @@ export function SettingsPage() {
                 </p>
               )}
             </div>
-            <div className="space-y-1.5">
+            <div className="min-w-0 space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
                 New password
               </label>
@@ -306,7 +308,7 @@ export function SettingsPage() {
               )}
               <PasswordRequirements password={watchPassword('newPassword')} />
             </div>
-            <div className="space-y-1.5">
+            <div className="min-w-0 space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
                 Confirm new password
               </label>
@@ -321,10 +323,11 @@ export function SettingsPage() {
                 </p>
               )}
             </div>
-            <div className="flex justify-end">
+            <div className="flex justify-stretch sm:justify-end">
               <Button
                 type="submit"
                 variant="primary"
+                className="w-full sm:w-auto"
                 disabled={passwordMutation.isPending}
               >
                 {passwordMutation.isPending ? (
@@ -340,7 +343,9 @@ export function SettingsPage() {
           </form>
         </Card>
 
-        <Card>
+        <QrLoginScannerCard />
+
+        <Card className="max-w-full">
           <div className="border-b border-line px-4 py-5 sm:px-6">
             <h2 className="text-lg font-semibold text-ink-900">
               Login sessions / Devices
@@ -349,7 +354,7 @@ export function SettingsPage() {
               Review where your account is signed in across the SoftLogic web panel and whiteboard app.
             </p>
           </div>
-          <div className="space-y-3 px-4 py-5 sm:px-6">
+          <div className="min-w-0 space-y-3 px-4 py-5 sm:px-6">
             {sessionsQuery.isLoading ? (
               <div className="flex items-center gap-2 text-sm text-ink-500">
                 <Spinner className="h-4 w-4 text-brand-primary" />
@@ -366,15 +371,15 @@ export function SettingsPage() {
                 return (
                   <div
                     key={session.id}
-                    className="flex flex-col gap-3 rounded-lg border border-line bg-surface-variant px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex min-w-0 max-w-full flex-col gap-3 rounded-lg border border-line bg-surface-variant px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <div className="flex min-w-0 items-start gap-3">
+                    <div className="flex min-w-0 max-w-full items-start gap-3">
                       <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
                         <Laptop className="h-4 w-4" />
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="truncate text-sm font-semibold text-ink-900">
+                          <p className="min-w-0 max-w-full truncate text-sm font-semibold text-ink-900">
                             {device.label}
                           </p>
                           {session.isCurrent && (
@@ -383,10 +388,10 @@ export function SettingsPage() {
                             </span>
                           )}
                         </div>
-                        <p className="mt-1 text-xs text-ink-500">
+                        <p className="mt-1 break-words text-xs text-ink-500">
                           {device.platform} - IP {session.ipAddress ?? 'Unknown'}
                         </p>
-                        <p className="mt-1 text-xs text-ink-400">
+                        <p className="mt-1 break-words text-xs leading-5 text-ink-400">
                           Signed in {formatDateTime(session.createdAt)}
                           {session.lastSeenAt
                             ? ` - Last seen ${formatDateTime(session.lastSeenAt)}`
@@ -401,6 +406,7 @@ export function SettingsPage() {
                         type="button"
                         variant="outline"
                         size="sm"
+                        className="w-full sm:w-auto"
                         onClick={() => setConfirmLogout(true)}
                       >
                         <LogOut className="h-4 w-4" />
@@ -411,7 +417,7 @@ export function SettingsPage() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="text-danger"
+                        className="w-full text-danger sm:w-auto"
                         disabled={revokeSessionMutation.isPending}
                         onClick={() => revokeSessionMutation.mutate(session.id)}
                       >
@@ -433,15 +439,15 @@ export function SettingsPage() {
         <StorageIntegrationsCard />
 
         {showOrgCard && org && (
-          <Card>
+          <Card className="max-w-full">
             <div className="border-b border-line px-4 py-5 sm:px-6">
               <h2 className="text-lg font-semibold text-ink-900">Organization</h2>
               <p className="text-sm text-ink-500">
                 Your workspace details. These are managed by SoftLogic.
               </p>
             </div>
-            <div className="space-y-5 px-4 py-5 sm:px-6">
-              <div className="flex items-center gap-3">
+            <div className="min-w-0 space-y-5 px-4 py-5 sm:px-6">
+              <div className="flex min-w-0 items-center gap-3">
                 {org.logoUrl ? (
                   <img
                     src={org.logoUrl}
@@ -453,16 +459,16 @@ export function SettingsPage() {
                     <Building2 className="h-6 w-6" />
                   </div>
                 )}
-                <div>
-                  <p className="text-base font-bold text-ink-900">
+                <div className="min-w-0">
+                  <p className="break-words text-base font-bold text-ink-900">
                     {org.brandName?.trim() || org.name}
                   </p>
-                  <p className="text-xs text-ink-500">
+                  <p className="break-words text-xs text-ink-500">
                     {ORG_KIND_LABEL[org.kind]} · {org.status === 'ACTIVE' ? 'Active' : 'Inactive'}
                   </p>
                 </div>
               </div>
-              <dl className="grid gap-4 sm:grid-cols-2">
+              <dl className="grid min-w-0 gap-4 sm:grid-cols-2">
                 <ReadOnlyField label="Branding" value={BRANDING_MODE_LABEL[org.brandingMode]} />
                 <ReadOnlyField
                   label="Subscription"
@@ -513,7 +519,7 @@ export function SettingsPage() {
         )}
       </div>
 
-      <Card>
+      <Card className="max-w-full">
         <div className="px-4 py-6 sm:px-6">
           <div className="flex flex-col items-center text-center">
             <Avatar className="h-20 w-20">
@@ -522,10 +528,10 @@ export function SettingsPage() {
                 {initials(user?.name ?? user?.email)}
               </AvatarFallback>
             </Avatar>
-            <p className="mt-3 text-base font-semibold text-ink-900">
+            <p className="mt-3 max-w-full break-words text-base font-semibold text-ink-900">
               {user?.name}
             </p>
-            <p className="text-xs text-ink-500">{user?.email}</p>
+            <p className="max-w-full break-all text-xs text-ink-500">{user?.email}</p>
             <p className="mt-2 rounded-full bg-brand-primary/10 px-3 py-0.5 text-xs font-semibold text-brand-primary">
               {user?.role ? ROLE_LABEL[user.role] : '-'}
             </p>
