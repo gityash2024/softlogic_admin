@@ -79,12 +79,11 @@ export const authApi = {
     );
     return res.data.data;
   },
-  changePassword: async (currentPassword: string, newPassword: string) => {
+  changePassword: async (newPassword: string) => {
     // Send the current refresh token so the backend preserves THIS session and
     // only invalidates other devices' sessions after the password changes.
     const refreshToken = useAuthStore.getState().tokens?.refreshToken;
     await api.post('/auth/admin/password/change', {
-      currentPassword,
       newPassword,
       refreshToken,
     });

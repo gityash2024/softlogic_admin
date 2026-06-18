@@ -40,7 +40,6 @@ import { QrLoginScannerCard } from './QrLoginScannerCard';
 
 const passwordSchema = z
   .object({
-    currentPassword: z.string().min(1, 'Enter your current password'),
     newPassword: z
       .string()
       .min(1, 'Password is required')
@@ -115,12 +114,12 @@ export function SettingsPage() {
     formState: { errors: passwordErrors },
   } = useForm<PasswordFormValues>({
     resolver: zodResolver(passwordSchema),
-    defaultValues: { currentPassword: '', newPassword: '', confirmNewPassword: '' },
+    defaultValues: { newPassword: '', confirmNewPassword: '' },
   });
 
   const passwordMutation = useMutation({
     mutationFn: (values: PasswordFormValues) =>
-      authApi.changePassword(values.currentPassword, values.newPassword),
+      authApi.changePassword(values.newPassword),
     onSuccess: () => {
       toast.success('Password updated');
       resetPassword();
@@ -264,14 +263,14 @@ export function SettingsPage() {
           >
             <div className="min-w-0 space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-                Current password
+                New password
               </label>
               <div className="relative">
                 <Input
                   type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
+                  autoComplete="new-password"
                   className="pr-10"
-                  {...registerPassword('currentPassword')}
+                  {...registerPassword('newPassword')}
                 />
                 <button
                   type="button"
@@ -286,21 +285,6 @@ export function SettingsPage() {
                   )}
                 </button>
               </div>
-              {passwordErrors.currentPassword && (
-                <p className="text-xs text-danger">
-                  {passwordErrors.currentPassword.message}
-                </p>
-              )}
-            </div>
-            <div className="min-w-0 space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-                New password
-              </label>
-              <Input
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="new-password"
-                {...registerPassword('newPassword')}
-              />
               {passwordErrors.newPassword && (
                 <p className="text-xs text-danger">
                   {passwordErrors.newPassword.message}
