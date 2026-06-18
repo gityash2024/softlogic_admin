@@ -11,6 +11,7 @@ export interface ListSupportThreadsQuery {
   status?: SupportThreadStatus;
   category?: SupportCategory;
   priority?: SupportPriority;
+  partnerOrganizationId?: string;
   organizationId?: string;
   search?: string;
   page?: number;

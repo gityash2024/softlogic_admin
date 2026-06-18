@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Eye } from 'lucide-react';
@@ -6,6 +6,13 @@ import { Eye } from 'lucide-react';
 import { supportApi } from '@/services/support.api';
 import { organizationsApi } from '@/services/organizations.api';
 import { formatDate } from '@/lib/utils';
+import { useAuthStore } from '@/lib/auth-store';
+import {
+  ALL_PARTNERS_VALUE,
+  organizationBelongsToPartner,
+  organizationsForPartner,
+  partnerOrganizations,
+} from '@/lib/admin-hierarchy';
 import {
   SUPPORT_CATEGORY_LABEL,
   SUPPORT_PRIORITY_LABEL,
@@ -50,23 +57,58 @@ function statusVariant(status: SupportThreadStatus) {
 
 export function SupportInboxPage() {
   const navigate = useNavigate();
+  const { user: actor } = useAuthStore();
+  const isSuperAdmin = actor?.role === 'SUPER_ADMIN';
   const [status, setStatus] = useState<SupportThreadStatus | 'ALL'>('OPEN');
   const [category, setCategory] = useState<SupportCategory | 'ALL'>('ALL');
   const [priority, setPriority] = useState<SupportPriority | 'ALL'>('ALL');
+  const [partnerOrganizationId, setPartnerOrganizationId] = useState<string | 'ALL'>('ALL');
   const [organizationId, setOrganizationId] = useState<string | 'ALL'>('ALL');
 
   const organizationsQuery = useQuery({
     queryKey: ['organizations', 'all'],
     queryFn: organizationsApi.all,
   });
+  const partners = useMemo(
+    () => partnerOrganizations(organizationsQuery.data ?? []),
+    [organizationsQuery.data],
+  );
+  const organizationOptions = useMemo(
+    () => organizationsForPartner(organizationsQuery.data ?? [], partnerOrganizationId),
+    [organizationsQuery.data, partnerOrganizationId],
+  );
+
+  const handlePartnerChange = (value: string) => {
+    setPartnerOrganizationId(value);
+    const selectedOrganization = organizationsQuery.data?.find(
+      (organization) => organization.id === organizationId,
+    );
+    if (
+      organizationId !== 'ALL' &&
+      !organizationBelongsToPartner(selectedOrganization, value)
+    ) {
+      setOrganizationId('ALL');
+    }
+  };
 
   const threadsQuery = useQuery({
-    queryKey: ['support', 'threads', 'all', status, category, priority, organizationId],
+    queryKey: [
+      'support',
+      'threads',
+      'all',
+      status,
+      category,
+      priority,
+      partnerOrganizationId,
+      organizationId,
+    ],
     queryFn: () =>
       supportApi.list({
         status: status === 'ALL' ? undefined : status,
         category: category === 'ALL' ? undefined : category,
         priority: priority === 'ALL' ? undefined : priority,
+        partnerOrganizationId:
+          partnerOrganizationId === 'ALL' ? undefined : partnerOrganizationId,
         organizationId: organizationId === 'ALL' ? undefined : organizationId,
         perPage: 100,
       }),
@@ -83,7 +125,11 @@ export function SupportInboxPage() {
       </div>
 
       <Card className="space-y-4 px-4 py-5 sm:px-6">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div
+          className={`grid gap-3 sm:grid-cols-2 ${
+            isSuperAdmin ? 'lg:grid-cols-5' : 'lg:grid-cols-4'
+          }`}
+        >
           <div>
             <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
               Status
@@ -137,6 +183,26 @@ export function SupportInboxPage() {
               </SelectContent>
             </Select>
           </div>
+          {isSuperAdmin && (
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                Partner
+              </label>
+              <Select value={partnerOrganizationId} onValueChange={handlePartnerChange}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_PARTNERS_VALUE}>All partners</SelectItem>
+                  {partners.map((org) => (
+                    <SelectItem key={org.id} value={org.id}>
+                      {org.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div>
             <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
               Organization
@@ -146,8 +212,12 @@ export function SupportInboxPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">All organizations</SelectItem>
-                {organizationsQuery.data?.map((org) => (
+                <SelectItem value="ALL">
+                  {isSuperAdmin && partnerOrganizationId !== 'ALL'
+                    ? 'All under partner'
+                    : 'All organizations'}
+                </SelectItem>
+                {organizationOptions.map((org) => (
                   <SelectItem key={org.id} value={org.id}>
                     {org.name}
                   </SelectItem>

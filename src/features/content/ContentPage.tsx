@@ -18,6 +18,13 @@ import { usersApi } from '@/services/users.api';
 import type { AdminExportFormat, AdminListQuery } from '@/services/admin-api';
 import { extractApiError } from '@/lib/api';
 import { formatDateTime, initials } from '@/lib/utils';
+import { useAuthStore } from '@/lib/auth-store';
+import {
+  ALL_PARTNERS_VALUE,
+  organizationBelongsToPartner,
+  organizationsForPartner,
+  partnerOrganizations,
+} from '@/lib/admin-hierarchy';
 import {
   CONTENT_IMPORT_STATUS_LABEL,
   EXPORT_STATUS_LABEL,
@@ -148,7 +155,9 @@ function PreviewTile({
 
 export function ContentPage() {
   const [params, setParams] = useSearchParams();
+  const { user: actor } = useAuthStore();
   const [exporting, setExporting] = useState<AdminExportFormat | null>(null);
+  const isSuperAdmin = actor?.role === 'SUPER_ADMIN';
   const requestedTab = params.get('tab') as ContentTab | null;
   const tab: ContentTab =
     requestedTab === 'live-sessions' || requestedTab === 'exports' || requestedTab === 'imports'
@@ -157,6 +166,7 @@ export function ContentPage() {
 
   const page = numberParam(params.get('page'), 1);
   const search = params.get('search') ?? '';
+  const partnerOrganizationId = params.get('partnerOrganizationId') ?? ALL_PARTNERS_VALUE;
   const organizationId = params.get('organizationId') ?? 'ALL';
   const userId = params.get('userId') ?? 'ALL';
   const role = params.get('role') ?? 'ALL';
@@ -180,13 +190,14 @@ export function ContentPage() {
       page,
       perPage: PER_PAGE,
       search,
+      partnerOrganizationId: cleanFilterValue(partnerOrganizationId),
       organizationId: cleanFilterValue(organizationId),
       userId: cleanFilterValue(userId),
       role: cleanFilterValue(role),
       createdFrom,
       createdTo,
     }),
-    [createdFrom, createdTo, organizationId, page, role, search, userId],
+    [createdFrom, createdTo, organizationId, page, partnerOrganizationId, role, search, userId],
   );
 
   const canvasQuery = useMemo<AdminListQuery>(
@@ -294,12 +305,22 @@ export function ContentPage() {
   const liveRows = liveSessionsQuery.data?.data ?? [];
   const exportRows = exportRecordsQuery.data?.data ?? [];
   const importRows = importRecordsQuery.data?.data ?? [];
+  const allOrganizations = orgsQuery.data ?? [];
+  const partners = partnerOrganizations(allOrganizations);
+  const organizationOptions = organizationsForPartner(allOrganizations, partnerOrganizationId);
 
   const activeFilters = useMemo<FilterChip[]>(() => {
+    const partner = partners.find((item) => item.id === partnerOrganizationId);
     const org = orgsQuery.data?.find((item) => item.id === organizationId);
     const selectedUser = usersQuery.data?.find((item) => item.id === userId);
     return [
       search && { key: 'search', label: 'Search', value: search },
+      isSuperAdmin &&
+        partnerOrganizationId !== ALL_PARTNERS_VALUE && {
+          key: 'partnerOrganizationId',
+          label: 'Partner',
+          value: partner?.name ?? partnerOrganizationId,
+        },
       organizationId !== 'ALL' && {
         key: 'organizationId',
         label: 'Org',
@@ -367,9 +388,12 @@ export function ContentPage() {
     createdTo,
     format,
     hasThumbnail,
+    isSuperAdmin,
     isPublic,
     organizationId,
     orgsQuery.data,
+    partnerOrganizationId,
+    partners,
     role,
     search,
     startedFrom,
@@ -398,6 +422,24 @@ export function ContentPage() {
     next.delete('completedTo');
     next.delete('convertedFrom');
     next.delete('convertedTo');
+    setParams(next, { replace: true });
+  };
+
+  const setPartnerFilter = (value: string) => {
+    const next = new URLSearchParams(params);
+    if (value === ALL_PARTNERS_VALUE) {
+      next.delete('partnerOrganizationId');
+    } else {
+      next.set('partnerOrganizationId', value);
+    }
+    next.delete('page');
+    const selectedOrganization = orgsQuery.data?.find((org) => org.id === organizationId);
+    if (
+      organizationId !== 'ALL' &&
+      !organizationBelongsToPartner(selectedOrganization, value)
+    ) {
+      next.delete('organizationId');
+    }
     setParams(next, { replace: true });
   };
 
@@ -484,7 +526,13 @@ export function ContentPage() {
               </TabsTrigger>
             </TabsList>
 
-            <div className="grid gap-3 xl:grid-cols-[1fr_220px_220px_220px]">
+            <div
+              className={`grid gap-3 ${
+                isSuperAdmin
+                  ? 'xl:grid-cols-[1fr_220px_220px_220px_220px]'
+                  : 'xl:grid-cols-[1fr_220px_220px_220px]'
+              }`}
+            >
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
                 <Input
@@ -496,6 +544,21 @@ export function ContentPage() {
                   className="pl-9"
                 />
               </div>
+              {isSuperAdmin && (
+                <Select value={partnerOrganizationId} onValueChange={setPartnerFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL_PARTNERS_VALUE}>All partners</SelectItem>
+                    {partners.map((org) => (
+                      <SelectItem key={org.id} value={org.id}>
+                        {org.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <Select
                 value={organizationId}
                 onValueChange={(value) =>
@@ -506,8 +569,12 @@ export function ContentPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ALL">All organizations</SelectItem>
-                  {orgsQuery.data?.map((org) => (
+                  <SelectItem value="ALL">
+                    {isSuperAdmin && partnerOrganizationId !== ALL_PARTNERS_VALUE
+                      ? 'All under partner'
+                      : 'All organizations'}
+                  </SelectItem>
+                  {organizationOptions.map((org) => (
                     <SelectItem key={org.id} value={org.id}>
                       {org.name}
                     </SelectItem>

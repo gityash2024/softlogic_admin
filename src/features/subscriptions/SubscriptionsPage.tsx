@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Archive,
   ArchiveRestore,
+  Building2,
   Clock3,
   CreditCard,
   Eye,
@@ -24,6 +25,12 @@ import type { AdminExportFormat, AdminListQuery } from '@/services/admin-api';
 import { extractApiError } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { useAuthStore } from '@/lib/auth-store';
+import {
+  ALL_PARTNERS_VALUE,
+  organizationBelongsToPartner,
+  organizationsForPartner,
+  partnerOrganizations,
+} from '@/lib/admin-hierarchy';
 import {
   SUBSCRIPTION_STATUS_LABEL,
   type SubscriptionRecord,
@@ -112,6 +119,7 @@ export function SubscriptionsPage() {
   const search = params.get('search') ?? '';
   const status = params.get('status') ?? 'ALL';
   const planName = params.get('planName') ?? '';
+  const partnerOrganizationId = params.get('partnerOrganizationId') ?? ALL_PARTNERS_VALUE;
   const organizationId = params.get('organizationId') ?? 'ALL';
   const userId = params.get('userId') ?? 'ALL';
   const expiringFrom = params.get('expiringFrom') ?? '';
@@ -130,6 +138,7 @@ export function SubscriptionsPage() {
       search,
       status: cleanFilterValue(status),
       planName,
+      partnerOrganizationId: cleanFilterValue(partnerOrganizationId),
       organizationId: cleanFilterValue(organizationId),
       userId: cleanFilterValue(userId),
       expiringFrom,
@@ -150,6 +159,7 @@ export function SubscriptionsPage() {
       expiringTo,
       organizationId,
       page,
+      partnerOrganizationId,
       params,
       planName,
       search,
@@ -177,12 +187,16 @@ export function SubscriptionsPage() {
 
   const subscriptions = subscriptionsQuery.data?.data ?? [];
   const meta = subscriptionsQuery.data?.meta;
+  const allOrganizations = orgsQuery.data ?? [];
+  const partners = partnerOrganizations(allOrganizations);
+  const organizationOptions = organizationsForPartner(allOrganizations, partnerOrganizationId);
   const activeCount = subscriptions.filter((s) => s.status === 'ACTIVE').length;
   const trialCount = subscriptions.filter((s) => s.status === 'TRIAL').length;
   const totalSeats = subscriptions.reduce((sum, s) => sum + s.seatLimit, 0);
   const usedSeats = subscriptions.reduce((sum, s) => sum + s.seatUsage, 0);
 
   const activeFilters = useMemo<FilterChip[]>(() => {
+    const partner = partners.find((item) => item.id === partnerOrganizationId);
     const org = orgsQuery.data?.find((item) => item.id === organizationId);
     const selectedUser = usersQuery.data?.find((item) => item.id === userId);
     return [
@@ -196,6 +210,12 @@ export function SubscriptionsPage() {
             : SUBSCRIPTION_STATUS_LABEL[status as SubscriptionStatus] ?? status,
       },
       planName && { key: 'planName', label: 'Plan', value: planName },
+      isSuperAdmin &&
+        partnerOrganizationId !== ALL_PARTNERS_VALUE && {
+          key: 'partnerOrganizationId',
+          label: 'Partner',
+          value: partner?.name ?? partnerOrganizationId,
+        },
       organizationId !== 'ALL' && {
         key: 'organizationId',
         label: 'Org',
@@ -224,8 +244,11 @@ export function SubscriptionsPage() {
     endTo,
     expiringFrom,
     expiringTo,
+    isSuperAdmin,
     organizationId,
     orgsQuery.data,
+    partnerOrganizationId,
+    partners,
     planName,
     search,
     seatUsageMax,
@@ -310,6 +333,24 @@ export function SubscriptionsPage() {
     }
   };
 
+  const setPartnerFilter = (value: string) => {
+    const next = new URLSearchParams(params);
+    if (value === ALL_PARTNERS_VALUE) {
+      next.delete('partnerOrganizationId');
+    } else {
+      next.set('partnerOrganizationId', value);
+    }
+    next.delete('page');
+    const selectedOrganization = orgsQuery.data?.find((org) => org.id === organizationId);
+    if (
+      organizationId !== 'ALL' &&
+      !organizationBelongsToPartner(selectedOrganization, value)
+    ) {
+      next.delete('organizationId');
+    }
+    setParams(next, { replace: true });
+  };
+
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -353,7 +394,16 @@ export function SubscriptionsPage() {
               disabled={subscriptionsQuery.isLoading}
               loading={Boolean(exporting)}
             />
-            <Button variant="primary" onClick={() => navigate('/subscriptions/new')}>
+            <Button
+              variant="primary"
+              onClick={() =>
+                navigate(
+                  isSuperAdmin && partnerOrganizationId !== ALL_PARTNERS_VALUE
+                    ? `/subscriptions/new?partnerOrganizationId=${partnerOrganizationId}`
+                    : '/subscriptions/new',
+                )
+              }
+            >
               <Plus className="h-4 w-4" />
               Create subscription
             </Button>
@@ -361,7 +411,13 @@ export function SubscriptionsPage() {
         </div>
 
         <div className="space-y-3 px-4 py-4 sm:px-6">
-          <div className="grid gap-3 xl:grid-cols-[1fr_170px_200px_200px]">
+          <div
+            className={`grid gap-3 ${
+              isSuperAdmin
+                ? 'xl:grid-cols-[1fr_170px_200px_200px_200px]'
+                : 'xl:grid-cols-[1fr_170px_200px_200px]'
+            }`}
+          >
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
               <Input
@@ -392,6 +448,21 @@ export function SubscriptionsPage() {
                 <SelectItem value="ARCHIVED">Archived</SelectItem>
               </SelectContent>
             </Select>
+            {isSuperAdmin && (
+              <Select value={partnerOrganizationId} onValueChange={setPartnerFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_PARTNERS_VALUE}>All partners</SelectItem>
+                  {partners.map((org) => (
+                    <SelectItem key={org.id} value={org.id}>
+                      {org.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <Select
               value={organizationId}
               onValueChange={(value) =>
@@ -402,8 +473,12 @@ export function SubscriptionsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">All organizations</SelectItem>
-                {orgsQuery.data?.map((org) => (
+                <SelectItem value="ALL">
+                  {isSuperAdmin && partnerOrganizationId !== ALL_PARTNERS_VALUE
+                    ? 'All under partner'
+                    : 'All organizations'}
+                </SelectItem>
+                {organizationOptions.map((org) => (
                   <SelectItem key={org.id} value={org.id}>
                     {org.name}
                   </SelectItem>
@@ -628,6 +703,16 @@ export function SubscriptionsPage() {
                         >
                           <Eye className="h-4 w-4 text-ink-500" />
                         </Button>
+                        {isSuperAdmin && s.organizationId && s.organization?.kind === 'PARTNER' && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            title="Partner subscription overview"
+                            onClick={() => navigate(`/subscriptions/partners/${s.organizationId}`)}
+                          >
+                            <Building2 className="h-4 w-4 text-ink-500" />
+                          </Button>
+                        )}
                         {isSuperAdmin && (
                           <Button
                             size="icon"

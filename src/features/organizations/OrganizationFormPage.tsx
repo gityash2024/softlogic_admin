@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -37,6 +37,12 @@ import {
 } from '@/components/ui/select';
 import { ConfirmSubmitDialog, type ConfirmRow } from '@/components/ui/confirm-submit-dialog';
 
+const optionalNonNegativeInt = z.preprocess((value) => {
+  if (value === '' || value === null || value === undefined) return null;
+  if (typeof value === 'number' && Number.isNaN(value)) return null;
+  return value;
+}, z.number().int().min(0).nullable().optional());
+
 const schema = z.object({
     name: z.string().min(1, 'Name is required'),
     slug: z.string().optional(),
@@ -54,6 +60,8 @@ const schema = z.object({
     teacherUserLimit: z.number().int().min(0).optional().nullable(),
     studentUserLimit: z.number().int().min(0).optional().nullable(),
     parentUserLimit: z.number().int().min(0).optional().nullable(),
+    maxChildOrganizations: optionalNonNegativeInt,
+    maxChildUsers: optionalNonNegativeInt,
     supportEmail: z.string().trim().email('Enter a valid support email').or(z.literal('')).optional(),
     supportPhone: z.string().optional(),
     storageProviders: z.array(z.string()).optional(),
@@ -158,6 +166,8 @@ function OrganizationFormEditor({
         teacherUserLimit: organization.teacherUserLimit ?? 0,
         studentUserLimit: organization.studentUserLimit ?? 0,
         parentUserLimit: organization.parentUserLimit ?? 0,
+        maxChildOrganizations: organization.maxChildOrganizations ?? null,
+        maxChildUsers: organization.maxChildUsers ?? null,
         supportEmail: organization.supportEmail ?? '',
         supportPhone: organization.supportPhone ?? '',
         storageProviders:
@@ -191,6 +201,8 @@ function OrganizationFormEditor({
       teacherUserLimit: 0,
       studentUserLimit: 0,
       parentUserLimit: 0,
+      maxChildOrganizations: null,
+      maxChildUsers: null,
       supportEmail: '',
       supportPhone: '',
       storageProviders: [],
@@ -210,7 +222,7 @@ function OrganizationFormEditor({
     watch,
     formState: { errors },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues,
   });
   const [selectedLogoFile, setSelectedLogoFile] = useState<File | null>(null);
@@ -333,7 +345,10 @@ function OrganizationFormEditor({
   const teacherUserLimit = Number(watch('teacherUserLimit') ?? 0);
   const studentUserLimit = Number(watch('studentUserLimit') ?? 0);
   const parentUserLimit = Number(watch('parentUserLimit') ?? 0);
+  const maxChildOrganizations = watch('maxChildOrganizations');
+  const maxChildUsers = watch('maxChildUsers');
   const totalUserLimit = teacherUserLimit + studentUserLimit + parentUserLimit;
+  const showPartnerGovernance = isSuperAdmin && kind === 'PARTNER';
   const submitting = createMutation.isPending || updateMutation.isPending;
   const isWhiteLabel = brandingMode === 'WHITE_LABEL';
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -507,6 +522,12 @@ function OrganizationFormEditor({
                 brandAccentColor: values.brandAccentColor?.trim()
                   ? values.brandAccentColor.trim()
                   : null,
+                ...(values.kind === 'PARTNER'
+                  ? {
+                      maxChildOrganizations: values.maxChildOrganizations ?? null,
+                      maxChildUsers: values.maxChildUsers ?? null,
+                    }
+                  : {}),
               }
             : {}),
           studentLoginEnabled: normalizedStudentLogin,
@@ -619,6 +640,16 @@ function OrganizationFormEditor({
           Number(v.studentUserLimit ?? 0) +
           Number(v.parentUserLimit ?? 0),
       });
+      if (isSuperAdmin && v.kind === 'PARTNER') {
+        rows.push({
+          label: 'Max child organizations',
+          value: v.maxChildOrganizations ?? 'No limit',
+        });
+        rows.push({
+          label: 'Max child users',
+          value: v.maxChildUsers ?? 'No limit',
+        });
+      }
     }
     if ((v.aiCreditTokens ?? 0) > 0) {
       rows.push({ label: 'Assigned AI credits', value: Number(v.aiCreditTokens ?? 0) });
@@ -800,6 +831,44 @@ function OrganizationFormEditor({
               )}
             </div>
           </div>
+          {showPartnerGovernance && (
+            <div className="grid gap-4 rounded-lg border border-line bg-surface-variant px-4 py-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  Max child organizations
+                </label>
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="No limit"
+                  {...register('maxChildOrganizations', { valueAsNumber: true })}
+                />
+                <p className="text-xs text-ink-500">
+                  {maxChildOrganizations ?? 'Unlimited'} customer organizations under this partner.
+                </p>
+                {errors.maxChildOrganizations && (
+                  <p className="text-xs text-danger">{errors.maxChildOrganizations.message}</p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  Max child users
+                </label>
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="No limit"
+                  {...register('maxChildUsers', { valueAsNumber: true })}
+                />
+                <p className="text-xs text-ink-500">
+                  {maxChildUsers ?? 'Unlimited'} total teacher, student, and parent seats across child organizations.
+                </p>
+                {errors.maxChildUsers && (
+                  <p className="text-xs text-danger">{errors.maxChildUsers.message}</p>
+                )}
+              </div>
+            </div>
+          )}
           <div className="grid gap-4 rounded-lg border border-line bg-surface-variant px-4 py-4 sm:grid-cols-[1fr_1fr_1fr_1fr]">
             <div>
               <div className="flex items-center gap-1">

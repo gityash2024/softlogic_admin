@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -10,9 +10,16 @@ import { toast } from 'sonner';
 import { subscriptionsApi, type UpdateSubscriptionPayload } from '@/services/subscriptions.api';
 import { organizationsApi } from '@/services/organizations.api';
 import { usersApi } from '@/services/users.api';
+import { licensingApi } from '@/services/licensing.api';
 import { useAuthStore } from '@/lib/auth-store';
 import { extractApiError } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
+import {
+  ALL_PARTNERS_VALUE,
+  organizationBelongsToPartner,
+  organizationsForPartner,
+  partnerOrganizations,
+} from '@/lib/admin-hierarchy';
 import {
   BRANDING_MODE_LABEL,
   SUBSCRIPTION_STATUS_LABEL,
@@ -39,7 +46,7 @@ const schema = z
     scope: z.enum(['organization', 'user']),
     organizationId: z.string().optional(),
     userId: z.string().optional(),
-    planName: z.string().min(1, 'Plan is required'),
+    planName: z.string().optional(),
     status: z.string(),
     brandingMode: z.string(),
     seatLimit: z
@@ -68,6 +75,7 @@ const schema = z
   });
 
 type FormValues = z.infer<typeof schema>;
+const INTERNAL_PLAN_NAME = 'Internal Unlimited';
 
 const DURATION_OPTIONS: Array<{ value: string; label: string; months: number | null }> = [
   { value: 'custom', label: 'Custom', months: null },
@@ -100,9 +108,19 @@ function addDaysToDate(dateStr: string, days: number): string {
   return base.toISOString().slice(0, 10);
 }
 
+function allocatedSeatTotal(org: AdminOrganization | null | undefined): number {
+  if (!org) return 0;
+  return (
+    (org.teacherUserLimit ?? 0) +
+    (org.studentUserLimit ?? 0) +
+    (org.parentUserLimit ?? 0)
+  );
+}
+
 export function SubscriptionFormPage() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const isEdit = Boolean(id);
   const queryClient = useQueryClient();
   const { user: actor } = useAuthStore();
@@ -114,6 +132,9 @@ export function SubscriptionFormPage() {
   const ownOrganizationId = actor?.primaryOrganization?.id ?? null;
   const initialStartDate = toInputDate(new Date().toISOString());
   const [durationMonths, setDurationMonths] = useState<number | null>(isEdit ? null : 12);
+  const [selectedPartnerOrganizationId, setSelectedPartnerOrganizationId] = useState(
+    searchParams.get('partnerOrganizationId') ?? ALL_PARTNERS_VALUE,
+  );
 
   const subscriptionQuery = useQuery({
     queryKey: ['subscriptions', id],
@@ -142,7 +163,7 @@ export function SubscriptionFormPage() {
       scope: 'organization',
       organizationId: lockToOwnOrg && ownOrganizationId ? ownOrganizationId : 'NONE',
       userId: 'NONE',
-      planName: '',
+      planName: INTERNAL_PLAN_NAME,
       status: 'ACTIVE',
       brandingMode: 'SOFTLOGIC',
       seatLimit: 1,
@@ -177,13 +198,13 @@ export function SubscriptionFormPage() {
 
   const createMutation = useMutation({
     mutationFn: subscriptionsApi.create,
-    onSuccess: () => {
+    onSuccess: (subscription) => {
       queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
       toast.success(
-        isSuperAdmin
+        subscription.status === 'ACTIVE'
           ? 'Subscription created'
-          : 'Subscription submitted — pending Super Admin approval',
+          : `Subscription submitted - pending ${approvalTargetLabel} approval`,
       );
       navigate('/subscriptions');
     },
@@ -209,14 +230,32 @@ export function SubscriptionFormPage() {
   const brandingMode = watch('brandingMode');
   const startDate = watch('startDate');
   const submitting = createMutation.isPending || updateMutation.isPending;
+  const partners = partnerOrganizations(orgsQuery.data ?? []);
+  const organizationOptions = organizationsForPartner(
+    orgsQuery.data ?? [],
+    selectedPartnerOrganizationId,
+  );
 
   const selectedOrg =
     scope === 'organization' && organizationId && organizationId !== 'NONE'
       ? orgsQuery.data?.find((org) => org.id === organizationId) ?? null
       : null;
+  const inheritedBrandingMode = selectedOrg?.brandingMode ?? (brandingMode as BrandingMode);
+  const selectedOrgSeatTotal = allocatedSeatTotal(selectedOrg);
+  const partnerChildOrg =
+    actor?.role === 'PARTNER_ADMIN' &&
+    !!actor.primaryOrganization?.id &&
+    selectedOrg?.parentOrganizationId === actor.primaryOrganization.id;
+  const partnerLicenseQuery = useQuery({
+    queryKey: ['license-details', selectedOrg?.id, 'subscription-form'],
+    queryFn: () => licensingApi.getOrganizationLicenseDetails(selectedOrg!.id),
+    enabled: partnerChildOrg && !!selectedOrg?.id && !isEdit,
+  });
+  const partnerPool = partnerLicenseQuery.data?.partnerPool ?? null;
   const showWhiteLabel =
     isSuperAdmin && !!selectedOrg && selectedOrg.brandingMode !== 'SOFTLOGIC';
-  const showPendingNotice = !isEdit && !isSuperAdmin;
+  const approvalTargetLabel = selectedOrg?.parentOrganizationId ? 'Partner Admin' : 'Super Admin';
+  const showPendingNotice = !isEdit && !isSuperAdmin && !partnerChildOrg;
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingValues, setPendingValues] = useState<FormValues | null>(null);
 
@@ -233,7 +272,7 @@ export function SubscriptionFormPage() {
       ? selectedOrg?.name ?? '—'
       : selectedUser?.name ?? selectedUser?.email ?? '—';
   const previewStatusLabel =
-    !isEdit && !isSuperAdmin
+    !isEdit && !isSuperAdmin && !partnerChildOrg
       ? 'Pending Approval'
       : SUBSCRIPTION_STATUS_LABEL[status as SubscriptionStatus];
   // When a duration preset is selected, keep the end date in sync with the start
@@ -243,9 +282,54 @@ export function SubscriptionFormPage() {
     setValue('endDate', addMonthsToDate(startDate, durationMonths), { shouldDirty: true });
   }, [durationMonths, startDate, setValue]);
 
+  useEffect(() => {
+    setValue('planName', INTERNAL_PLAN_NAME, { shouldDirty: false });
+  }, [setValue]);
+
+  useEffect(() => {
+    if (scope !== 'organization' || !selectedOrg) return;
+    setValue('brandingMode', selectedOrg.brandingMode, { shouldDirty: true });
+    if (!isEdit && selectedOrgSeatTotal > 0) {
+      setValue('seatLimit', selectedOrgSeatTotal, { shouldDirty: true });
+    }
+  }, [isEdit, scope, selectedOrg, selectedOrgSeatTotal, setValue]);
+
   const onSubmit = (values: FormValues) => {
+    if (values.scope === 'organization') {
+      if (!values.organizationId || values.organizationId === 'NONE') {
+        toast.error('Select an organization');
+        return;
+      }
+      if (selectedOrgSeatTotal > 0 && values.seatLimit !== selectedOrgSeatTotal) {
+        toast.error(`Seats must match teacher + student + parent users (${selectedOrgSeatTotal})`);
+        return;
+      }
+    }
+    if (partnerChildOrg) {
+      if (!partnerPool || partnerPool.seatLimit <= 0) {
+        toast.error('Active partner subscription is required before allocating child seats');
+        return;
+      }
+      if (values.seatLimit > partnerPool.remainingAllocationSeats) {
+        toast.error(
+          `Only ${partnerPool.remainingAllocationSeats} partner seat(s) are available for allocation`,
+        );
+        return;
+      }
+    }
     setPendingValues(values);
     setConfirmOpen(true);
+  };
+
+  const handlePartnerChange = (value: string) => {
+    setSelectedPartnerOrganizationId(value);
+    const currentOrganization = orgsQuery.data?.find((org) => org.id === organizationId);
+    if (
+      organizationId !== 'NONE' &&
+      !organizationBelongsToPartner(currentOrganization, value)
+    ) {
+      setValue('organizationId', 'NONE', { shouldDirty: true });
+    }
   };
 
   const runSubmit = () => {
@@ -253,14 +337,15 @@ export function SubscriptionFormPage() {
     if (!values) return;
     const startISO = new Date(values.startDate).toISOString();
     const endISO = new Date(values.endDate).toISOString();
-    const commercialPayload = {
-      brandingMode: values.brandingMode as BrandingMode,
-    };
+    const commercialPayload =
+      values.scope === 'organization' && selectedOrg
+        ? { brandingMode: selectedOrg.brandingMode }
+        : { brandingMode: values.brandingMode as BrandingMode };
     if (isEdit && id) {
       updateMutation.mutate({
         subscriptionId: id,
         payload: {
-          planName: values.planName,
+          planName: INTERNAL_PLAN_NAME,
           status: values.status as SubscriptionStatus,
           seatLimit: values.seatLimit,
           ...commercialPayload,
@@ -276,7 +361,7 @@ export function SubscriptionFormPage() {
             : null,
         userId:
           values.scope === 'user' && values.userId !== 'NONE' ? values.userId : null,
-        planName: values.planName,
+        planName: INTERNAL_PLAN_NAME,
         status: values.status as SubscriptionStatus,
         seatLimit: values.seatLimit,
         ...commercialPayload,
@@ -294,7 +379,7 @@ export function SubscriptionFormPage() {
         usersQuery.data?.find((u) => u.id === v.userId)?.email ??
         '—';
     const statusLabel =
-      !isEdit && !isSuperAdmin
+      !isEdit && !isSuperAdmin && !partnerChildOrg
         ? 'Pending Approval'
         : SUBSCRIPTION_STATUS_LABEL[v.status as SubscriptionStatus];
     const durLabel =
@@ -303,9 +388,9 @@ export function SubscriptionFormPage() {
     return [
       { label: 'Scope', value: isOrg ? 'Organization' : 'User' },
       { label: isOrg ? 'Organization' : 'User', value: holder },
-      { label: 'Plan name', value: v.planName },
+      { label: 'Plan name', value: INTERNAL_PLAN_NAME },
       { label: 'Status', value: statusLabel },
-      { label: 'Branding mode', value: BRANDING_MODE_LABEL[v.brandingMode as BrandingMode] },
+      { label: 'Branding mode', value: BRANDING_MODE_LABEL[inheritedBrandingMode] },
       { label: 'Number of seats', value: v.seatLimit },
       { label: 'Duration', value: durLabel },
       { label: 'Start date', value: v.startDate ? formatDate(v.startDate) : '—' },
@@ -334,7 +419,11 @@ export function SubscriptionFormPage() {
         </div>
         <Button type="submit" variant="primary" disabled={submitting}>
           {submitting ? <Spinner className="h-4 w-4" /> : <Save className="h-4 w-4" />}
-          {isEdit ? 'Save changes' : isSuperAdmin ? 'Create subscription' : 'Submit for approval'}
+          {isEdit
+            ? 'Save changes'
+            : isSuperAdmin || partnerChildOrg
+              ? 'Create subscription'
+              : 'Submit for approval'}
         </Button>
       </div>
 
@@ -342,7 +431,7 @@ export function SubscriptionFormPage() {
         <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-800">
           <Info className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
-            Submitting sends this subscription to a SoftLogic Super Admin for approval. It stays
+            Submitting sends this subscription to a {approvalTargetLabel} for approval. It stays
             inactive until approved — you&apos;ll receive an email once it&apos;s reviewed.
           </span>
         </div>
@@ -355,7 +444,13 @@ export function SubscriptionFormPage() {
             <p className="text-sm text-ink-500">Billing and access allocation metadata.</p>
           </div>
           {!isEdit && (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div
+              className={`grid gap-4 ${
+                isSuperAdmin && scope === 'organization'
+                  ? 'sm:grid-cols-3'
+                  : 'sm:grid-cols-2'
+              }`}
+            >
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Scope</label>
                 <Select
@@ -370,6 +465,20 @@ export function SubscriptionFormPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {isSuperAdmin && scope === 'organization' && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Partner organization</label>
+                  <Select value={selectedPartnerOrganizationId} onValueChange={handlePartnerChange}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL_PARTNERS_VALUE}>All partners</SelectItem>
+                      {partners.map((org) => (
+                        <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
                   {scope === 'organization' ? 'Organization' : 'User'}
@@ -383,7 +492,7 @@ export function SubscriptionFormPage() {
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {!lockToOwnOrg && <SelectItem value="NONE">Select organization</SelectItem>}
-                      {orgsQuery.data?.map((org) => (
+                      {organizationOptions.map((org) => (
                         <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
                       ))}
                     </SelectContent>
@@ -406,8 +515,8 @@ export function SubscriptionFormPage() {
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Branding mode</label>
               <Select
-                disabled={!isSuperAdmin}
-                value={brandingMode}
+                disabled={!isSuperAdmin || scope === 'organization'}
+                value={inheritedBrandingMode}
                 onValueChange={(value) => setValue('brandingMode', value)}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -422,7 +531,7 @@ export function SubscriptionFormPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Plan name</label>
-              <Input placeholder="Enterprise" {...register('planName')} />
+              <Input readOnly {...register('planName')} />
               {errors.planName && <p className="text-xs text-danger">{errors.planName.message}</p>}
             </div>
             {isSuperAdmin ? (
@@ -442,7 +551,7 @@ export function SubscriptionFormPage() {
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Status</label>
                 <div className="flex h-10 items-center rounded-lg border border-line bg-surface-variant px-3 text-sm font-medium text-ink-600">
-                  Pending Approval
+                  {partnerChildOrg ? 'Active' : 'Pending Approval'}
                 </div>
               </div>
             )}
@@ -450,10 +559,45 @@ export function SubscriptionFormPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Number of seats</label>
-              <Input type="number" min={1} {...register('seatLimit', { valueAsNumber: true })} />
+              <Input
+                type="number"
+                min={1}
+                max={partnerChildOrg ? partnerPool?.remainingAllocationSeats : undefined}
+                readOnly={scope === 'organization' && selectedOrgSeatTotal > 0}
+                {...register('seatLimit', { valueAsNumber: true })}
+              />
+              {scope === 'organization' && selectedOrgSeatTotal > 0 && (
+                <p className="text-xs text-ink-500">
+                  Seats are teacher + student + parent users: {selectedOrgSeatTotal}.
+                </p>
+              )}
               {errors.seatLimit && <p className="text-xs text-danger">{errors.seatLimit.message}</p>}
             </div>
           </div>
+          {partnerChildOrg && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+              <p className="font-semibold">
+                Partner allocation: {partnerPool?.remainingAllocationSeats ?? 0} of{' '}
+                {partnerPool?.seatLimit ?? 0} seat(s) available.
+              </p>
+              {partnerPool?.subscriptions?.length ? (
+                <div className="mt-2 grid gap-1 text-xs">
+                  {partnerPool.subscriptions.map((subscription) => (
+                    <div key={subscription.id} className="flex justify-between gap-3">
+                      <span className="truncate">{subscription.planName}</span>
+                      <span className="shrink-0">
+                        {subscription.remainingAllocationSeats}/{subscription.seatLimit} available
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-1 text-xs">
+                  Active partner subscription is required before child subscriptions can be activated.
+                </p>
+              )}
+            </div>
+          )}
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Duration</label>
@@ -506,11 +650,11 @@ export function SubscriptionFormPage() {
             </div>
           </Card>
           <SubscriptionPreviewCard
-            planName={planName}
+            planName={planName ?? INTERNAL_PLAN_NAME}
             scopeLabel={scope === 'organization' ? 'Organization' : 'User'}
             holderName={holderName}
             statusLabel={previewStatusLabel}
-            brandingLabel={BRANDING_MODE_LABEL[brandingMode as BrandingMode]}
+            brandingLabel={BRANDING_MODE_LABEL[inheritedBrandingMode]}
             seatLimit={Number(seatLimit) || 0}
             startDate={startDate}
             endDate={endDate ?? ''}
@@ -528,20 +672,20 @@ export function SubscriptionFormPage() {
         title={
           isEdit
             ? 'Save subscription changes?'
-            : isSuperAdmin
+            : isSuperAdmin || partnerChildOrg
               ? 'Create this subscription?'
               : 'Submit this subscription?'
         }
         description={
           !isEdit && !isSuperAdmin
-            ? 'This will be sent to a SoftLogic Super Admin for approval.'
+            ? `This will be sent to a ${approvalTargetLabel} for approval.`
             : 'Review the details below before saving.'
         }
         rows={pendingValues ? buildRows(pendingValues) : []}
         confirmLabel={
           isEdit
             ? 'Save changes'
-            : isSuperAdmin
+            : isSuperAdmin || partnerChildOrg
               ? 'Create subscription'
               : 'Submit for approval'
         }
@@ -591,7 +735,7 @@ function SubscriptionPreviewCard({
           {scopeLabel} plan
         </p>
         <p className="mt-0.5 text-xl font-black leading-tight">
-          {planName?.trim() || 'Enterprise'}
+          {planName?.trim() || INTERNAL_PLAN_NAME}
         </p>
       </div>
       <div className="relative z-10 mt-3 flex items-center gap-2 font-mono text-sm tracking-widest text-white/90">

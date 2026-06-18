@@ -29,7 +29,7 @@ export interface SubscriptionPaymentsResponse {
 export interface CreateSubscriptionPayload {
   organizationId?: string | null;
   userId?: string | null;
-  planName: string;
+  planName?: string;
   status?: SubscriptionStatus;
   brandingMode?: BrandingMode;
   seatLimit: number;

@@ -121,8 +121,11 @@ export function SettingsPage() {
     mutationFn: (values: PasswordFormValues) =>
       authApi.changePassword(values.newPassword),
     onSuccess: () => {
-      toast.success('Password updated');
+      toast.success('Password updated. Please sign in again.');
       resetPassword();
+      clear();
+      queryClient.clear();
+      navigate('/login', { replace: true });
     },
     onError: (err) => toast.error(extractApiError(err)),
   });

@@ -4,8 +4,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArchiveX,
   Building2,
+  Copy,
   Eye,
   Image as ImageIcon,
+  Network,
   Pencil,
   Plus,
   Power,
@@ -24,6 +26,10 @@ import { extractApiError } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
 import { canAccessAiModule } from '@/lib/ai-access';
 import { canCreateOrganizationKind } from '@/lib/role-access';
+import {
+  ALL_PARTNERS_VALUE,
+  partnerOrganizations,
+} from '@/lib/admin-hierarchy';
 import {
   ORG_KIND_LABEL,
   type AdminOrganization,
@@ -98,7 +104,7 @@ export function OrganizationsPage() {
   const search = params.get('search') ?? '';
   const kind = params.get('kind') ?? 'ALL';
   const status = params.get('status') ?? 'ALL';
-  const parentOrganizationId = params.get('parentOrganizationId') ?? 'ALL';
+  const partnerOrganizationId = params.get('partnerOrganizationId') ?? ALL_PARTNERS_VALUE;
   const hasLogo = params.get('hasLogo') ?? 'ALL';
   const createdFrom = params.get('createdFrom') ?? '';
   const createdTo = params.get('createdTo') ?? '';
@@ -112,7 +118,7 @@ export function OrganizationsPage() {
       search,
       kind: cleanFilterValue(kind),
       status: cleanFilterValue(status),
-      parentOrganizationId: cleanFilterValue(parentOrganizationId),
+      partnerOrganizationId: cleanFilterValue(partnerOrganizationId),
       hasLogo: hasLogo === 'ALL' ? undefined : hasLogo === 'true',
       createdFrom,
       createdTo,
@@ -128,7 +134,7 @@ export function OrganizationsPage() {
       kind,
       page,
       params,
-      parentOrganizationId,
+      partnerOrganizationId,
       search,
       status,
       updatedFrom,
@@ -147,6 +153,7 @@ export function OrganizationsPage() {
 
   const organizations = organizationsQuery.data?.data ?? [];
   const meta = organizationsQuery.data?.meta;
+  const partners = partnerOrganizations(allOrgsQuery.data ?? []);
   const activeCount = organizations.filter((org) => org.status === 'ACTIVE').length;
   const logoCount = organizations.filter((org) => Boolean(org.logoUrl)).length;
   const aiCount = organizations.length;
@@ -155,7 +162,7 @@ export function OrganizationsPage() {
   const canOpenAiModule = canAccessAiModule(actor);
 
   const activeFilters = useMemo<FilterChip[]>(() => {
-    const parent = allOrgsQuery.data?.find((org) => org.id === parentOrganizationId);
+    const partner = partners.find((org) => org.id === partnerOrganizationId);
     return [
       search && { key: 'search', label: 'Search', value: search },
       kind !== 'ALL' && {
@@ -164,10 +171,10 @@ export function OrganizationsPage() {
         value: ORG_KIND_LABEL[kind as OrganizationKind] ?? kind,
       },
       status !== 'ALL' && { key: 'status', label: 'Status', value: status },
-      parentOrganizationId !== 'ALL' && {
-        key: 'parentOrganizationId',
-        label: 'Parent',
-        value: parent?.name ?? parentOrganizationId,
+      partnerOrganizationId !== ALL_PARTNERS_VALUE && {
+        key: 'partnerOrganizationId',
+        label: 'Partner',
+        value: partner?.name ?? partnerOrganizationId,
       },
       hasLogo !== 'ALL' && {
         key: 'hasLogo',
@@ -185,7 +192,8 @@ export function OrganizationsPage() {
     createdTo,
     hasLogo,
     kind,
-    parentOrganizationId,
+    partnerOrganizationId,
+    partners,
     search,
     status,
     updatedFrom,
@@ -252,6 +260,11 @@ export function OrganizationsPage() {
     } finally {
       setExporting(null);
     }
+  };
+
+  const copySupportEmail = async (email: string) => {
+    await navigator.clipboard.writeText(email);
+    toast.success('Organization email copied');
   };
 
   return (
@@ -352,19 +365,17 @@ export function OrganizationsPage() {
               </SelectContent>
             </Select>
             <Select
-              value={parentOrganizationId}
+              value={partnerOrganizationId}
               onValueChange={(value) =>
-                setSearchParam(params, setParams, 'parentOrganizationId', value)
+                setSearchParam(params, setParams, 'partnerOrganizationId', value)
               }
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">All parents</SelectItem>
-                {allOrgsQuery.data
-                  ?.filter((org) => org.kind === 'PARTNER')
-                  .map((org) => (
+                <SelectItem value={ALL_PARTNERS_VALUE}>All partners</SelectItem>
+                {partners.map((org) => (
                     <SelectItem key={org.id} value={org.id}>
                       {org.name}
                     </SelectItem>
@@ -443,7 +454,7 @@ export function OrganizationsPage() {
               <col className="w-[14%]" />
               <col className="w-[10%]" />
               <col className="w-[11%]" />
-              <col className="w-[264px]" />
+              <col className="w-[292px]" />
             </colgroup>
             <TableHeader>
               <TableRow>
@@ -453,12 +464,19 @@ export function OrganizationsPage() {
                 <TableHead>Plan</TableHead>
                 <TableHead>Members</TableHead>
                 <TableHead>AI</TableHead>
-                <TableHead className="w-[264px] px-1.5 text-right">Actions</TableHead>
+                <TableHead className="w-[292px] px-1.5 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {organizations.map((org) => (
-                <TableRow key={org.id}>
+                <TableRow
+                  key={org.id}
+                  className={
+                    org.kind === 'PARTNER'
+                      ? 'bg-purple-50/45 hover:bg-purple-50'
+                      : undefined
+                  }
+                >
                   <TableCell>
                     <div className="flex min-w-0 items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border border-line bg-surface-variant">
@@ -477,6 +495,22 @@ export function OrganizationsPage() {
                           {org.name}
                         </p>
                         <p className="truncate text-xs text-ink-500">{org.slug}</p>
+                        <div className="mt-1 flex min-w-0 items-center gap-1">
+                          <p className="truncate text-xs text-ink-500">
+                            {org.supportEmail ?? 'No support email'}
+                          </p>
+                          {org.supportEmail && (
+                            <Button
+                              className="h-6 w-6 shrink-0 p-0"
+                              size="icon"
+                              variant="ghost"
+                              title="Copy organization email"
+                              onClick={() => copySupportEmail(org.supportEmail!)}
+                            >
+                              <Copy className="h-3.5 w-3.5 text-ink-500" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </TableCell>
@@ -513,7 +547,7 @@ export function OrganizationsPage() {
                   <TableCell>
                     <Badge variant="info">Centralized</Badge>
                   </TableCell>
-                  <TableCell className="w-[264px] px-1.5 text-right">
+                  <TableCell className="w-[292px] px-1.5 text-right">
                     <div className="flex justify-end gap-px whitespace-nowrap">
                       <Button
                         className={ORGANIZATION_ACTION_BUTTON_CLASS}
@@ -612,6 +646,17 @@ export function OrganizationsPage() {
                       >
                         <Eye className="h-4 w-4 text-ink-500" />
                       </Button>
+                      {org.kind === 'PARTNER' && (
+                        <Button
+                          className={ORGANIZATION_ACTION_BUTTON_CLASS}
+                          size="icon"
+                          variant="ghost"
+                          title="View partner hierarchy"
+                          onClick={() => navigate(`/organizations/${org.id}`)}
+                        >
+                          <Network className="h-4 w-4 text-purple-600" />
+                        </Button>
+                      )}
                       <Button
                         className={ORGANIZATION_ACTION_BUTTON_CLASS}
                         size="icon"

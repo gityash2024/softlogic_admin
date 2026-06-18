@@ -23,6 +23,7 @@ import type { SubscriptionPaymentRecord } from '@/services/subscriptions.api';
 import { licensingApi } from '@/services/licensing.api';
 import type { AuditLogEntry } from '@/types/api';
 import { extractApiError } from '@/lib/api';
+import { formatActivationKeyForDisplay } from '@/lib/activation-key';
 import { cn, formatDate } from '@/lib/utils';
 import { useAuthStore } from '@/lib/auth-store';
 import {
@@ -148,6 +149,7 @@ export function SubscriptionDetailPage() {
   const queryClient = useQueryClient();
   const { user: actor } = useAuthStore();
   const isSuperAdmin = actor?.role === 'SUPER_ADMIN';
+  const canManageActivationKeys = isSuperAdmin || actor?.role === 'PARTNER_ADMIN';
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [renewOpen, setRenewOpen] = useState(false);
   const [renewEndDate, setRenewEndDate] = useState('');
@@ -206,7 +208,11 @@ export function SubscriptionDetailPage() {
     onSuccess: (key) => {
       queryClient.invalidateQueries({ queryKey: ['subscription-details', id] });
       queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
-      toast.success(`Replacement key created${key.activationKey ? `: ${key.activationKey}` : ''}`);
+      toast.success(
+        `Replacement key created${
+          key.activationKey ? `: ${formatActivationKeyForDisplay(key.activationKey)}` : ''
+        }`,
+      );
       setReplaceKeyId(null);
     },
     onError: (error) => toast.error(extractApiError(error)),
@@ -276,7 +282,7 @@ export function SubscriptionDetailPage() {
     renewMutation.mutate(payload);
   };
 
-  if (detailQuery.isLoading || !detailQuery.data) {
+  if (detailQuery.isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
         <Spinner className="h-7 w-7 text-brand-primary" />
@@ -284,13 +290,43 @@ export function SubscriptionDetailPage() {
     );
   }
 
+  if (detailQuery.isError || !detailQuery.data) {
+    return (
+      <Card className="mx-auto max-w-xl px-5 py-6 text-center">
+        <AlertTriangle className="mx-auto h-8 w-8 text-warning" />
+        <h2 className="mt-3 text-lg font-bold text-ink-900">Subscription details unavailable</h2>
+        <p className="mt-1 text-sm leading-6 text-ink-500">
+          {extractApiError(detailQuery.error) || 'The subscription could not be loaded.'}
+        </p>
+        <Button className="mt-4" variant="outline" onClick={() => navigate('/subscriptions')}>
+          <ArrowLeft className="h-4 w-4" />
+          Back to subscriptions
+        </Button>
+      </Card>
+    );
+  }
+
   const subscription = detailQuery.data;
+  const canApproveSubscription =
+    isSuperAdmin ||
+    (actor?.role === 'PARTNER_ADMIN' &&
+      !!actor.primaryOrganization?.id &&
+      subscription.organization?.parentOrganizationId === actor.primaryOrganization.id);
   const usage = Math.min(
     100,
     (subscription.seatUsage / Math.max(subscription.seatLimit, 1)) * 100,
   );
   const allDevices = subscription.hardwareActivationKeys.flatMap((key) =>
     key.activations.map((activation) => ({ activation, key })),
+  );
+  const emailedUsableKeyCount = subscription.hardwareActivationKeys.filter(
+    (key) =>
+      (key.status === 'AVAILABLE' || key.status === 'BOUND') &&
+      Boolean(key.emailSentAt),
+  ).length;
+  const newEmailSlotsRemaining = Math.max(
+    subscription.seatLimit - emailedUsableKeyCount,
+    0,
   );
 
   const payments = paymentsQuery.data ?? [];
@@ -323,7 +359,7 @@ export function SubscriptionDetailPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          {isSuperAdmin && subscription.status === 'PENDING_APPROVAL' && (
+          {canApproveSubscription && subscription.status === 'PENDING_APPROVAL' && (
             <>
               <Button
                 variant="primary"
@@ -349,7 +385,7 @@ export function SubscriptionDetailPage() {
               </Button>
             </>
           )}
-          {isSuperAdmin && subscription.organizationId && (
+          {canManageActivationKeys && subscription.organizationId && (
             <Button
               variant="outline"
               disabled={subscription.hardwareActivationKeys.length === 0}
@@ -445,6 +481,7 @@ export function SubscriptionDetailPage() {
             {subscription.hardwareActivationKeys.map((key) => {
               const showKey = revealed[key.id];
               const plain = key.activationKey ?? '';
+              const displayKey = formatActivationKeyForDisplay(plain);
               return (
                 <TableRow key={key.id}>
                   <TableCell>
@@ -466,7 +503,7 @@ export function SubscriptionDetailPage() {
                     <div className="flex items-center gap-2">
                       <code className="rounded border border-line bg-surface-variant px-2 py-1 font-mono text-xs">
                         {showKey && plain
-                          ? plain
+                          ? displayKey
                           : plain
                           ? '••••••••••••'
                           : '<legacy — reissue to reveal>'}
@@ -489,7 +526,7 @@ export function SubscriptionDetailPage() {
                           <Button
                             size="icon"
                             variant="ghost"
-                            onClick={() => copyValue(plain, 'Activation key copied')}
+                            onClick={() => copyValue(displayKey, 'Activation key copied')}
                             title="Copy"
                           >
                             <Copy className="h-4 w-4" />
@@ -957,6 +994,7 @@ export function SubscriptionDetailPage() {
           organizationId={subscription.organizationId}
           organizationName={subscription.organization?.name}
           keys={subscription.hardwareActivationKeys}
+          newEmailSlotsRemaining={newEmailSlotsRemaining}
           onOpenChange={(open) => setEmailKeysOpen(open)}
           onSent={() => {
             queryClient.invalidateQueries({ queryKey: ['subscription-details', id] });

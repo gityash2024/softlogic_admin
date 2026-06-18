@@ -29,6 +29,7 @@ import type { BulkHardwareActivationKeyResponse } from '@/services/licensing.api
 import type { AdminExportFormat } from '@/services/admin-api';
 import { useAuthStore } from '@/lib/auth-store';
 import { extractApiError } from '@/lib/api';
+import { formatActivationKeyForDisplay } from '@/lib/activation-key';
 import { cn, formatDate } from '@/lib/utils';
 import {
   BRANDING_MODE_LABEL,
@@ -41,6 +42,13 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Spinner } from '@/components/ui/spinner';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -124,6 +132,8 @@ export function LicensePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const isPartnerAdmin = user?.role === 'PARTNER_ADMIN';
+  const canManageActivationKeys = isSuperAdmin || isPartnerAdmin;
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(
     isSuperAdmin ? null : (user?.primaryOrganization?.id ?? null),
   );
@@ -169,6 +179,31 @@ export function LicensePage() {
       return () => window.clearTimeout(timer);
     }
   }, [isSuperAdmin, selectedOrgId, user?.primaryOrganization?.id]);
+
+  const partnerChildOrganizations = useMemo(
+    () => {
+      if (!isPartnerAdmin || !user?.primaryOrganization?.id) return [];
+      const organizations = organizationsQuery.data ?? [];
+      const ownOrganization =
+        organizations.find((org) => org.id === user.primaryOrganization?.id) ??
+        user.primaryOrganization;
+      const children = organizations.filter(
+        (org) => org.parentOrganizationId === user.primaryOrganization?.id,
+      );
+      return [ownOrganization, ...children].filter(
+        (org, index, list) => list.findIndex((item) => item.id === org.id) === index,
+      );
+    },
+    [isPartnerAdmin, organizationsQuery.data, user?.primaryOrganization?.id],
+  );
+
+  useEffect(() => {
+    if (!isPartnerAdmin || partnerChildOrganizations.length === 0) return;
+    const selectedChild = partnerChildOrganizations.some((org) => org.id === selectedOrgId);
+    if (!selectedChild) {
+      setSelectedOrgId(partnerChildOrganizations[0].id);
+    }
+  }, [isPartnerAdmin, partnerChildOrganizations, selectedOrgId]);
 
   const selectedOrganization = useMemo(
     () =>
@@ -267,7 +302,11 @@ export function LicensePage() {
     mutationFn: licensingApi.replaceActivationKey,
     onSuccess: (key) => {
       invalidateCommercialQueries();
-      toast.success(`Replacement key created${key.activationKey ? `: ${key.activationKey}` : ''}`);
+      toast.success(
+        `Replacement key created${
+          key.activationKey ? `: ${formatActivationKeyForDisplay(key.activationKey)}` : ''
+        }`,
+      );
       setReplaceKeyId(null);
     },
     onError: (error) => toast.error(extractApiError(error)),
@@ -284,30 +323,80 @@ export function LicensePage() {
 
   const isLoading = subscriptionsQuery.isLoading || organizationsQuery.isLoading;
   const globalMode = isSuperAdmin && !selectedOrganization;
+  const globalKeysQuery = useQuery({
+    queryKey: ['activation-keys', 'global'],
+    queryFn: () => licensingApi.listKeys({ perPage: 100 }),
+    enabled: globalMode,
+  });
   const globalActiveSubscriptions = (subscriptionsQuery.data ?? []).filter(
     (subscription) => subscription.status === 'ACTIVE' || subscription.status === 'TRIAL',
   );
+  const globalActivationKeys = globalKeysQuery.data?.data ?? [];
   const usage = primarySub
     ? Math.min(100, (primarySub.seatUsage / Math.max(primarySub.seatLimit, 1)) * 100)
     : 0;
 
   const activationKeys = orgDetailsQuery.data?.hardwareActivationKeys ?? [];
+  const partnerPool = orgDetailsQuery.data?.partnerPool ?? null;
   const usableKeyCount = activationKeys.filter((key) =>
     key.status === 'AVAILABLE' || key.status === 'BOUND',
   ).length;
+  const emailedUsableKeyCount = activationKeys.filter(
+    (key) =>
+      (key.status === 'AVAILABLE' || key.status === 'BOUND') &&
+      Boolean(key.emailSentAt),
+  ).length;
   const activePrimarySub =
     primarySub && ['ACTIVE', 'TRIAL'].includes(primarySub.status) ? primarySub : null;
-  const remainingActivationKeys = activePrimarySub
-    ? Math.max(activePrimarySub.seatLimit - usableKeyCount, 0)
-    : 0;
+  const activeOrgSeatLimit = orgSubs
+    .filter((subscription) => subscription.status === 'ACTIVE' || subscription.status === 'TRIAL')
+    .reduce((sum, subscription) => sum + subscription.seatLimit, 0);
+  const selectedOwnPartnerOrg =
+    isPartnerAdmin &&
+    !!user?.primaryOrganization?.id &&
+    selectedOrganization?.id === user.primaryOrganization.id;
+  const partnerKeySourceSubscription =
+    partnerPool?.subscriptions.find((subscription) => subscription.remainingActivationKeys > 0) ??
+    partnerPool?.subscriptions[0] ??
+    null;
+  const activationPoolSubscriptionId = isPartnerAdmin
+    ? partnerKeySourceSubscription?.id ?? null
+    : activePrimarySub?.id ?? null;
+  const activationPoolSeatLimit = isPartnerAdmin
+    ? selectedOwnPartnerOrg
+      ? partnerPool?.seatLimit ?? 0
+      : activeOrgSeatLimit
+    : activePrimarySub?.seatLimit ?? 0;
+  const activationPoolUsableKeyCount = isPartnerAdmin
+    ? selectedOwnPartnerOrg
+      ? partnerPool?.usableKeyCount ?? usableKeyCount
+      : usableKeyCount
+    : usableKeyCount;
+  const organizationRemainingActivationKeys = Math.max(
+    activationPoolSeatLimit - activationPoolUsableKeyCount,
+    0,
+  );
+  const partnerRemainingActivationKeys = isPartnerAdmin
+    ? partnerPool?.remainingActivationKeys ?? 0
+    : organizationRemainingActivationKeys;
+  const remainingActivationKeys = isPartnerAdmin
+    ? Math.min(organizationRemainingActivationKeys, partnerRemainingActivationKeys)
+    : organizationRemainingActivationKeys;
+  const newEmailSlotsRemaining = Math.max(
+    activationPoolSeatLimit - emailedUsableKeyCount,
+    0,
+  );
   const canCreateActivationKey =
     !!selectedOrganization &&
-    !!activePrimarySub &&
+    canManageActivationKeys &&
+    !!activationPoolSubscriptionId &&
     remainingActivationKeys > 0 &&
     !orgDetailsQuery.isLoading;
-  const capacityText = activePrimarySub
-    ? `${usableKeyCount}/${activePrimarySub.seatLimit} usable keys`
-    : 'No active subscription';
+  const capacityText = activationPoolSeatLimit > 0
+    ? `${activationPoolUsableKeyCount}/${activationPoolSeatLimit} usable keys`
+    : isPartnerAdmin
+      ? 'No active partner subscription'
+      : 'No active subscription';
   const allDevices = activationKeys.flatMap((key) =>
     key.activations.map((activation) => ({ activation, key })),
   );
@@ -367,7 +456,7 @@ export function LicensePage() {
     }
     bulkMutation.mutate({
       organizationId: selectedOrganization.id,
-      subscriptionId: primarySub?.id ?? null,
+      subscriptionId: activationPoolSubscriptionId,
       keys: validBulkRows.map((row) => ({
         label: row.label.trim(),
         maxDevices: 1,
@@ -384,7 +473,7 @@ export function LicensePage() {
     }
     bulkMutation.mutate({
       organizationId: selectedOrganization.id,
-      subscriptionId: primarySub?.id ?? null,
+      subscriptionId: activationPoolSubscriptionId,
       keys: Array.from({ length: count }, (_, index) => ({
         label: `Auto activation key ${index + 1}`,
         maxDevices: 1,
@@ -397,6 +486,18 @@ export function LicensePage() {
     setIsExporting(true);
     try {
       await licensingApi.exportKeys(selectedOrganization.id, exportFormat);
+      toast.success(`Activation keys exported (${exportFormat.toUpperCase()})`);
+    } catch (error) {
+      toast.error(extractApiError(error));
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const exportGlobalKeys = async () => {
+    setIsExporting(true);
+    try {
+      await licensingApi.exportKeyList({}, exportFormat);
       toast.success(`Activation keys exported (${exportFormat.toUpperCase()})`);
     } catch (error) {
       toast.error(extractApiError(error));
@@ -424,20 +525,41 @@ export function LicensePage() {
         </div>
         <div className="flex flex-wrap gap-2">
           {isSuperAdmin && (
-            <select
-              className="h-11 w-72 rounded-lg border border-line bg-white px-3 text-sm"
+            <Select
               value={selectedOrganization?.id ?? 'GLOBAL'}
-              onChange={(event) =>
-                setSelectedOrgId(event.target.value === 'GLOBAL' ? null : event.target.value)
+              onValueChange={(value) =>
+                setSelectedOrgId(value === 'GLOBAL' ? null : value)
               }
             >
-              <option value="GLOBAL">General licensing overview</option>
+              <SelectTrigger className="w-72">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="GLOBAL">General licensing overview</SelectItem>
               {organizationsQuery.data?.map((organization) => (
-                <option key={organization.id} value={organization.id}>
+                <SelectItem key={organization.id} value={organization.id}>
                   {organization.name}
-                </option>
+                </SelectItem>
               ))}
-            </select>
+              </SelectContent>
+            </Select>
+          )}
+          {isPartnerAdmin && partnerChildOrganizations.length > 0 && (
+            <Select
+              value={selectedOrganization?.id ?? partnerChildOrganizations[0].id}
+              onValueChange={(value) => setSelectedOrgId(value)}
+            >
+              <SelectTrigger className="w-72">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {partnerChildOrganizations.map((organization) => (
+                  <SelectItem key={organization.id} value={organization.id}>
+                    {organization.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
           <Button
             variant="outline"
@@ -533,6 +655,116 @@ export function LicensePage() {
             <p className="mt-1 text-sm text-ink-500">Available in a future release</p>
           </Card>
         </div>
+      )}
+
+      {globalMode && (
+        <Card>
+          <div className="flex flex-col gap-3 border-b border-line px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div>
+              <h3 className="text-base font-semibold text-ink-900">Activation Keys</h3>
+              <p className="text-xs text-ink-500">
+                Partner-created and direct keys across all organizations.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select
+                value={exportFormat}
+                onValueChange={(value) => setExportFormat(value as AdminExportFormat)}
+              >
+                <SelectTrigger className="h-10 w-28" aria-label="Export format">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="xlsx">XLSX</SelectItem>
+                  <SelectItem value="csv">CSV</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                disabled={isExporting || globalActivationKeys.length === 0}
+                onClick={exportGlobalKeys}
+              >
+                {isExporting ? <Spinner className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+                Export
+              </Button>
+            </div>
+          </div>
+          {globalKeysQuery.isLoading ? (
+            <div className="flex h-40 items-center justify-center">
+              <Spinner className="h-6 w-6 text-brand-primary" />
+            </div>
+          ) : (
+            <Table className="min-w-[1100px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Label</TableHead>
+                  <TableHead>Organization</TableHead>
+                  <TableHead>Source subscription</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created by</TableHead>
+                  <TableHead>Emailed</TableHead>
+                  <TableHead>Bound device</TableHead>
+                  <TableHead>Created</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {globalActivationKeys.map((key) => (
+                  <TableRow key={key.id}>
+                    <TableCell className="font-semibold text-ink-900">
+                      {key.label ?? '-'}
+                    </TableCell>
+                    <TableCell>
+                      <p className="text-sm text-ink-900">{key.organization?.name ?? '-'}</p>
+                      <p className="text-xs text-ink-500">{key.organization?.kind ?? ''}</p>
+                    </TableCell>
+                    <TableCell>
+                      <p className="text-sm text-ink-900">{key.subscription?.planName ?? '-'}</p>
+                      <p className="text-xs text-ink-500">
+                        {key.subscription?.organization?.name ?? ''}
+                      </p>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          key.status === 'AVAILABLE'
+                            ? 'info'
+                            : key.status === 'BOUND'
+                              ? 'success'
+                              : 'warning'
+                        }
+                      >
+                        {key.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <p className="text-sm text-ink-900">
+                        {key.createdBy?.name ?? key.createdBy?.email ?? '-'}
+                      </p>
+                      <p className="text-xs text-ink-500">{key.createdBy?.role ?? ''}</p>
+                    </TableCell>
+                    <TableCell>{key.emailSentAt ? formatDate(key.emailSentAt) : '-'}</TableCell>
+                    <TableCell>
+                      <p className="text-sm text-ink-900">
+                        {key.boundActivation?.deviceModel ?? '-'}
+                      </p>
+                      <p className="text-xs text-ink-500">
+                        {key.boundActivation?.devicePlatform ?? ''}
+                      </p>
+                    </TableCell>
+                    <TableCell>{formatDate(key.createdAt)}</TableCell>
+                  </TableRow>
+                ))}
+                {globalActivationKeys.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={8} className="py-10 text-center text-sm text-ink-500">
+                      No activation keys issued yet.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </Card>
       )}
 
       {!globalMode && (
@@ -758,7 +990,7 @@ export function LicensePage() {
                     }
                     hardwareMutation.mutate({
                       organizationId: selectedOrganization.id,
-                      subscriptionId: primarySub?.id ?? null,
+                      subscriptionId: activationPoolSubscriptionId,
                       label: keyLabel.trim(),
                       maxDevices: 1,
                     });
@@ -799,6 +1031,97 @@ export function LicensePage() {
         </div>
       )}
 
+      {isPartnerAdmin && !globalMode && selectedOrganization && (
+        <Card className="space-y-5 px-4 py-5 sm:px-6">
+          <div>
+            <h3 className="flex items-center gap-2 text-base font-semibold text-ink-900">
+              <Cpu className="h-4 w-4 text-brand-primary" />
+              Hardware Activation Keys
+            </h3>
+            <p className="text-xs text-ink-500">
+              Each key activates one board/device. Keys are allocated from the partner pool.
+            </p>
+            <p className="mt-1 text-xs font-medium text-ink-600">
+              {partnerPool
+                ? `${partnerPool.organizationName} pool: ${capacityText} · ${remainingActivationKeys} remaining`
+                : capacityText}
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <div className="grid gap-3 md:grid-cols-[1fr_140px]">
+              <div className="space-y-1.5">
+                <Input
+                  value={keyLabel}
+                  onChange={(event) => setKeyLabel(event.target.value)}
+                  onBlur={() => setKeyLabelTouched(true)}
+                  maxLength={120}
+                  placeholder="Label (e.g. Lab whiteboard 1)"
+                  aria-invalid={keyLabelTouched && keyLabel.trim().length === 0}
+                />
+                {keyLabelTouched && keyLabel.trim().length === 0 && (
+                  <p className="text-xs font-medium text-danger">Label is required</p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Input
+                  type="number"
+                  min={1}
+                  value={1}
+                  disabled
+                  placeholder="Max devices"
+                />
+                <p className="text-xs text-ink-500">1 = single device lock</p>
+              </div>
+            </div>
+            <Button
+              variant="primary"
+              className="w-full"
+              disabled={
+                !canCreateActivationKey ||
+                keyLabel.trim().length === 0 ||
+                hardwareMutation.isPending
+              }
+              onClick={() => {
+                if (!selectedOrganization) return;
+                if (keyLabel.trim().length === 0) {
+                  setKeyLabelTouched(true);
+                  return;
+                }
+                hardwareMutation.mutate({
+                  organizationId: selectedOrganization.id,
+                  subscriptionId: activationPoolSubscriptionId,
+                  label: keyLabel.trim(),
+                  maxDevices: 1,
+                });
+              }}
+            >
+              {hardwareMutation.isPending && <Spinner className="h-4 w-4" />}
+              Create activation key
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full"
+              disabled={!canCreateActivationKey}
+              onClick={openBulkDialog}
+            >
+              <Layers className="h-4 w-4" />
+              Bulk create keys
+            </Button>
+          </div>
+
+          <Button
+            variant="outline"
+            className="w-full"
+            disabled={!selectedOrganization || activationKeys.length === 0}
+            onClick={() => setEmailKeysOpen(true)}
+          >
+            <Mail className="h-4 w-4" />
+            Choose keys to email org admin
+          </Button>
+        </Card>
+      )}
+
       {!globalMode && selectedOrganization && (
         <>
           <Card>
@@ -810,17 +1133,18 @@ export function LicensePage() {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <select
-                  className="h-10 rounded-lg border border-line bg-white px-3 text-sm"
+                <Select
                   value={exportFormat}
-                  onChange={(event) =>
-                    setExportFormat(event.target.value as AdminExportFormat)
-                  }
-                  aria-label="Export format"
+                  onValueChange={(value) => setExportFormat(value as AdminExportFormat)}
                 >
-                  <option value="xlsx">XLSX</option>
-                  <option value="csv">CSV</option>
-                </select>
+                  <SelectTrigger className="h-10 w-28" aria-label="Export format">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="xlsx">XLSX</SelectItem>
+                    <SelectItem value="csv">CSV</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Button
                   variant="outline"
                   disabled={isExporting || activationKeys.length === 0}
@@ -829,7 +1153,7 @@ export function LicensePage() {
                   {isExporting ? <Spinner className="h-4 w-4" /> : <Download className="h-4 w-4" />}
                   Export
                 </Button>
-                {isSuperAdmin && (
+                {canManageActivationKeys && (
                   <Button
                     variant="outline"
                     disabled={activationKeys.length === 0}
@@ -856,6 +1180,7 @@ export function LicensePage() {
                 {activationKeys.map((key) => {
                   const revealed = revealedKeyIds[key.id];
                   const plain = key.activationKey ?? '';
+                  const displayKey = formatActivationKeyForDisplay(plain);
                   return (
                     <TableRow key={key.id}>
                       <TableCell>
@@ -876,7 +1201,7 @@ export function LicensePage() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <code className="rounded border border-line bg-surface-variant px-2 py-1 font-mono text-xs">
-                            {revealed && plain ? plain : plain ? '••••••••••••' : '<legacy — reissue to reveal>'}
+                            {revealed && plain ? displayKey : plain ? '••••••••••••' : '<legacy — reissue to reveal>'}
                           </code>
                           {plain && (
                             <>
@@ -891,7 +1216,7 @@ export function LicensePage() {
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                onClick={() => copyValue(plain, 'Activation key copied')}
+                                onClick={() => copyValue(displayKey, 'Activation key copied')}
                                 title="Copy"
                               >
                                 <Copy className="h-4 w-4" />
@@ -963,7 +1288,7 @@ export function LicensePage() {
                         <p className="text-xs text-ink-500">
                           Create activation keys to lock the app to your devices.
                         </p>
-                        {isSuperAdmin && (
+                        {canManageActivationKeys && (
                           <Button
                             variant="primary"
                             size="sm"
@@ -1289,7 +1614,7 @@ export function LicensePage() {
                       {key.label ?? '—'}
                     </p>
                     <code className="font-mono text-xs text-ink-700">
-                      {key.activationKey}
+                      {formatActivationKeyForDisplay(key.activationKey)}
                     </code>
                   </div>
                   <Button
@@ -1297,7 +1622,10 @@ export function LicensePage() {
                     size="icon"
                     variant="ghost"
                     onClick={() =>
-                      copyValue(key.activationKey, 'Activation key copied')
+                      copyValue(
+                        formatActivationKeyForDisplay(key.activationKey),
+                        'Activation key copied',
+                      )
                     }
                     title="Copy"
                   >
@@ -1380,6 +1708,7 @@ export function LicensePage() {
           organizationId={selectedOrganization.id}
           organizationName={selectedOrganization.name}
           keys={activationKeys}
+          newEmailSlotsRemaining={newEmailSlotsRemaining}
           onOpenChange={(open) => setEmailKeysOpen(open)}
           onSent={invalidateCommercialQueries}
         />

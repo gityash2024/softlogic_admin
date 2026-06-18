@@ -29,6 +29,12 @@ import { useAuthStore } from '@/lib/auth-store';
 import { manageableRoles, canManageUser } from '@/lib/role-access';
 import { rolePolicyBlockReason } from '@/lib/organization-role-policy';
 import {
+  ALL_PARTNERS_VALUE,
+  organizationBelongsToPartner,
+  organizationsForPartner,
+  partnerOrganizations,
+} from '@/lib/admin-hierarchy';
+import {
   ROLE_LABEL,
   type AdminUser,
   type UserRole,
@@ -174,10 +180,12 @@ export function UsersPage() {
   const allowedRoles = manageableRoles(actor?.role).filter((candidate) =>
     USER_MODULE_ROLES.includes(candidate),
   );
+  const isSuperAdmin = actor?.role === 'SUPER_ADMIN';
   const page = numberParam(params.get('page'), 1);
   const search = params.get('search') ?? '';
   const role = params.get('role') ?? 'ALL';
   const status = params.get('status') ?? 'ALL';
+  const partnerOrganizationId = params.get('partnerOrganizationId') ?? ALL_PARTNERS_VALUE;
   const organizationId = params.get('organizationId') ?? 'ALL';
   const isEmailVerified = params.get('isEmailVerified') ?? 'ALL';
   const pendingOnly = params.get('pending') === 'true';
@@ -186,7 +194,8 @@ export function UsersPage() {
   const lastSeenFrom = params.get('lastSeenFrom') ?? '';
   const lastSeenTo = params.get('lastSeenTo') ?? '';
   const superAdminNeedsOrganization =
-    actor?.role === 'SUPER_ADMIN' &&
+    isSuperAdmin &&
+    partnerOrganizationId === ALL_PARTNERS_VALUE &&
     organizationId === 'ALL' &&
     status !== 'ARCHIVED';
 
@@ -197,6 +206,7 @@ export function UsersPage() {
       search,
       role: cleanFilterValue(role),
       status: cleanFilterValue(status),
+      partnerOrganizationId: cleanFilterValue(partnerOrganizationId),
       organizationId: cleanFilterValue(organizationId),
       // Pending invitations are unverified accounts; the toggle forces the
       // server-side isEmailVerified=false filter.
@@ -220,6 +230,7 @@ export function UsersPage() {
       lastSeenTo,
       organizationId,
       page,
+      partnerOrganizationId,
       params,
       pendingOnly,
       role,
@@ -239,6 +250,9 @@ export function UsersPage() {
 
   const users = usersQuery.data?.data ?? [];
   const meta = usersQuery.data?.meta;
+  const allOrganizations = orgsQuery.data ?? [];
+  const partners = partnerOrganizations(allOrganizations);
+  const organizationOptions = organizationsForPartner(allOrganizations, partnerOrganizationId);
   const activeCount = users.filter((u) => u.status === 'ACTIVE').length;
   const disabledCount = users.filter((u) => u.status === 'DISABLED').length;
   const adminCount = users.filter((u) =>
@@ -247,6 +261,7 @@ export function UsersPage() {
   const verifiedCount = users.filter((u) => u.isEmailVerified).length;
 
   const activeFilters = useMemo<FilterChip[]>(() => {
+    const partner = partners.find((org) => org.id === partnerOrganizationId);
     const organization = orgsQuery.data?.find((org) => org.id === organizationId);
     return [
       search && { key: 'search', label: 'Search', value: search },
@@ -256,6 +271,12 @@ export function UsersPage() {
         value: ROLE_LABEL[role as UserRole] ?? role,
       },
       status !== 'ALL' && { key: 'status', label: 'Status', value: status },
+      isSuperAdmin &&
+        partnerOrganizationId !== ALL_PARTNERS_VALUE && {
+          key: 'partnerOrganizationId',
+          label: 'Partner',
+          value: partner?.name ?? partnerOrganizationId,
+        },
       organizationId !== 'ALL' && {
         key: 'organizationId',
         label: 'Org',
@@ -285,10 +306,13 @@ export function UsersPage() {
     createdFrom,
     createdTo,
     isEmailVerified,
+    isSuperAdmin,
     lastSeenFrom,
     lastSeenTo,
     organizationId,
     orgsQuery.data,
+    partnerOrganizationId,
+    partners,
     pendingOnly,
     role,
     search,
@@ -427,6 +451,24 @@ export function UsersPage() {
     );
   };
 
+  const setPartnerFilter = (value: string) => {
+    const next = new URLSearchParams(params);
+    if (value === ALL_PARTNERS_VALUE) {
+      next.delete('partnerOrganizationId');
+    } else {
+      next.set('partnerOrganizationId', value);
+    }
+    next.delete('page');
+    const selectedOrganization = orgsQuery.data?.find((org) => org.id === organizationId);
+    if (
+      organizationId !== 'ALL' &&
+      !organizationBelongsToPartner(selectedOrganization, value)
+    ) {
+      next.delete('organizationId');
+    }
+    setParams(next, { replace: true });
+  };
+
   const handleExport = async (format: AdminExportFormat) => {
     setExporting(format);
     try {
@@ -492,7 +534,9 @@ export function UsersPage() {
                 navigate(
                   organizationId !== 'ALL'
                     ? `/users/new?organizationId=${organizationId}`
-                    : '/users/new',
+                    : isSuperAdmin && partnerOrganizationId !== ALL_PARTNERS_VALUE
+                      ? `/users/new?partnerOrganizationId=${partnerOrganizationId}`
+                      : '/users/new',
                 )
               }
             >
@@ -503,7 +547,13 @@ export function UsersPage() {
         </div>
 
         <div className="space-y-3 px-4 py-4 sm:px-6">
-          <div className="grid gap-3 xl:grid-cols-[1fr_180px_180px_220px]">
+          <div
+            className={`grid gap-3 ${
+              isSuperAdmin
+                ? 'xl:grid-cols-[1fr_180px_180px_220px_220px]'
+                : 'xl:grid-cols-[1fr_180px_180px_220px]'
+            }`}
+          >
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
               <Input
@@ -547,6 +597,21 @@ export function UsersPage() {
                 <SelectItem value="ARCHIVED">Archived</SelectItem>
               </SelectContent>
             </Select>
+            {isSuperAdmin && (
+              <Select value={partnerOrganizationId} onValueChange={setPartnerFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Partner organization" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_PARTNERS_VALUE}>All partners</SelectItem>
+                  {partners.map((org) => (
+                    <SelectItem key={org.id} value={org.id}>
+                      {org.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <Select
               value={organizationId}
               onValueChange={(value) =>
@@ -558,11 +623,13 @@ export function UsersPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">
-                  {actor?.role === 'SUPER_ADMIN'
-                    ? 'Choose organization'
+                  {isSuperAdmin
+                    ? partnerOrganizationId === ALL_PARTNERS_VALUE
+                      ? 'Choose organization'
+                      : 'All under partner'
                     : 'All organizations'}
                 </SelectItem>
-                {orgsQuery.data?.map((org) => (
+                {organizationOptions.map((org) => (
                   <SelectItem key={org.id} value={org.id}>
                     {org.name}
                   </SelectItem>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Mail } from 'lucide-react';
 import { toast } from 'sonner';
@@ -32,6 +32,7 @@ interface EmailActivationKeysDialogProps {
   organizationId: string;
   organizationName?: string | null;
   keys: HardwareActivationKeyRecord[];
+  newEmailSlotsRemaining?: number | null;
   onOpenChange: (open: boolean) => void;
   onSent?: () => void;
 }
@@ -41,6 +42,7 @@ export function EmailActivationKeysDialog({
   organizationId,
   organizationName,
   keys,
+  newEmailSlotsRemaining,
   onOpenChange,
   onSent,
 }: EmailActivationKeysDialogProps) {
@@ -55,8 +57,49 @@ export function EmailActivationKeysDialog({
         .map((key) => key.id),
     [keys],
   );
-  const [selectedIds, setSelectedIds] = useState<string[]>(emailableIds);
+  const defaultSelectedIds = useMemo(() => {
+    if (newEmailSlotsRemaining === null || newEmailSlotsRemaining === undefined) {
+      return emailableIds;
+    }
+    const selected: string[] = [];
+    let newCount = 0;
+    for (const key of keys) {
+      if (!key.activationKey) continue;
+      if (!key.emailSentAt) {
+        if (newCount >= newEmailSlotsRemaining) continue;
+        newCount += 1;
+      }
+      selected.push(key.id);
+    }
+    return selected;
+  }, [emailableIds, keys, newEmailSlotsRemaining]);
+  const [selectedIds, setSelectedIds] = useState<string[]>(defaultSelectedIds);
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const selectedUnsentCount = useMemo(
+    () =>
+      keys.filter(
+        (key) => selectedSet.has(key.id) && Boolean(key.activationKey) && !key.emailSentAt,
+      ).length,
+    [keys, selectedSet],
+  );
+  const selectWithLimit = (ids: string[]) => {
+    if (newEmailSlotsRemaining === null || newEmailSlotsRemaining === undefined) {
+      setSelectedIds(ids);
+      return;
+    }
+    const selected: string[] = [];
+    let newCount = 0;
+    for (const id of ids) {
+      const key = keys.find((item) => item.id === id);
+      if (!key?.activationKey) continue;
+      if (!key.emailSentAt) {
+        if (newCount >= newEmailSlotsRemaining) continue;
+        newCount += 1;
+      }
+      selected.push(id);
+    }
+    setSelectedIds(selected);
+  };
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -76,7 +119,23 @@ export function EmailActivationKeysDialog({
     onError: (error) => toast.error(extractApiError(error)),
   });
 
+  useEffect(() => {
+    if (open) setSelectedIds(defaultSelectedIds);
+  }, [defaultSelectedIds, open]);
+
   const toggleOne = (keyId: string, checked: boolean) => {
+    const key = keys.find((item) => item.id === keyId);
+    if (
+      checked &&
+      key?.activationKey &&
+      !key.emailSentAt &&
+      newEmailSlotsRemaining !== null &&
+      newEmailSlotsRemaining !== undefined &&
+      selectedUnsentCount >= newEmailSlotsRemaining
+    ) {
+      toast.error(`Only ${newEmailSlotsRemaining} new key(s) can be emailed for this organization`);
+      return;
+    }
     setSelectedIds((current) =>
       checked
         ? Array.from(new Set([...current, keyId]))
@@ -102,7 +161,7 @@ export function EmailActivationKeysDialog({
               variant="outline"
               size="sm"
               disabled={emailableIds.length === 0}
-              onClick={() => setSelectedIds(emailableIds)}
+              onClick={() => selectWithLimit(emailableIds)}
             >
               Select all
             </Button>
@@ -111,7 +170,7 @@ export function EmailActivationKeysDialog({
               variant="outline"
               size="sm"
               disabled={unsentEmailableIds.length === 0}
-              onClick={() => setSelectedIds(unsentEmailableIds)}
+              onClick={() => selectWithLimit(unsentEmailableIds)}
             >
               Select all unsent
             </Button>
@@ -127,6 +186,9 @@ export function EmailActivationKeysDialog({
             <span className="text-xs font-medium text-ink-500">
               {selectedIds.length}/{emailableIds.length} selected, {unsentEmailableIds.length}{' '}
               unsent
+              {newEmailSlotsRemaining !== null && newEmailSlotsRemaining !== undefined
+                ? `, ${newEmailSlotsRemaining} new send slot(s)`
+                : ''}
             </span>
           </div>
 
@@ -146,13 +208,20 @@ export function EmailActivationKeysDialog({
               <TableBody>
                 {keys.map((key) => {
                   const canEmail = Boolean(key.activationKey);
+                  const unsentLimitReached =
+                    canEmail &&
+                    !key.emailSentAt &&
+                    !selectedSet.has(key.id) &&
+                    newEmailSlotsRemaining !== null &&
+                    newEmailSlotsRemaining !== undefined &&
+                    selectedUnsentCount >= newEmailSlotsRemaining;
                   return (
                     <TableRow key={key.id}>
                       <TableCell>
                         <input
                           type="checkbox"
                           checked={selectedSet.has(key.id)}
-                          disabled={!canEmail}
+                          disabled={!canEmail || unsentLimitReached}
                           onChange={(event) => toggleOne(key.id, event.target.checked)}
                           className="h-4 w-4 rounded border-line text-brand-primary disabled:opacity-40"
                           aria-label={`Email ${key.label ?? 'activation key'}`}
@@ -232,7 +301,13 @@ export function EmailActivationKeysDialog({
           <Button
             type="button"
             variant="primary"
-            disabled={mutation.isPending || selectedIds.length === 0}
+            disabled={
+              mutation.isPending ||
+              selectedIds.length === 0 ||
+              (newEmailSlotsRemaining !== null &&
+                newEmailSlotsRemaining !== undefined &&
+                selectedUnsentCount > newEmailSlotsRemaining)
+            }
             onClick={() => mutation.mutate()}
           >
             {mutation.isPending ? <Spinner className="h-4 w-4" /> : <Mail className="h-4 w-4" />}

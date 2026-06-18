@@ -73,9 +73,13 @@ export interface OrganizationSummary {
   teacherUserLimit: number | null;
   studentUserLimit: number | null;
   parentUserLimit: number | null;
+  maxChildOrganizations?: number | null;
+  maxChildUsers?: number | null;
+  createdById?: string | null;
   supportEmail: string | null;
   supportPhone: string | null;
   storageProviders: OrganizationStorageProvider[];
+  connectedStorageProviders?: OrganizationStorageProvider[];
   defaultStorageProvider: OrganizationStorageProvider | null;
   storageProvider: OrganizationStorageProvider | null;
   storageStatus: OrganizationStorageStatus;
@@ -168,11 +172,15 @@ export interface AdminOrganization {
   teacherUserLimit: number | null;
   studentUserLimit: number | null;
   parentUserLimit: number | null;
+  maxChildOrganizations: number | null;
+  maxChildUsers: number | null;
+  createdById?: string | null;
   supportEmail: string | null;
   supportPhone: string | null;
   archivedSlug?: string | null;
   archivedSupportEmail?: string | null;
   storageProviders: OrganizationStorageProvider[];
+  connectedStorageProviders?: OrganizationStorageProvider[];
   defaultStorageProvider: OrganizationStorageProvider | null;
   storageProvider: OrganizationStorageProvider | null;
   storageStatus: OrganizationStorageStatus;
@@ -185,6 +193,12 @@ export interface AdminOrganization {
   updatedAt: string;
   deletedAt?: string | null;
   parentOrganization: AdminOrganization | null;
+  createdBy?: {
+    id: string;
+    email: string;
+    name: string | null;
+    role: UserRole;
+  } | null;
   primaryAdminUser?: {
     id: string;
     email: string;
@@ -432,6 +446,7 @@ export interface SubscriptionRecord {
   organizationId: string | null;
   userId: string | null;
   createdById?: string | null;
+  allocatedFromSubscriptionId?: string | null;
   planName: string;
   status: SubscriptionStatus;
   brandingMode: BrandingMode;
@@ -454,6 +469,15 @@ export interface SubscriptionRecord {
     email: string;
     name: string | null;
     role: UserRole;
+  } | null;
+  allocatedFromSubscription?: {
+    id: string;
+    planName: string;
+    organizationId: string | null;
+    organization?: {
+      id: string;
+      name: string;
+    } | null;
   } | null;
 }
 
@@ -484,6 +508,29 @@ export interface HardwareActivationKeyRecord {
   status: 'AVAILABLE' | 'BOUND' | 'DISABLED' | 'EXPIRED';
   maxDevices?: number;
   assignedUserId: string | null;
+  createdById?: string | null;
+  createdBy?: {
+    id: string;
+    email: string;
+    name: string | null;
+    role?: UserRole;
+  } | null;
+  organization?: {
+    id: string;
+    name: string;
+    kind?: OrganizationKind;
+    parentOrganizationId?: string | null;
+  } | null;
+  subscription?: {
+    id: string;
+    planName: string;
+    organizationId: string | null;
+    organization?: {
+      id: string;
+      name: string;
+      kind?: OrganizationKind;
+    } | null;
+  } | null;
   assignedUser?: {
     id: string;
     email: string;
@@ -506,6 +553,8 @@ export interface OrganizationLicenseDetailRecord {
     id: string;
     name: string;
     status: OrganizationStatus;
+    kind?: OrganizationKind;
+    parentOrganizationId?: string | null;
     primaryAdminUserId: string | null;
     primaryAdminUser: {
       id: string;
@@ -513,6 +562,26 @@ export interface OrganizationLicenseDetailRecord {
       name: string | null;
     } | null;
   };
+  partnerPool?: {
+    organizationId: string;
+    organizationName: string;
+    seatLimit: number;
+    allocatedSeats: number;
+    usableKeyCount: number;
+    remainingAllocationSeats: number;
+    remainingActivationKeys: number;
+    subscriptions: Array<{
+      id: string;
+      planName: string;
+      seatLimit: number;
+      allocatedSeats: number;
+      usableKeyCount: number;
+      remainingAllocationSeats: number;
+      remainingActivationKeys: number;
+      startDate: string;
+      endDate: string | null;
+    }>;
+  } | null;
   subscriptions: SubscriptionRecord[];
   hardwareActivationKeys: HardwareActivationKeyRecord[];
 }

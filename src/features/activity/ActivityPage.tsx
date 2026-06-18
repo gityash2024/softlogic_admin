@@ -6,9 +6,17 @@ import { toast } from 'sonner';
 
 import { activityApi } from '@/services/activity.api';
 import { usersApi } from '@/services/users.api';
+import { organizationsApi } from '@/services/organizations.api';
 import type { AdminExportFormat, AdminListQuery } from '@/services/admin-api';
 import { extractApiError } from '@/lib/api';
 import { formatDateTime, initials } from '@/lib/utils';
+import { useAuthStore } from '@/lib/auth-store';
+import {
+  ALL_PARTNERS_VALUE,
+  organizationBelongsToPartner,
+  organizationsForPartner,
+  partnerOrganizations,
+} from '@/lib/admin-hierarchy';
 import { Card } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import { Badge } from '@/components/ui/badge';
@@ -68,13 +76,17 @@ function actionLabel(action: string) {
 
 export function ActivityPage() {
   const [params, setParams] = useSearchParams();
+  const { user: actor } = useAuthStore();
   const [exporting, setExporting] = useState<AdminExportFormat | null>(null);
+  const isSuperAdmin = actor?.role === 'SUPER_ADMIN';
 
   const page = numberParam(params.get('page'), 1);
   const search = params.get('search') ?? '';
   const actorUserId = params.get('actorUserId') ?? 'ALL';
   const action = params.get('action') ?? 'ALL';
   const targetType = params.get('targetType') ?? 'ALL';
+  const partnerOrganizationId = params.get('partnerOrganizationId') ?? ALL_PARTNERS_VALUE;
+  const organizationId = params.get('organizationId') ?? 'ALL';
   const targetId = params.get('targetId') ?? '';
   const createdFrom = params.get('createdFrom') ?? '';
   const createdTo = params.get('createdTo') ?? '';
@@ -87,6 +99,8 @@ export function ActivityPage() {
       actorUserId: cleanFilterValue(actorUserId),
       action: cleanFilterValue(action),
       targetType: cleanFilterValue(targetType),
+      partnerOrganizationId: cleanFilterValue(partnerOrganizationId),
+      organizationId: cleanFilterValue(organizationId),
       targetId,
       createdFrom,
       createdTo,
@@ -98,7 +112,9 @@ export function ActivityPage() {
       actorUserId,
       createdFrom,
       createdTo,
+      organizationId,
       page,
+      partnerOrganizationId,
       params,
       search,
       targetId,
@@ -114,14 +130,23 @@ export function ActivityPage() {
     queryKey: ['users', 'all'],
     queryFn: usersApi.all,
   });
+  const orgsQuery = useQuery({
+    queryKey: ['organizations', 'all'],
+    queryFn: organizationsApi.all,
+  });
 
   const entries = activityQuery.data?.data ?? [];
   const meta = activityQuery.data?.meta;
+  const allOrganizations = orgsQuery.data ?? [];
+  const partners = partnerOrganizations(allOrganizations);
+  const organizationOptions = organizationsForPartner(allOrganizations, partnerOrganizationId);
   const uniqueActors = new Set(entries.map((entry) => entry.actorUserId)).size;
   const targetCount = new Set(entries.map((entry) => entry.targetType)).size;
 
   const activeFilters = useMemo<FilterChip[]>(() => {
     const actor = usersQuery.data?.find((user) => user.id === actorUserId);
+    const partner = partners.find((org) => org.id === partnerOrganizationId);
+    const organization = orgsQuery.data?.find((org) => org.id === organizationId);
     return [
       search && { key: 'search', label: 'Search', value: search },
       actorUserId !== 'ALL' && {
@@ -131,6 +156,17 @@ export function ActivityPage() {
       },
       action !== 'ALL' && { key: 'action', label: 'Action', value: actionLabel(action) },
       targetType !== 'ALL' && { key: 'targetType', label: 'Target', value: targetType },
+      isSuperAdmin &&
+        partnerOrganizationId !== ALL_PARTNERS_VALUE && {
+          key: 'partnerOrganizationId',
+          label: 'Partner',
+          value: partner?.name ?? partnerOrganizationId,
+        },
+      organizationId !== 'ALL' && {
+        key: 'organizationId',
+        label: 'Org',
+        value: organization?.name ?? organizationId,
+      },
       targetId && { key: 'targetId', label: 'Target ID', value: targetId },
       createdFrom && { key: 'createdFrom', label: 'From', value: createdFrom },
       createdTo && { key: 'createdTo', label: 'To', value: createdTo },
@@ -140,6 +176,11 @@ export function ActivityPage() {
     actorUserId,
     createdFrom,
     createdTo,
+    isSuperAdmin,
+    organizationId,
+    orgsQuery.data,
+    partnerOrganizationId,
+    partners,
     search,
     targetId,
     targetType,
@@ -156,6 +197,24 @@ export function ActivityPage() {
     } finally {
       setExporting(null);
     }
+  };
+
+  const setPartnerFilter = (value: string) => {
+    const next = new URLSearchParams(params);
+    if (value === ALL_PARTNERS_VALUE) {
+      next.delete('partnerOrganizationId');
+    } else {
+      next.set('partnerOrganizationId', value);
+    }
+    next.delete('page');
+    const selectedOrganization = orgsQuery.data?.find((org) => org.id === organizationId);
+    if (
+      organizationId !== 'ALL' &&
+      !organizationBelongsToPartner(selectedOrganization, value)
+    ) {
+      next.delete('organizationId');
+    }
+    setParams(next, { replace: true });
   };
 
   return (
@@ -264,7 +323,48 @@ export function ActivityPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div
+            className={`grid gap-3 ${
+              isSuperAdmin ? 'sm:grid-cols-5' : 'sm:grid-cols-4'
+            }`}
+          >
+            {isSuperAdmin && (
+              <Select value={partnerOrganizationId} onValueChange={setPartnerFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_PARTNERS_VALUE}>All partners</SelectItem>
+                  {partners.map((org) => (
+                    <SelectItem key={org.id} value={org.id}>
+                      {org.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Select
+              value={organizationId}
+              onValueChange={(value) =>
+                setSearchParam(params, setParams, 'organizationId', value)
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">
+                  {isSuperAdmin && partnerOrganizationId !== ALL_PARTNERS_VALUE
+                    ? 'All under partner'
+                    : 'All organizations'}
+                </SelectItem>
+                {organizationOptions.map((org) => (
+                  <SelectItem key={org.id} value={org.id}>
+                    {org.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Input
               value={targetId}
               onChange={(e) =>

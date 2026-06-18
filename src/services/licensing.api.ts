@@ -1,5 +1,10 @@
 import { api } from '@/lib/api';
-import { downloadAdminExport, type AdminExportFormat } from './admin-api';
+import {
+  downloadAdminExport,
+  getAdminList,
+  type AdminExportFormat,
+  type AdminListQuery,
+} from './admin-api';
 import type {
   ApiResponse,
   HardwareActivationKeyRecord,
@@ -106,6 +111,10 @@ export const licensingApi = {
       { organizationId },
       format,
     ),
+  listKeys: (query?: AdminListQuery) =>
+    getAdminList<HardwareActivationKeyRecord>('/admin/hardware/activation-keys', query),
+  exportKeyList: (query: AdminListQuery, format: AdminExportFormat) =>
+    downloadAdminExport('/admin/hardware/activation-keys/export', query, format),
   emailActivationKeysToOrgAdmin: async (
     input: string | { organizationId: string; activationKeyIds?: string[] },
   ) => {

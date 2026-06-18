@@ -13,6 +13,12 @@ import { aiApi } from '@/services/ai.api';
 import { useAuthStore } from '@/lib/auth-store';
 import { manageableRoles } from '@/lib/role-access';
 import {
+  ALL_PARTNERS_VALUE,
+  organizationBelongsToPartner,
+  organizationsForPartner,
+  partnerOrganizations,
+} from '@/lib/admin-hierarchy';
+import {
   LICENSED_USER_ROLES,
   roleLimitForOrganization,
   rolePolicyBlockReason,
@@ -120,6 +126,22 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
   const initialOrganizationId =
     searchParams.get('organizationId') ??
     (isSuperAdmin ? 'NONE' : ownOrganizationId ?? 'NONE');
+  const initialPartnerOrganizationId = useMemo(() => {
+    const requestedPartner = searchParams.get('partnerOrganizationId');
+    if (requestedPartner) return requestedPartner;
+    const initialOrganization = organizations.find((org) => org.id === initialOrganizationId);
+    if (initialOrganization?.parentOrganizationId) return initialOrganization.parentOrganizationId;
+    if (initialOrganization?.kind === 'PARTNER') return initialOrganization.id;
+    return ALL_PARTNERS_VALUE;
+  }, [initialOrganizationId, organizations, searchParams]);
+  const [selectedPartnerOrganizationId, setSelectedPartnerOrganizationId] = useState(
+    initialPartnerOrganizationId,
+  );
+  const partners = partnerOrganizations(organizations);
+  const organizationOptions = useMemo(
+    () => organizationsForPartner(organizations, selectedPartnerOrganizationId),
+    [organizations, selectedPartnerOrganizationId],
+  );
 
   const defaultValues: FormValues = useMemo(() => {
     if (userData) {
@@ -353,6 +375,17 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
     setValue('linkedStudentIds', next);
   };
 
+  const handlePartnerChange = (value: string) => {
+    setSelectedPartnerOrganizationId(value);
+    const currentOrganization = organizations.find((org) => org.id === organizationId);
+    if (
+      organizationId !== 'NONE' &&
+      !organizationBelongsToPartner(currentOrganization, value)
+    ) {
+      setValue('organizationId', 'NONE', { shouldDirty: true });
+    }
+  };
+
   const onSubmit = (values: FormValues) => {
     if (values.role === 'STUDENT' || values.role === 'PARENT') {
       values.aiCreditTokens = 0;
@@ -495,7 +528,25 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
               {errors.name && <p className="text-xs text-danger">{errors.name.message}</p>}
             </div>
           </div>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div
+            className={`grid gap-4 ${
+              isSuperAdmin ? 'sm:grid-cols-4' : 'sm:grid-cols-3'
+            }`}
+          >
+            {isSuperAdmin && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Partner organization</label>
+                <Select value={selectedPartnerOrganizationId} onValueChange={handlePartnerChange}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL_PARTNERS_VALUE}>All partners</SelectItem>
+                    {partners.map((org) => (
+                      <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Organization</label>
               <Controller
@@ -510,7 +561,7 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {isSuperAdmin && <SelectItem value="NONE">Select organization</SelectItem>}
-                      {organizations.map((org) => (
+                      {organizationOptions.map((org) => (
                         <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
                       ))}
                     </SelectContent>
