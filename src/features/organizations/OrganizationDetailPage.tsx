@@ -1,14 +1,16 @@
 import { useMemo, useState } from 'react';
 import type React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Activity,
   ArrowLeft,
+  ArchiveX,
   Bot,
   Boxes,
   Building2,
   CalendarClock,
+  CheckCircle2,
   ClipboardList,
   CreditCard,
   Database,
@@ -18,15 +20,26 @@ import {
   MonitorPlay,
   Palette,
   Pencil,
+  Power,
   Presentation,
+  RefreshCw,
+  RotateCcw,
   Sliders,
+  Trash2,
+  UserPlus,
   UsersRound,
+  XCircle,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { activityApi } from '@/services/activity.api';
 import { contentApi } from '@/services/content.api';
 import { licensingApi } from '@/services/licensing.api';
-import { organizationsApi } from '@/services/organizations.api';
+import {
+  organizationsApi,
+  type ArchiveOrganizationWithChildrenResult,
+  type DeleteOrganizationResult,
+} from '@/services/organizations.api';
 import { subscriptionsApi } from '@/services/subscriptions.api';
 import { usersApi } from '@/services/users.api';
 import { extractApiError } from '@/lib/api';
@@ -34,6 +47,7 @@ import { useAuthStore } from '@/lib/auth-store';
 import { canAccessAiModule } from '@/lib/ai-access';
 import { formatDate, formatDateTime, initials } from '@/lib/utils';
 import { BoardPreviewTile } from '@/features/content/WhiteboardPreview';
+import { EmailActivationKeysDialog } from '@/components/license/EmailActivationKeysDialog';
 import {
   BRANDING_MODE_LABEL,
   EXPORT_STATUS_LABEL,
@@ -52,6 +66,7 @@ import {
   type HardwareActivationKeyRecord,
   type LiveSessionStatus,
   type OrganizationKind,
+  type OrganizationStatus,
   type OrganizationStorageStatus,
   type SubscriptionRecord,
   type SubscriptionStatus,
@@ -71,6 +86,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 
 const LINKED_PAGE_SIZE = 10;
 
@@ -179,11 +195,13 @@ function SectionHeader({
   description,
   href,
   actionLabel,
+  actions,
 }: {
   title: string;
   description: string;
   href?: string;
   actionLabel?: string;
+  actions?: React.ReactNode;
 }) {
   const navigate = useNavigate();
   return (
@@ -192,12 +210,15 @@ function SectionHeader({
         <h3 className="text-base font-semibold text-ink-900">{title}</h3>
         <p className="text-xs leading-5 text-ink-500">{description}</p>
       </div>
-      {href && (
-        <Button variant="outline" size="sm" onClick={() => navigate(href)}>
-          <ExternalLink className="h-4 w-4" />
-          {actionLabel ?? 'Open full view'}
-        </Button>
-      )}
+      <div className="flex flex-wrap gap-2">
+        {actions}
+        {href && (
+          <Button variant="outline" size="sm" onClick={() => navigate(href)}>
+            <ExternalLink className="h-4 w-4" />
+            {actionLabel ?? 'Open full view'}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
@@ -235,10 +256,24 @@ function UserCell({ user }: { user: AdminUser }) {
   );
 }
 
-function UserTable({ rows, loading }: { rows: AdminUser[]; loading: boolean }) {
+function UserTable({
+  rows,
+  loading,
+  onEdit,
+  onToggleStatus,
+  onForceLogout,
+  onArchive,
+}: {
+  rows: AdminUser[];
+  loading: boolean;
+  onEdit: (user: AdminUser) => void;
+  onToggleStatus: (user: AdminUser) => void;
+  onForceLogout: (user: AdminUser) => void;
+  onArchive: (user: AdminUser) => void;
+}) {
   if (loading) return <LoadingBlock />;
   return (
-    <Table className="min-w-[780px]">
+    <Table className="min-w-[900px]">
       <TableHeader>
         <TableRow>
           <TableHead>User</TableHead>
@@ -246,6 +281,7 @@ function UserTable({ rows, loading }: { rows: AdminUser[]; loading: boolean }) {
           <TableHead>Status</TableHead>
           <TableHead>Email</TableHead>
           <TableHead>Last Seen</TableHead>
+          <TableHead className="text-right">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -272,9 +308,40 @@ function UserTable({ rows, loading }: { rows: AdminUser[]; loading: boolean }) {
             <TableCell className="text-xs text-ink-500">
               {formatDateTime(user.lastLoginAt)}
             </TableCell>
+            <TableCell className="text-right">
+              <div className="flex justify-end gap-1">
+                <Button size="icon" variant="ghost" title="Edit user" onClick={() => onEdit(user)}>
+                  <Pencil className="h-4 w-4 text-ink-500" />
+                </Button>
+                {!user.deletedAt && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    title={user.status === 'ACTIVE' ? 'Suspend user' : 'Reactivate user'}
+                    onClick={() => onToggleStatus(user)}
+                  >
+                    {user.status === 'ACTIVE' ? (
+                      <Power className="h-4 w-4 text-warning" />
+                    ) : (
+                      <RotateCcw className="h-4 w-4 text-success" />
+                    )}
+                  </Button>
+                )}
+                {!user.deletedAt && (
+                  <Button size="icon" variant="ghost" title="Force logout" onClick={() => onForceLogout(user)}>
+                    <XCircle className="h-4 w-4 text-ink-500" />
+                  </Button>
+                )}
+                {!user.deletedAt && (
+                  <Button size="icon" variant="ghost" title="Archive user" onClick={() => onArchive(user)}>
+                    <Trash2 className="h-4 w-4 text-danger" />
+                  </Button>
+                )}
+              </div>
+            </TableCell>
           </TableRow>
         ))}
-        {rows.length === 0 && <EmptyRow colSpan={5} label="No users linked to this organization." />}
+        {rows.length === 0 && <EmptyRow colSpan={6} label="No users linked to this organization." />}
       </TableBody>
     </Table>
   );
@@ -283,9 +350,21 @@ function UserTable({ rows, loading }: { rows: AdminUser[]; loading: boolean }) {
 function SubscriptionTable({
   rows,
   loading,
+  canEdit,
+  canArchive,
+  canApprove,
+  onArchive,
+  onApprove,
+  onReject,
 }: {
   rows: SubscriptionRecord[];
   loading: boolean;
+  canEdit: boolean;
+  canArchive: boolean;
+  canApprove: boolean;
+  onArchive: (subscription: SubscriptionRecord) => void;
+  onApprove: (subscription: SubscriptionRecord) => void;
+  onReject: (subscription: SubscriptionRecord) => void;
 }) {
   const navigate = useNavigate();
   if (loading) return <LoadingBlock />;
@@ -319,14 +398,41 @@ function SubscriptionTable({
               {formatDate(subscription.startDate)} - {formatDate(subscription.endDate)}
             </TableCell>
             <TableCell className="text-right">
-              <Button
-                size="icon"
-                variant="ghost"
-                title="View subscription details"
-                onClick={() => navigate(`/subscriptions/${subscription.id}/details`)}
-              >
-                <ExternalLink className="h-4 w-4 text-brand-primary" />
-              </Button>
+              <div className="flex justify-end gap-1">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  title="View subscription details"
+                  onClick={() => navigate(`/subscriptions/${subscription.id}/details`)}
+                >
+                  <ExternalLink className="h-4 w-4 text-brand-primary" />
+                </Button>
+                {canEdit && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    title="Edit subscription"
+                    onClick={() => navigate(`/subscriptions/${subscription.id}/edit`)}
+                  >
+                    <Pencil className="h-4 w-4 text-ink-500" />
+                  </Button>
+                )}
+                {canApprove && subscription.status === 'PENDING_APPROVAL' && (
+                  <>
+                    <Button size="icon" variant="ghost" title="Approve subscription" onClick={() => onApprove(subscription)}>
+                      <CheckCircle2 className="h-4 w-4 text-success" />
+                    </Button>
+                    <Button size="icon" variant="ghost" title="Reject subscription" onClick={() => onReject(subscription)}>
+                      <XCircle className="h-4 w-4 text-danger" />
+                    </Button>
+                  </>
+                )}
+                {canArchive && !subscription.deletedAt && (
+                  <Button size="icon" variant="ghost" title="Archive subscription" onClick={() => onArchive(subscription)}>
+                    <ArchiveX className="h-4 w-4 text-danger" />
+                  </Button>
+                )}
+              </div>
             </TableCell>
           </TableRow>
         ))}
@@ -339,13 +445,19 @@ function SubscriptionTable({
 function ActivationKeysTable({
   rows,
   loading,
+  canManage,
+  onRevoke,
+  onReplace,
 }: {
   rows: HardwareActivationKeyRecord[];
   loading: boolean;
+  canManage: boolean;
+  onRevoke: (key: HardwareActivationKeyRecord) => void;
+  onReplace: (key: HardwareActivationKeyRecord) => void;
 }) {
   if (loading) return <LoadingBlock />;
   return (
-    <Table className="min-w-[860px]">
+    <Table className="min-w-[940px]">
       <TableHeader>
         <TableRow>
           <TableHead>Key Label</TableHead>
@@ -353,6 +465,7 @@ function ActivationKeysTable({
           <TableHead>Optional User Note</TableHead>
           <TableHead>Devices</TableHead>
           <TableHead>Expires</TableHead>
+          <TableHead className="text-right">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -374,9 +487,23 @@ function ActivationKeysTable({
             <TableCell className="text-xs text-ink-500">
               {key.expiresAt ? formatDate(key.expiresAt) : 'No expiry'}
             </TableCell>
+            <TableCell className="text-right">
+              {canManage && key.status !== 'DISABLED' ? (
+                <div className="flex justify-end gap-1">
+                  <Button size="icon" variant="ghost" title="Replace activation key" onClick={() => onReplace(key)}>
+                    <RotateCcw className="h-4 w-4 text-brand-primary" />
+                  </Button>
+                  <Button size="icon" variant="ghost" title="Revoke activation key" onClick={() => onRevoke(key)}>
+                    <ArchiveX className="h-4 w-4 text-danger" />
+                  </Button>
+                </div>
+              ) : (
+                <span className="text-xs text-ink-400">-</span>
+              )}
+            </TableCell>
           </TableRow>
         ))}
-        {rows.length === 0 && <EmptyRow colSpan={5} label="No activation keys issued yet." />}
+        {rows.length === 0 && <EmptyRow colSpan={6} label="No activation keys issued yet." />}
       </TableBody>
     </Table>
   );
@@ -624,8 +751,26 @@ function DetailItem({
 export function OrganizationDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
   const [tab, setTab] = useState<HubTab>('overview');
+  const [statusAction, setStatusAction] = useState<{
+    organization: AdminOrganization;
+    status: OrganizationStatus;
+  } | null>(null);
+  const [archiveOrgAction, setArchiveOrgAction] = useState<AdminOrganization | null>(null);
+  const [userStatusAction, setUserStatusAction] = useState<AdminUser | null>(null);
+  const [userLogoutAction, setUserLogoutAction] = useState<AdminUser | null>(null);
+  const [userArchiveAction, setUserArchiveAction] = useState<AdminUser | null>(null);
+  const [subscriptionArchiveAction, setSubscriptionArchiveAction] =
+    useState<SubscriptionRecord | null>(null);
+  const [subscriptionRejectAction, setSubscriptionRejectAction] =
+    useState<SubscriptionRecord | null>(null);
+  const [keyRevokeAction, setKeyRevokeAction] =
+    useState<HardwareActivationKeyRecord | null>(null);
+  const [keyReplaceAction, setKeyReplaceAction] =
+    useState<HardwareActivationKeyRecord | null>(null);
+  const [emailKeysOpen, setEmailKeysOpen] = useState(false);
 
   const organizationQuery = useQuery({
     queryKey: ['organizations', id],
@@ -724,6 +869,146 @@ export function OrganizationDetailPage() {
     enabled: !!id,
   });
 
+  const invalidateOrganizationDetail = () => {
+    queryClient.invalidateQueries({ queryKey: ['organizations'] });
+    queryClient.invalidateQueries({ queryKey: ['organization-detail', id] });
+    queryClient.invalidateQueries({ queryKey: ['users'] });
+    queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
+    queryClient.invalidateQueries({ queryKey: ['license-details'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
+  };
+
+  const updateStatusMutation = useMutation({
+    mutationFn: ({
+      organizationId,
+      status,
+    }: {
+      organizationId: string;
+      status: OrganizationStatus;
+    }) => organizationsApi.update(organizationId, { status }),
+    onSuccess: () => {
+      invalidateOrganizationDetail();
+      toast.success('Organization status updated');
+      setStatusAction(null);
+    },
+    onError: (error) => toast.error(extractApiError(error)),
+  });
+
+  const archiveOrgMutation = useMutation<
+    DeleteOrganizationResult | ArchiveOrganizationWithChildrenResult,
+    Error,
+    { organizationId: string; childOrganizationIds?: string[] }
+  >({
+    mutationFn: ({
+      organizationId,
+      childOrganizationIds,
+    }: {
+      organizationId: string;
+      childOrganizationIds?: string[];
+    }) =>
+      childOrganizationIds?.length
+        ? organizationsApi.archiveWithChildren(organizationId, childOrganizationIds)
+        : organizationsApi.delete(organizationId),
+    onSuccess: () => {
+      invalidateOrganizationDetail();
+      toast.success('Organization archived');
+      setArchiveOrgAction(null);
+      navigate('/organizations');
+    },
+    onError: (error) => toast.error(extractApiError(error)),
+  });
+
+  const recalculateLicenseMutation = useMutation({
+    mutationFn: licensingApi.recalculateLicenseUsage,
+    onSuccess: () => {
+      invalidateOrganizationDetail();
+      toast.success('License usage recalculated');
+    },
+    onError: (error) => toast.error(extractApiError(error)),
+  });
+
+  const updateUserStatusMutation = useMutation({
+    mutationFn: (targetUser: AdminUser) =>
+      usersApi.update(targetUser.id, {
+        status: targetUser.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE',
+      }),
+    onSuccess: () => {
+      invalidateOrganizationDetail();
+      toast.success('User status updated');
+      setUserStatusAction(null);
+    },
+    onError: (error) => toast.error(extractApiError(error)),
+  });
+
+  const forceLogoutMutation = useMutation({
+    mutationFn: (targetUser: AdminUser) => usersApi.forceLogout(targetUser.id),
+    onSuccess: () => {
+      invalidateOrganizationDetail();
+      toast.success('User sessions revoked');
+      setUserLogoutAction(null);
+    },
+    onError: (error) => toast.error(extractApiError(error)),
+  });
+
+  const archiveUserMutation = useMutation({
+    mutationFn: (targetUser: AdminUser) => usersApi.delete(targetUser.id),
+    onSuccess: () => {
+      invalidateOrganizationDetail();
+      toast.success('User archived');
+      setUserArchiveAction(null);
+    },
+    onError: (error) => toast.error(extractApiError(error)),
+  });
+
+  const archiveSubscriptionMutation = useMutation({
+    mutationFn: (subscription: SubscriptionRecord) => subscriptionsApi.archive(subscription.id),
+    onSuccess: () => {
+      invalidateOrganizationDetail();
+      toast.success('Subscription archived');
+      setSubscriptionArchiveAction(null);
+    },
+    onError: (error) => toast.error(extractApiError(error)),
+  });
+
+  const approveSubscriptionMutation = useMutation({
+    mutationFn: (subscription: SubscriptionRecord) => subscriptionsApi.approve(subscription.id),
+    onSuccess: () => {
+      invalidateOrganizationDetail();
+      toast.success('Subscription approved');
+    },
+    onError: (error) => toast.error(extractApiError(error)),
+  });
+
+  const rejectSubscriptionMutation = useMutation({
+    mutationFn: (subscription: SubscriptionRecord) => subscriptionsApi.reject(subscription.id),
+    onSuccess: () => {
+      invalidateOrganizationDetail();
+      toast.success('Subscription rejected');
+      setSubscriptionRejectAction(null);
+    },
+    onError: (error) => toast.error(extractApiError(error)),
+  });
+
+  const revokeKeyMutation = useMutation({
+    mutationFn: (key: HardwareActivationKeyRecord) => licensingApi.revokeActivationKey(key.id),
+    onSuccess: () => {
+      invalidateOrganizationDetail();
+      toast.success('Activation key revoked');
+      setKeyRevokeAction(null);
+    },
+    onError: (error) => toast.error(extractApiError(error)),
+  });
+
+  const replaceKeyMutation = useMutation({
+    mutationFn: (key: HardwareActivationKeyRecord) => licensingApi.replaceActivationKey(key.id),
+    onSuccess: () => {
+      invalidateOrganizationDetail();
+      toast.success('Replacement activation key created');
+      setKeyReplaceAction(null);
+    },
+    onError: (error) => toast.error(extractApiError(error)),
+  });
+
   const org = organizationQuery.data;
   const users = usersQuery.data?.data ?? [];
   const subscriptions = subscriptionsQuery.data?.data ?? [];
@@ -733,6 +1018,15 @@ export function OrganizationDetailPage() {
   const exports = exportsQuery.data?.data ?? [];
   const activity = activityQuery.data?.data ?? [];
   const children = childrenQuery.data?.data ?? [];
+  const activeChildren = children.filter((child) => child.status === 'ACTIVE' && !child.deletedAt);
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const isPartnerAdmin = user?.role === 'PARTNER_ADMIN';
+  const canManageOrganization = Boolean(org && !org.deletedAt);
+  const canArchiveOrganization =
+    Boolean(org) && isSuperAdmin && org!.kind !== 'INTERNAL' && !org!.deletedAt;
+  const canManageSubscriptions = isSuperAdmin;
+  const canApproveSubscriptions = isSuperAdmin || isPartnerAdmin;
+  const canManageActivationKeys = isSuperAdmin || isPartnerAdmin;
 
   const activePlan = useMemo(
     () =>
@@ -811,10 +1105,60 @@ export function OrganizationDetailPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          {canManageOrganization && (
+            <Button
+              variant="outline"
+              onClick={() =>
+                setStatusAction({
+                  organization: org,
+                  status: org.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE',
+                })
+              }
+            >
+              {org.status === 'ACTIVE' ? (
+                <Power className="h-4 w-4" />
+              ) : (
+                <RotateCcw className="h-4 w-4" />
+              )}
+              {org.status === 'ACTIVE' ? 'Deactivate' : 'Reactivate'}
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => navigate(`/users/new?organizationId=${org.id}`)}>
+            <UserPlus className="h-4 w-4" />
+            Add user
+          </Button>
+          <Button variant="outline" onClick={() => navigate(`/subscriptions/new?organizationId=${org.id}`)}>
+            <CreditCard className="h-4 w-4" />
+            Add subscription
+          </Button>
+          <Button variant="outline" onClick={() => navigate(`/license?organizationId=${org.id}`)}>
+            <Database className="h-4 w-4" />
+            License
+          </Button>
+          {isSuperAdmin && (
+            <Button
+              variant="outline"
+              disabled={recalculateLicenseMutation.isPending}
+              onClick={() => recalculateLicenseMutation.mutate(org.id)}
+            >
+              {recalculateLicenseMutation.isPending ? (
+                <Spinner className="h-4 w-4" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              Recalculate
+            </Button>
+          )}
           {canAccessAiModule(user) && (
             <Button variant="outline" onClick={() => navigate('/ai')}>
               <Sliders className="h-4 w-4" />
               AI credits
+            </Button>
+          )}
+          {canArchiveOrganization && (
+            <Button variant="destructive" onClick={() => setArchiveOrgAction(org)}>
+              <ArchiveX className="h-4 w-4" />
+              Archive
             </Button>
           )}
           <Button variant="primary" onClick={() => navigate(`/organizations/${org.id}/edit`)}>
@@ -951,12 +1295,12 @@ export function OrganizationDetailPage() {
             <Card>
               <SectionHeader
                 title="Hierarchy"
-                description="Parent organization and child organizations."
+                description="Partner workspace and managed customer organizations."
               />
               <div className="space-y-4 px-4 py-5 sm:px-6">
                 <div className="rounded-lg border border-line p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-                    Parent
+                    Partner workspace
                   </p>
                   {org.parentOrganization ? (
                     <button
@@ -967,13 +1311,13 @@ export function OrganizationDetailPage() {
                       {org.parentOrganization.name}
                     </button>
                   ) : (
-                    <p className="mt-2 text-sm text-ink-500">No parent organization.</p>
+                    <p className="mt-2 text-sm text-ink-500">Top-level organization.</p>
                   )}
                 </div>
                 <div className="rounded-lg border border-line">
                   <div className="border-b border-line px-4 py-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-                      Children
+                      Managed customer organizations
                     </p>
                   </div>
                   {childrenQuery.isLoading ? (
@@ -981,29 +1325,47 @@ export function OrganizationDetailPage() {
                   ) : children.length ? (
                     <div className="divide-y divide-line">
                       {children.map((child) => (
-                        <button
-                          type="button"
+                        <div
                           key={child.id}
-                          onClick={() => navigate(`/organizations/${child.id}`)}
-                          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-surface-variant"
+                          className="flex w-full items-center justify-between gap-3 px-4 py-3"
                         >
                           <span className="min-w-0">
-                            <span className="block truncate text-sm font-semibold text-ink-900">
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/organizations/${child.id}`)}
+                              className="block max-w-full truncate text-left text-sm font-semibold text-brand-primary hover:underline"
+                            >
                               {child.name}
-                            </span>
+                            </button>
                             <span className="block truncate text-xs text-ink-500">
                               {child.slug}
                             </span>
                           </span>
-                          <Badge variant={kindVariant(child.kind)}>
-                            {ORG_KIND_LABEL[child.kind]}
-                          </Badge>
-                        </button>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <Badge variant={kindVariant(child.kind)}>
+                              {ORG_KIND_LABEL[child.kind]}
+                            </Badge>
+                            <Button size="icon" variant="ghost" title="View organization" onClick={() => navigate(`/organizations/${child.id}`)}>
+                              <ExternalLink className="h-4 w-4 text-ink-500" />
+                            </Button>
+                            <Button size="icon" variant="ghost" title="Open users" onClick={() => navigate(`/users?organizationId=${child.id}`)}>
+                              <UsersRound className="h-4 w-4 text-brand-primary" />
+                            </Button>
+                            <Button size="icon" variant="ghost" title="Open subscriptions" onClick={() => navigate(`/subscriptions?organizationId=${child.id}`)}>
+                              <CreditCard className="h-4 w-4 text-brand-primary" />
+                            </Button>
+                            {isSuperAdmin && !child.deletedAt && child.kind !== 'INTERNAL' && (
+                              <Button size="icon" variant="ghost" title="Archive organization" onClick={() => setArchiveOrgAction(child)}>
+                                <ArchiveX className="h-4 w-4 text-danger" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
                       ))}
                     </div>
                   ) : (
                     <p className="px-4 py-5 text-sm text-ink-500">
-                      No child organizations.
+                      No managed customer organizations.
                     </p>
                   )}
                 </div>
@@ -1056,7 +1418,14 @@ export function OrganizationDetailPage() {
               href={linkedUsersUrl}
               actionLabel="Open users"
             />
-            <UserTable rows={users} loading={usersQuery.isLoading} />
+            <UserTable
+              rows={users}
+              loading={usersQuery.isLoading}
+              onEdit={(targetUser) => navigate(`/users/${targetUser.id}/edit`)}
+              onToggleStatus={setUserStatusAction}
+              onForceLogout={setUserLogoutAction}
+              onArchive={setUserArchiveAction}
+            />
           </Card>
         </TabsContent>
 
@@ -1094,16 +1463,38 @@ export function OrganizationDetailPage() {
             <SubscriptionTable
               rows={subscriptions}
               loading={subscriptionsQuery.isLoading}
+              canEdit={canManageSubscriptions}
+              canArchive={canManageSubscriptions}
+              canApprove={canApproveSubscriptions}
+              onArchive={setSubscriptionArchiveAction}
+              onApprove={(subscription) => approveSubscriptionMutation.mutate(subscription)}
+              onReject={setSubscriptionRejectAction}
             />
           </Card>
           <Card>
             <SectionHeader
               title="Activation keys"
               description="License keys are board/device based; users from the same organization can share an activated device."
+              actions={
+                canManageActivationKeys ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={activationKeys.length === 0}
+                    onClick={() => setEmailKeysOpen(true)}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Email keys
+                  </Button>
+                ) : null
+              }
             />
             <ActivationKeysTable
               rows={activationKeys}
               loading={licenseQuery.isLoading}
+              canManage={canManageActivationKeys}
+              onRevoke={setKeyRevokeAction}
+              onReplace={setKeyReplaceAction}
             />
           </Card>
         </TabsContent>
@@ -1179,6 +1570,173 @@ export function OrganizationDetailPage() {
         </TabsContent>
       </Tabs>
 
+      <ConfirmationDialog
+        open={!!statusAction}
+        onOpenChange={(open) => !open && setStatusAction(null)}
+        title={
+          statusAction?.status === 'INACTIVE'
+            ? 'Deactivate organization?'
+            : 'Reactivate organization?'
+        }
+        description={
+          statusAction?.status === 'INACTIVE'
+            ? `${statusAction.organization.name} will be marked inactive for admin reporting.`
+            : `${statusAction?.organization.name ?? 'This organization'} will be restored to active status.`
+        }
+        confirmLabel={statusAction?.status === 'INACTIVE' ? 'Deactivate' : 'Reactivate'}
+        tone={statusAction?.status === 'INACTIVE' ? 'warning' : 'success'}
+        loading={updateStatusMutation.isPending}
+        onConfirm={() => {
+          if (!statusAction) return;
+          updateStatusMutation.mutate({
+            organizationId: statusAction.organization.id,
+            status: statusAction.status,
+          });
+        }}
+      />
+      <ConfirmationDialog
+        open={!!archiveOrgAction}
+        onOpenChange={(open) => !open && setArchiveOrgAction(null)}
+        title="Archive organization?"
+        description={
+          <div className="space-y-3 leading-6">
+            <p>
+              {archiveOrgAction?.name ?? 'This organization'} will lose admin access, active/trial
+              subscriptions are canceled, and license, hardware, storage, and AI access are disabled.
+            </p>
+            {archiveOrgAction?.id === org.id && activeChildren.length > 0 && (
+              <div className="rounded-lg border border-line bg-surface-variant p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  Managed customer organizations archived first
+                </p>
+                <div className="mt-2 max-h-40 divide-y divide-line overflow-y-auto rounded-md border border-line bg-white">
+                  {activeChildren.map((child) => (
+                    <div key={child.id} className="px-3 py-2">
+                      <p className="truncate text-sm font-semibold text-ink-900">{child.name}</p>
+                      <p className="truncate text-xs text-ink-500">{child.slug}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        }
+        confirmLabel={
+          archiveOrgAction?.id === org.id && activeChildren.length > 0
+            ? 'Archive customers and organization'
+            : 'Archive organization'
+        }
+        tone="danger"
+        loading={archiveOrgMutation.isPending}
+        onConfirm={() => {
+          if (!archiveOrgAction) return;
+          archiveOrgMutation.mutate({
+            organizationId: archiveOrgAction.id,
+            childOrganizationIds:
+              archiveOrgAction.id === org.id && activeChildren.length > 0
+                ? activeChildren.map((child) => child.id)
+                : undefined,
+          });
+        }}
+      />
+      <ConfirmationDialog
+        open={!!userStatusAction}
+        onOpenChange={(open) => !open && setUserStatusAction(null)}
+        title={userStatusAction?.status === 'ACTIVE' ? 'Suspend user?' : 'Reactivate user?'}
+        description={`${userStatusAction?.email ?? 'This user'} will ${
+          userStatusAction?.status === 'ACTIVE' ? 'lose access' : 'regain access'
+        } for this organization according to their role.`}
+        confirmLabel={userStatusAction?.status === 'ACTIVE' ? 'Suspend' : 'Reactivate'}
+        tone={userStatusAction?.status === 'ACTIVE' ? 'warning' : 'success'}
+        loading={updateUserStatusMutation.isPending}
+        onConfirm={() => {
+          if (userStatusAction) updateUserStatusMutation.mutate(userStatusAction);
+        }}
+      />
+      <ConfirmationDialog
+        open={!!userLogoutAction}
+        onOpenChange={(open) => !open && setUserLogoutAction(null)}
+        title="Force logout user?"
+        description={`${userLogoutAction?.email ?? 'This user'} will need to sign in again on active sessions.`}
+        confirmLabel="Force logout"
+        tone="warning"
+        loading={forceLogoutMutation.isPending}
+        onConfirm={() => {
+          if (userLogoutAction) forceLogoutMutation.mutate(userLogoutAction);
+        }}
+      />
+      <ConfirmationDialog
+        open={!!userArchiveAction}
+        onOpenChange={(open) => !open && setUserArchiveAction(null)}
+        title="Archive user?"
+        description={`${userArchiveAction?.email ?? 'This user'} will lose access and active sessions will be revoked.`}
+        confirmLabel="Archive user"
+        tone="danger"
+        loading={archiveUserMutation.isPending}
+        onConfirm={() => {
+          if (userArchiveAction) archiveUserMutation.mutate(userArchiveAction);
+        }}
+      />
+      <ConfirmationDialog
+        open={!!subscriptionArchiveAction}
+        onOpenChange={(open) => !open && setSubscriptionArchiveAction(null)}
+        title="Archive subscription?"
+        description={`${subscriptionArchiveAction?.planName ?? 'This subscription'} will be archived and license usage recalculated.`}
+        confirmLabel="Archive subscription"
+        tone="danger"
+        loading={archiveSubscriptionMutation.isPending}
+        onConfirm={() => {
+          if (subscriptionArchiveAction) {
+            archiveSubscriptionMutation.mutate(subscriptionArchiveAction);
+          }
+        }}
+      />
+      <ConfirmationDialog
+        open={!!subscriptionRejectAction}
+        onOpenChange={(open) => !open && setSubscriptionRejectAction(null)}
+        title="Reject subscription request?"
+        description={`${subscriptionRejectAction?.planName ?? 'This subscription request'} will be rejected.`}
+        confirmLabel="Reject request"
+        tone="danger"
+        loading={rejectSubscriptionMutation.isPending}
+        onConfirm={() => {
+          if (subscriptionRejectAction) rejectSubscriptionMutation.mutate(subscriptionRejectAction);
+        }}
+      />
+      <ConfirmationDialog
+        open={!!keyRevokeAction}
+        onOpenChange={(open) => !open && setKeyRevokeAction(null)}
+        title="Revoke activation key?"
+        description={`${keyRevokeAction?.label ?? 'This activation key'} and active device bindings for it will be disabled.`}
+        confirmLabel="Revoke key"
+        tone="danger"
+        loading={revokeKeyMutation.isPending}
+        onConfirm={() => {
+          if (keyRevokeAction) revokeKeyMutation.mutate(keyRevokeAction);
+        }}
+      />
+      <ConfirmationDialog
+        open={!!keyReplaceAction}
+        onOpenChange={(open) => !open && setKeyReplaceAction(null)}
+        title="Replace activation key?"
+        description={`${keyReplaceAction?.label ?? 'This activation key'} will be disabled and a replacement key will be created.`}
+        confirmLabel="Replace key"
+        tone="warning"
+        loading={replaceKeyMutation.isPending}
+        onConfirm={() => {
+          if (keyReplaceAction) replaceKeyMutation.mutate(keyReplaceAction);
+        }}
+      />
+      {emailKeysOpen && (
+        <EmailActivationKeysDialog
+          open={emailKeysOpen}
+          organizationId={org.id}
+          organizationName={org.name}
+          keys={activationKeys}
+          onOpenChange={setEmailKeysOpen}
+          onSent={invalidateOrganizationDetail}
+        />
+      )}
     </div>
   );
 }

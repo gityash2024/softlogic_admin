@@ -9,6 +9,7 @@ import type {
   ApiResponse,
   HardwareActivationKeyRecord,
   OrganizationLicenseDetailRecord,
+  PartnerLicenseDetailRecord,
   PaymentProvider,
   PaymentProviderMode,
 } from '@/types/api';
@@ -35,6 +36,7 @@ export interface OfflinePaymentPayload {
 export interface HardwareActivationKeyPayload {
   organizationId: string;
   subscriptionId?: string | null;
+  sourcePartnerOrganizationId?: string | null;
   assignedUserId?: string | null;
   label: string;
   maxDevices?: number;
@@ -55,6 +57,7 @@ export interface BulkHardwareActivationKeyItem {
 export interface BulkHardwareActivationKeyPayload {
   organizationId: string;
   subscriptionId?: string | null;
+  sourcePartnerOrganizationId?: string | null;
   keys: BulkHardwareActivationKeyItem[];
 }
 
@@ -156,6 +159,12 @@ export const licensingApi = {
   getOrganizationLicenseDetails: async (organizationId: string) => {
     const res = await api.get<ApiResponse<OrganizationLicenseDetailRecord>>(
       `/admin/organizations/${organizationId}/license-details`,
+    );
+    return res.data.data;
+  },
+  getPartnerLicenseDetails: async (partnerOrganizationId: string) => {
+    const res = await api.get<ApiResponse<PartnerLicenseDetailRecord>>(
+      `/admin/organizations/${partnerOrganizationId}/partner-license-details`,
     );
     return res.data.data;
   },

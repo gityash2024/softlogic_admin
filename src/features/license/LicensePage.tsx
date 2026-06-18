@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle,
   Copy,
@@ -30,6 +30,9 @@ import type { AdminExportFormat } from '@/services/admin-api';
 import { useAuthStore } from '@/lib/auth-store';
 import { extractApiError } from '@/lib/api';
 import { formatActivationKeyForDisplay } from '@/lib/activation-key';
+import {
+  partnerOrganizations,
+} from '@/lib/admin-hierarchy';
 import { cn, formatDate } from '@/lib/utils';
 import {
   BRANDING_MODE_LABEL,
@@ -86,6 +89,13 @@ function formatMoney(amountMinor: number, currency: string): string {
   }
 }
 
+function paymentOrganizationName(payment: {
+  id: string;
+  organization?: { name?: string | null } | null;
+}): string {
+  return payment.organization?.name ?? '-';
+}
+
 function SeatsBanner({
   seatLimit,
   seatUsage,
@@ -127,15 +137,26 @@ function SeatsBanner({
 
 type BulkCreateMode = 'choice' | 'manual' | 'auto';
 
+const GLOBAL_LICENSE_VALUE = 'GLOBAL';
+const DIRECT_ORGANIZATIONS_VALUE = 'DIRECT_OR_INTERNAL';
+const PARTNER_AGGREGATE_VALUE = 'PARTNER_AGGREGATE';
+const PARTNER_SELF_VALUE = 'PARTNER_SELF';
+const NO_ORGANIZATION_VALUE = 'NO_ORGANIZATION';
+
 export function LicensePage() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const isPartnerAdmin = user?.role === 'PARTNER_ADMIN';
   const canManageActivationKeys = isSuperAdmin || isPartnerAdmin;
+  const requestedOrganizationId = searchParams.get('organizationId');
+  const [selectedPartnerId, setSelectedPartnerId] = useState<string>(
+    GLOBAL_LICENSE_VALUE,
+  );
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(
-    isSuperAdmin ? null : (user?.primaryOrganization?.id ?? null),
+    requestedOrganizationId ?? (isSuperAdmin ? null : (user?.primaryOrganization?.id ?? null)),
   );
   const [manualReference, setManualReference] = useState('');
   const [amountMinor, setAmountMinor] = useState(100000);
@@ -169,6 +190,15 @@ export function LicensePage() {
     queryKey: ['license-details', selectedOrgId],
     queryFn: () => licensingApi.getOrganizationLicenseDetails(selectedOrgId!),
     enabled: !!selectedOrgId,
+  });
+  const superAdminPartnerScope =
+    isSuperAdmin &&
+    selectedPartnerId !== GLOBAL_LICENSE_VALUE &&
+    selectedPartnerId !== DIRECT_ORGANIZATIONS_VALUE;
+  const partnerDetailsQuery = useQuery({
+    queryKey: ['partner-license-details', selectedPartnerId],
+    queryFn: () => licensingApi.getPartnerLicenseDetails(selectedPartnerId),
+    enabled: superAdminPartnerScope,
   });
 
   useEffect(() => {
@@ -204,6 +234,54 @@ export function LicensePage() {
       setSelectedOrgId(partnerChildOrganizations[0].id);
     }
   }, [isPartnerAdmin, partnerChildOrganizations, selectedOrgId]);
+
+  const allOrganizations = organizationsQuery.data ?? [];
+  const partners = useMemo(
+    () => partnerOrganizations(allOrganizations),
+    [allOrganizations],
+  );
+  const directOrganizations = useMemo(
+    () =>
+      allOrganizations.filter(
+        (organization) =>
+          organization.kind !== 'PARTNER' && !organization.parentOrganizationId,
+      ),
+    [allOrganizations],
+  );
+  const selectedPartner = useMemo(
+    () => partners.find((organization) => organization.id === selectedPartnerId) ?? null,
+    [partners, selectedPartnerId],
+  );
+  const selectedPartnerChildOrganizations = useMemo(
+    () =>
+      superAdminPartnerScope
+        ? allOrganizations.filter(
+            (organization) => organization.parentOrganizationId === selectedPartnerId,
+          )
+        : [],
+    [allOrganizations, selectedPartnerId, superAdminPartnerScope],
+  );
+  const aggregatePartnerMode = superAdminPartnerScope && !selectedOrgId;
+
+  useEffect(() => {
+    if (!isSuperAdmin || !requestedOrganizationId || allOrganizations.length === 0) return;
+    const requestedOrganization = allOrganizations.find(
+      (organization) => organization.id === requestedOrganizationId,
+    );
+    if (!requestedOrganization) return;
+    if (requestedOrganization.kind === 'PARTNER') {
+      setSelectedPartnerId(requestedOrganization.id);
+      setSelectedOrgId(requestedOrganization.id);
+      return;
+    }
+    if (requestedOrganization.parentOrganizationId) {
+      setSelectedPartnerId(requestedOrganization.parentOrganizationId);
+      setSelectedOrgId(requestedOrganization.id);
+      return;
+    }
+    setSelectedPartnerId(DIRECT_ORGANIZATIONS_VALUE);
+    setSelectedOrgId(requestedOrganization.id);
+  }, [allOrganizations, isSuperAdmin, requestedOrganizationId]);
 
   const selectedOrganization = useMemo(
     () =>
@@ -244,6 +322,7 @@ export function LicensePage() {
     queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
     queryClient.invalidateQueries({ queryKey: ['organizations'] });
     queryClient.invalidateQueries({ queryKey: ['license-details'] });
+    queryClient.invalidateQueries({ queryKey: ['partner-license-details'] });
     queryClient.invalidateQueries({ queryKey: ['subscription-payments'] });
     queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
   };
@@ -322,7 +401,7 @@ export function LicensePage() {
   });
 
   const isLoading = subscriptionsQuery.isLoading || organizationsQuery.isLoading;
-  const globalMode = isSuperAdmin && !selectedOrganization;
+  const globalMode = isSuperAdmin && selectedPartnerId === GLOBAL_LICENSE_VALUE;
   const globalKeysQuery = useQuery({
     queryKey: ['activation-keys', 'global'],
     queryFn: () => licensingApi.listKeys({ perPage: 100 }),
@@ -336,8 +415,33 @@ export function LicensePage() {
     ? Math.min(100, (primarySub.seatUsage / Math.max(primarySub.seatLimit, 1)) * 100)
     : 0;
 
+  const aggregateDetails = aggregatePartnerMode ? partnerDetailsQuery.data : null;
+  const aggregateSubscriptions = aggregateDetails?.subscriptions ?? [];
+  const aggregateSummary = aggregateDetails?.summary ?? null;
+  const aggregateActivationKeys = aggregateDetails?.hardwareActivationKeys ?? [];
+  const aggregatePaymentRows = aggregateDetails?.payments ?? [];
+  const displayedPaymentRows = aggregatePartnerMode ? aggregatePaymentRows : paymentRows;
+  const displayedBillingSubscriptions = aggregatePartnerMode ? aggregateSubscriptions : orgSubs;
+  const billingScopeLabel = aggregatePartnerMode
+    ? `${selectedPartner?.name ?? 'this partner'} and child organizations`
+    : selectedOrganization?.name ?? 'this workspace';
+  const billingIsLoading = aggregatePartnerMode
+    ? partnerDetailsQuery.isLoading
+    : paymentsQuery.isLoading;
+  const selectedChildUnderPartner =
+    isSuperAdmin &&
+    superAdminPartnerScope &&
+    !!selectedOrganization?.parentOrganizationId &&
+    selectedOrganization.parentOrganizationId === selectedPartnerId;
   const activationKeys = orgDetailsQuery.data?.hardwareActivationKeys ?? [];
-  const partnerPool = orgDetailsQuery.data?.partnerPool ?? null;
+  const displayedActivationKeys = aggregatePartnerMode
+    ? aggregateActivationKeys
+    : activationKeys;
+  const partnerPool = isPartnerAdmin
+    ? orgDetailsQuery.data?.partnerPool ?? null
+    : selectedChildUnderPartner || aggregatePartnerMode
+      ? partnerDetailsQuery.data?.partnerPool ?? null
+      : null;
   const usableKeyCount = activationKeys.filter((key) =>
     key.status === 'AVAILABLE' || key.status === 'BOUND',
   ).length;
@@ -355,20 +459,25 @@ export function LicensePage() {
     isPartnerAdmin &&
     !!user?.primaryOrganization?.id &&
     selectedOrganization?.id === user.primaryOrganization.id;
+  const selectedSuperAdminPartnerOrg =
+    isSuperAdmin &&
+    superAdminPartnerScope &&
+    selectedOrganization?.id === selectedPartnerId;
   const partnerKeySourceSubscription =
     partnerPool?.subscriptions.find((subscription) => subscription.remainingActivationKeys > 0) ??
     partnerPool?.subscriptions[0] ??
     null;
-  const activationPoolSubscriptionId = isPartnerAdmin
+  const usesPartnerActivationPool = isPartnerAdmin || selectedChildUnderPartner;
+  const activationPoolSubscriptionId = usesPartnerActivationPool
     ? partnerKeySourceSubscription?.id ?? null
     : activePrimarySub?.id ?? null;
-  const activationPoolSeatLimit = isPartnerAdmin
-    ? selectedOwnPartnerOrg
+  const activationPoolSeatLimit = usesPartnerActivationPool
+    ? selectedOwnPartnerOrg || selectedSuperAdminPartnerOrg
       ? partnerPool?.seatLimit ?? 0
       : activeOrgSeatLimit
     : activePrimarySub?.seatLimit ?? 0;
-  const activationPoolUsableKeyCount = isPartnerAdmin
-    ? selectedOwnPartnerOrg
+  const activationPoolUsableKeyCount = usesPartnerActivationPool
+    ? selectedOwnPartnerOrg || selectedSuperAdminPartnerOrg
       ? partnerPool?.usableKeyCount ?? usableKeyCount
       : usableKeyCount
     : usableKeyCount;
@@ -376,10 +485,10 @@ export function LicensePage() {
     activationPoolSeatLimit - activationPoolUsableKeyCount,
     0,
   );
-  const partnerRemainingActivationKeys = isPartnerAdmin
+  const partnerRemainingActivationKeys = usesPartnerActivationPool
     ? partnerPool?.remainingActivationKeys ?? 0
     : organizationRemainingActivationKeys;
-  const remainingActivationKeys = isPartnerAdmin
+  const remainingActivationKeys = usesPartnerActivationPool
     ? Math.min(organizationRemainingActivationKeys, partnerRemainingActivationKeys)
     : organizationRemainingActivationKeys;
   const newEmailSlotsRemaining = Math.max(
@@ -391,13 +500,14 @@ export function LicensePage() {
     canManageActivationKeys &&
     !!activationPoolSubscriptionId &&
     remainingActivationKeys > 0 &&
-    !orgDetailsQuery.isLoading;
+    !orgDetailsQuery.isLoading &&
+    !(usesPartnerActivationPool && partnerDetailsQuery.isLoading);
   const capacityText = activationPoolSeatLimit > 0
     ? `${activationPoolUsableKeyCount}/${activationPoolSeatLimit} usable keys`
-    : isPartnerAdmin
+    : usesPartnerActivationPool
       ? 'No active partner subscription'
       : 'No active subscription';
-  const allDevices = activationKeys.flatMap((key) =>
+  const allDevices = displayedActivationKeys.flatMap((key) =>
     key.activations.map((activation) => ({ activation, key })),
   );
 
@@ -457,6 +567,7 @@ export function LicensePage() {
     bulkMutation.mutate({
       organizationId: selectedOrganization.id,
       subscriptionId: activationPoolSubscriptionId,
+      sourcePartnerOrganizationId: selectedChildUnderPartner ? selectedPartnerId : null,
       keys: validBulkRows.map((row) => ({
         label: row.label.trim(),
         maxDevices: 1,
@@ -474,6 +585,7 @@ export function LicensePage() {
     bulkMutation.mutate({
       organizationId: selectedOrganization.id,
       subscriptionId: activationPoolSubscriptionId,
+      sourcePartnerOrganizationId: selectedChildUnderPartner ? selectedPartnerId : null,
       keys: Array.from({ length: count }, (_, index) => ({
         label: `Auto activation key ${index + 1}`,
         maxDevices: 1,
@@ -506,6 +618,58 @@ export function LicensePage() {
     }
   };
 
+  const exportPartnerKeys = async () => {
+    if (!superAdminPartnerScope) return;
+    setIsExporting(true);
+    try {
+      await licensingApi.exportKeyList({ partnerOrganizationId: selectedPartnerId }, exportFormat);
+      toast.success(`Activation keys exported (${exportFormat.toUpperCase()})`);
+    } catch (error) {
+      toast.error(extractApiError(error));
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleSuperAdminPartnerChange = (value: string) => {
+    setSelectedPartnerId(value);
+    if (value === GLOBAL_LICENSE_VALUE) {
+      setSelectedOrgId(null);
+      return;
+    }
+    if (value === DIRECT_ORGANIZATIONS_VALUE) {
+      setSelectedOrgId(directOrganizations[0]?.id ?? null);
+      return;
+    }
+    setSelectedOrgId(null);
+  };
+
+  const superAdminOrganizationValue =
+    selectedPartnerId === DIRECT_ORGANIZATIONS_VALUE
+      ? selectedOrgId ?? NO_ORGANIZATION_VALUE
+      : aggregatePartnerMode
+        ? PARTNER_AGGREGATE_VALUE
+        : selectedOrgId === selectedPartnerId
+          ? PARTNER_SELF_VALUE
+          : selectedOrgId ?? PARTNER_AGGREGATE_VALUE;
+
+  const handleSuperAdminOrganizationChange = (value: string) => {
+    if (selectedPartnerId === DIRECT_ORGANIZATIONS_VALUE) {
+      setSelectedOrgId(value === NO_ORGANIZATION_VALUE ? null : value);
+      return;
+    }
+    if (!superAdminPartnerScope) return;
+    if (value === PARTNER_AGGREGATE_VALUE) {
+      setSelectedOrgId(null);
+      return;
+    }
+    if (value === PARTNER_SELF_VALUE) {
+      setSelectedOrgId(selectedPartnerId);
+      return;
+    }
+    setSelectedOrgId(value);
+  };
+
   if (isLoading) {
     return (
       <div className="flex h-40 items-center justify-center">
@@ -525,24 +689,66 @@ export function LicensePage() {
         </div>
         <div className="flex flex-wrap gap-2">
           {isSuperAdmin && (
-            <Select
-              value={selectedOrganization?.id ?? 'GLOBAL'}
-              onValueChange={(value) =>
-                setSelectedOrgId(value === 'GLOBAL' ? null : value)
-              }
-            >
-              <SelectTrigger className="w-72">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="GLOBAL">General licensing overview</SelectItem>
-              {organizationsQuery.data?.map((organization) => (
-                <SelectItem key={organization.id} value={organization.id}>
-                  {organization.name}
-                </SelectItem>
-              ))}
-              </SelectContent>
-            </Select>
+            <>
+              <Select
+                value={selectedPartnerId}
+                onValueChange={handleSuperAdminPartnerChange}
+              >
+                <SelectTrigger className="w-72">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent searchPlaceholder="Search partner...">
+                  <SelectItem value={GLOBAL_LICENSE_VALUE}>General licensing overview</SelectItem>
+                  {partners.map((organization) => (
+                    <SelectItem key={organization.id} value={organization.id}>
+                      {organization.name}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value={DIRECT_ORGANIZATIONS_VALUE}>
+                    Direct / internal
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              {selectedPartnerId !== GLOBAL_LICENSE_VALUE && (
+                <Select
+                  value={superAdminOrganizationValue}
+                  onValueChange={handleSuperAdminOrganizationChange}
+                >
+                  <SelectTrigger className="w-72">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent searchPlaceholder="Search organization...">
+                    {selectedPartnerId === DIRECT_ORGANIZATIONS_VALUE ? (
+                      directOrganizations.length > 0 ? (
+                        directOrganizations.map((organization) => (
+                          <SelectItem key={organization.id} value={organization.id}>
+                            {organization.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value={NO_ORGANIZATION_VALUE}>
+                          No direct organizations
+                        </SelectItem>
+                      )
+                    ) : (
+                      <>
+                        <SelectItem value={PARTNER_AGGREGATE_VALUE}>
+                          {selectedPartner?.name ?? 'Partner'} + all organizations
+                        </SelectItem>
+                        <SelectItem value={PARTNER_SELF_VALUE}>
+                          Partner organization only
+                        </SelectItem>
+                        {selectedPartnerChildOrganizations.map((organization) => (
+                          <SelectItem key={organization.id} value={organization.id}>
+                            {organization.name}
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              )}
+            </>
           )}
           {isPartnerAdmin && partnerChildOrganizations.length > 0 && (
             <Select
@@ -767,7 +973,115 @@ export function LicensePage() {
         </Card>
       )}
 
-      {!globalMode && (
+      {aggregatePartnerMode ? (
+        <div className="grid gap-5 lg:grid-cols-2">
+          <Card>
+            <div className="flex flex-col gap-3 border-b border-line px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+              <div>
+                <h3 className="flex items-center gap-2 text-base font-semibold text-ink-900">
+                  <KeyRound className="h-4 w-4 text-brand-primary" />
+                  Partner Scope
+                </h3>
+                <p className="text-xs text-ink-500">
+                  {selectedPartner?.name ?? 'Partner'} + child organizations
+                </p>
+              </div>
+              <Badge variant="info">Combined</Badge>
+            </div>
+            <div className="space-y-3 px-4 py-5 sm:px-6">
+              {partnerDetailsQuery.isLoading ? (
+                <div className="flex h-24 items-center justify-center">
+                  <Spinner className="h-5 w-5 text-brand-primary" />
+                </div>
+              ) : (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-ink-500">
+                        Organizations
+                      </p>
+                      <p className="text-sm font-semibold text-ink-900">
+                        {aggregateSummary?.organizationCount ?? 0}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-ink-500">
+                        Child organizations
+                      </p>
+                      <p className="text-sm font-semibold text-ink-900">
+                        {aggregateSummary?.childOrganizationCount ?? 0}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid gap-3 pt-1 sm:grid-cols-2">
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-ink-500">
+                        Active plans
+                      </p>
+                      <p className="text-sm font-semibold text-ink-900">
+                        {aggregateSummary?.activeSubscriptionCount ?? 0}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-ink-500">
+                        Activation keys
+                      </p>
+                      <p className="text-sm font-semibold text-ink-900">
+                        {aggregateSummary
+                          ? `${aggregateSummary.usableKeyCount}/${aggregateSummary.seatLimit} usable keys`
+                          : '0/0 usable keys'}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="pt-2 text-xs text-ink-500">
+                    Partner pool remaining:{' '}
+                    {partnerPool?.remainingActivationKeys ?? aggregateSummary?.remainingActivationKeys ?? 0}
+                  </p>
+                </>
+              )}
+            </div>
+          </Card>
+
+          <Card>
+            <div className="border-b border-line px-4 py-4 sm:px-6">
+              <h3 className="flex items-center gap-2 text-base font-semibold text-ink-900">
+                <Sofa className="h-4 w-4 text-brand-primary" />
+                Seats
+              </h3>
+              <p className="text-xs text-ink-500">
+                Active users across the selected partner scope
+              </p>
+            </div>
+            <div className="space-y-4 px-4 py-5 sm:px-6">
+              {aggregateSummary && (
+                <SeatsBanner
+                  seatLimit={aggregateSummary.seatLimit}
+                  seatUsage={aggregateSummary.seatUsage}
+                />
+              )}
+              <p className="text-2xl font-bold text-ink-900">
+                {aggregateSummary?.seatUsage ?? 0}
+                <span className="text-sm font-medium text-ink-500">
+                  {' '}/ {aggregateSummary?.seatLimit ?? 0}
+                </span>
+              </p>
+              <Progress
+                value={
+                  aggregateSummary
+                    ? Math.min(
+                        100,
+                        (aggregateSummary.seatUsage / Math.max(aggregateSummary.seatLimit, 1)) * 100,
+                      )
+                    : 0
+                }
+              />
+              <p className="text-xs text-ink-500">
+                Seats include teachers, students, and parents combined.
+              </p>
+            </div>
+          </Card>
+        </div>
+      ) : !globalMode && selectedOrganization ? (
         <div className="grid gap-5 lg:grid-cols-2">
           <Card>
             <div className="flex flex-col gap-3 border-b border-line px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
@@ -856,9 +1170,9 @@ export function LicensePage() {
             </div>
           </Card>
         </div>
-      )}
+      ) : null}
 
-      {isSuperAdmin && (
+      {isSuperAdmin && !aggregatePartnerMode && (
         <div className="space-y-5">
           <Card className="space-y-4 px-4 py-5 sm:px-6">
             <div className="flex items-center justify-between">
@@ -991,6 +1305,7 @@ export function LicensePage() {
                     hardwareMutation.mutate({
                       organizationId: selectedOrganization.id,
                       subscriptionId: activationPoolSubscriptionId,
+                      sourcePartnerOrganizationId: selectedChildUnderPartner ? selectedPartnerId : null,
                       label: keyLabel.trim(),
                       maxDevices: 1,
                     });
@@ -1091,6 +1406,7 @@ export function LicensePage() {
                 hardwareMutation.mutate({
                   organizationId: selectedOrganization.id,
                   subscriptionId: activationPoolSubscriptionId,
+                  sourcePartnerOrganizationId: selectedChildUnderPartner ? selectedPartnerId : null,
                   label: keyLabel.trim(),
                   maxDevices: 1,
                 });
@@ -1122,14 +1438,16 @@ export function LicensePage() {
         </Card>
       )}
 
-      {!globalMode && selectedOrganization && (
+      {!globalMode && (selectedOrganization || aggregatePartnerMode) && (
         <>
           <Card>
             <div className="flex flex-col gap-3 border-b border-line px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
               <div>
                 <h3 className="text-base font-semibold text-ink-900">Activation Keys</h3>
                 <p className="text-xs text-ink-500">
-                  Reveal, copy, or email the full key to the organization admin.
+                  {aggregatePartnerMode
+                    ? 'Reveal, copy, or manage keys across the selected partner scope.'
+                    : 'Reveal, copy, or email the full key to the organization admin.'}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -1147,13 +1465,13 @@ export function LicensePage() {
                 </Select>
                 <Button
                   variant="outline"
-                  disabled={isExporting || activationKeys.length === 0}
-                  onClick={exportKeys}
+                  disabled={isExporting || displayedActivationKeys.length === 0}
+                  onClick={aggregatePartnerMode ? exportPartnerKeys : exportKeys}
                 >
                   {isExporting ? <Spinner className="h-4 w-4" /> : <Download className="h-4 w-4" />}
                   Export
                 </Button>
-                {canManageActivationKeys && (
+                {canManageActivationKeys && !aggregatePartnerMode && (
                   <Button
                     variant="outline"
                     disabled={activationKeys.length === 0}
@@ -1169,6 +1487,7 @@ export function LicensePage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Label</TableHead>
+                  {aggregatePartnerMode && <TableHead>Organization</TableHead>}
                   <TableHead>Key</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Bound device</TableHead>
@@ -1177,7 +1496,7 @@ export function LicensePage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {activationKeys.map((key) => {
+                {displayedActivationKeys.map((key) => {
                   const revealed = revealedKeyIds[key.id];
                   const plain = key.activationKey ?? '';
                   const displayKey = formatActivationKeyForDisplay(plain);
@@ -1198,6 +1517,16 @@ export function LicensePage() {
                           </Button>
                         </div>
                       </TableCell>
+                      {aggregatePartnerMode && (
+                        <TableCell>
+                          <p className="text-sm font-medium text-ink-900">
+                            {key.organization?.name ?? '-'}
+                          </p>
+                          <p className="text-xs text-ink-500">
+                            {key.organization?.kind ?? ''}
+                          </p>
+                        </TableCell>
+                      )}
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <code className="rounded border border-line bg-surface-variant px-2 py-1 font-mono text-xs">
@@ -1275,9 +1604,14 @@ export function LicensePage() {
                     </TableRow>
                   );
                 })}
-                {activationKeys.length === 0 && (
+                {displayedActivationKeys.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={isSuperAdmin ? 6 : 5} className="py-12 text-center">
+                    <TableCell
+                      colSpan={
+                        (isSuperAdmin ? 6 : 5) + (aggregatePartnerMode ? 1 : 0)
+                      }
+                      className="py-12 text-center"
+                    >
                       <div className="mx-auto flex max-w-sm flex-col items-center gap-2">
                         <span className="flex h-11 w-11 items-center justify-center rounded-full bg-surface-variant text-ink-500">
                           <KeyRound className="h-5 w-5" />
@@ -1288,7 +1622,7 @@ export function LicensePage() {
                         <p className="text-xs text-ink-500">
                           Create activation keys to lock the app to your devices.
                         </p>
-                        {canManageActivationKeys && (
+                        {canManageActivationKeys && !aggregatePartnerMode && (
                           <Button
                             variant="primary"
                             size="sm"
@@ -1392,13 +1726,13 @@ export function LicensePage() {
         </>
       )}
 
-      {!globalMode && (
+      {!globalMode && (selectedOrganization || aggregatePartnerMode) && (
         <Card>
           <div className="flex flex-col gap-3 border-b border-line px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <div>
               <h3 className="text-base font-semibold text-ink-900">Billing History</h3>
               <p className="text-xs text-ink-500">
-                Subscription cycles for {selectedOrganization?.name ?? 'this workspace'}
+                Subscription cycles for {billingScopeLabel}
               </p>
             </div>
           </div>
@@ -1406,6 +1740,7 @@ export function LicensePage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Reference</TableHead>
+                {aggregatePartnerMode && <TableHead>Organization</TableHead>}
                 <TableHead>Date</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Status</TableHead>
@@ -1414,13 +1749,20 @@ export function LicensePage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paymentRows.map((payment) => (
+              {displayedPaymentRows.map((payment) => (
                 <TableRow key={payment.id}>
                   <TableCell>
                     <p className="font-mono text-sm font-medium text-ink-900">
                       {payment.invoiceNumber ?? `#PAY-${payment.id.slice(0, 6).toUpperCase()}`}
                     </p>
                   </TableCell>
+                  {aggregatePartnerMode && (
+                    <TableCell>
+                      <p className="text-sm text-ink-700">
+                        {paymentOrganizationName(payment)}
+                      </p>
+                    </TableCell>
+                  )}
                   <TableCell>
                     <p className="text-sm text-ink-700">{formatDate(payment.createdAt)}</p>
                   </TableCell>
@@ -1456,14 +1798,21 @@ export function LicensePage() {
                   </TableCell>
                 </TableRow>
               ))}
-              {paymentRows.length === 0 &&
-                orgSubs.map((subscription) => (
+              {displayedPaymentRows.length === 0 &&
+                displayedBillingSubscriptions.map((subscription) => (
                   <TableRow key={subscription.id}>
                     <TableCell>
                       <p className="font-mono text-sm font-medium text-ink-900">
                         #SUB-{subscription.id.slice(0, 6).toUpperCase()}
                       </p>
                     </TableCell>
+                    {aggregatePartnerMode && (
+                      <TableCell>
+                        <p className="text-sm text-ink-700">
+                          {subscription.organization?.name ?? '-'}
+                        </p>
+                      </TableCell>
+                    )}
                     <TableCell>
                       <p className="text-sm text-ink-700">
                         {formatDate(subscription.startDate)}
@@ -1485,10 +1834,13 @@ export function LicensePage() {
                     </TableCell>
                   </TableRow>
                 ))}
-              {paymentRows.length === 0 && orgSubs.length === 0 && (
+              {displayedPaymentRows.length === 0 && displayedBillingSubscriptions.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-sm text-ink-500">
-                    {paymentsQuery.isLoading ? 'Loading billing history...' : 'No invoices yet.'}
+                  <TableCell
+                    colSpan={6 + (aggregatePartnerMode ? 1 : 0)}
+                    className="py-10 text-center text-sm text-ink-500"
+                  >
+                    {billingIsLoading ? 'Loading billing history...' : 'No invoices yet.'}
                   </TableCell>
                 </TableRow>
               )}

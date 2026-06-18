@@ -586,6 +586,48 @@ export interface OrganizationLicenseDetailRecord {
   hardwareActivationKeys: HardwareActivationKeyRecord[];
 }
 
+export interface PartnerLicensePaymentRecord {
+  id: string;
+  amountMinor: number;
+  currency: string;
+  status: string;
+  referenceNote: string | null;
+  invoiceNumber: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  createdAt: string;
+  recordedBy?: { id: string; email: string; name: string | null } | null;
+  organization?: {
+    id: string;
+    name: string;
+    kind?: OrganizationKind;
+    parentOrganizationId?: string | null;
+  } | null;
+  subscription?: {
+    id: string;
+    planName: string;
+    organizationId: string | null;
+  } | null;
+}
+
+export interface PartnerLicenseDetailRecord {
+  partner: OrganizationLicenseDetailRecord['organization'];
+  organizations: OrganizationLicenseDetailRecord['organization'][];
+  partnerPool?: OrganizationLicenseDetailRecord['partnerPool'];
+  summary: {
+    organizationCount: number;
+    childOrganizationCount: number;
+    activeSubscriptionCount: number;
+    seatLimit: number;
+    seatUsage: number;
+    usableKeyCount: number;
+    remainingActivationKeys: number;
+  };
+  subscriptions: SubscriptionRecord[];
+  payments: PartnerLicensePaymentRecord[];
+  hardwareActivationKeys: HardwareActivationKeyRecord[];
+}
+
 export interface AuditLogEntry {
   id: string;
   actorUserId: string;

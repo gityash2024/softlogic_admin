@@ -346,8 +346,8 @@ function OrganizationFormEditor({
   const studentUserLimit = Number(watch('studentUserLimit') ?? 0);
   const parentUserLimit = Number(watch('parentUserLimit') ?? 0);
   const maxChildOrganizations = watch('maxChildOrganizations');
-  const maxChildUsers = watch('maxChildUsers');
   const totalUserLimit = teacherUserLimit + studentUserLimit + parentUserLimit;
+  const derivedMaxChildUsers = kind === 'PARTNER' ? totalUserLimit : null;
   const showPartnerGovernance = isSuperAdmin && kind === 'PARTNER';
   const submitting = createMutation.isPending || updateMutation.isPending;
   const isWhiteLabel = brandingMode === 'WHITE_LABEL';
@@ -447,6 +447,9 @@ function OrganizationFormEditor({
     ) {
       setValue('defaultStorageProvider', next[0], { shouldDirty: true });
     }
+    if (next.length && storageStatus === 'NOT_CONFIGURED') {
+      setValue('storageStatus', 'PENDING', { shouldDirty: true });
+    }
   };
 
   const onSubmit = (values: FormValues) => {
@@ -510,6 +513,19 @@ function OrganizationFormEditor({
     const normalizedStudentLogin =
       !normalizedTeacherOnly &&
       (Boolean(values.studentLoginEnabled) || normalizedParentLogin);
+    const submittedTeacherUserLimit = Number(values.teacherUserLimit ?? 0);
+    const submittedStudentUserLimit = normalizedTeacherOnly
+      ? 0
+      : normalizedStudentLogin
+        ? Number(values.studentUserLimit ?? 0)
+        : 0;
+    const submittedParentUserLimit = normalizedTeacherOnly
+      ? 0
+      : normalizedParentLogin
+        ? Number(values.parentUserLimit ?? 0)
+        : 0;
+    const submittedTotalUserLimit =
+      submittedTeacherUserLimit + submittedStudentUserLimit + submittedParentUserLimit;
     const commercialPayload = canConfigureLaunchPolicies
       ? {
           ...(isSuperAdmin
@@ -525,7 +541,7 @@ function OrganizationFormEditor({
                 ...(values.kind === 'PARTNER'
                   ? {
                       maxChildOrganizations: values.maxChildOrganizations ?? null,
-                      maxChildUsers: values.maxChildUsers ?? null,
+                      maxChildUsers: submittedTotalUserLimit,
                     }
                   : {}),
               }
@@ -534,17 +550,9 @@ function OrganizationFormEditor({
           parentLoginEnabled: normalizedParentLogin,
           sessionOnlyJoinEnabled: Boolean(values.sessionOnlyJoinEnabled),
           teacherOnlyMode: normalizedTeacherOnly,
-          teacherUserLimit: Number(values.teacherUserLimit ?? 0),
-          studentUserLimit: normalizedTeacherOnly
-            ? 0
-            : normalizedStudentLogin
-              ? Number(values.studentUserLimit ?? 0)
-              : 0,
-          parentUserLimit: normalizedTeacherOnly
-            ? 0
-            : normalizedParentLogin
-              ? Number(values.parentUserLimit ?? 0)
-              : 0,
+          teacherUserLimit: submittedTeacherUserLimit,
+          studentUserLimit: submittedStudentUserLimit,
+          parentUserLimit: submittedParentUserLimit,
         }
       : {};
     const storagePayload = canConfigureStorage
@@ -554,7 +562,11 @@ function OrganizationFormEditor({
             values.defaultStorageProvider && values.defaultStorageProvider !== 'NONE'
               ? (values.defaultStorageProvider as OrganizationStorageProvider)
               : null,
-          storageStatus: values.storageStatus as OrganizationStorageStatus,
+          storageStatus: values.storageProviders?.length
+            ? ((values.storageStatus && values.storageStatus !== 'NOT_CONFIGURED'
+                ? values.storageStatus
+                : 'PENDING') as OrganizationStorageStatus)
+            : 'NOT_CONFIGURED',
         }
       : {};
 
@@ -604,8 +616,8 @@ function OrganizationFormEditor({
         v.parentOrganizationId && v.parentOrganizationId !== 'NONE'
           ? partnerOrganizations.find((o) => o.id === v.parentOrganizationId)?.name ??
             v.parentOrganizationId
-          : 'No parent (direct customer)';
-      rows.push({ label: 'Parent partner', value: parentName });
+          : 'No partner workspace (direct customer)';
+      rows.push({ label: 'Partner workspace', value: parentName });
     }
     rows.push({ label: 'Status', value: v.status === 'INACTIVE' ? 'Inactive' : 'Active' });
     rows.push({ label: 'Support email', value: v.supportEmail || '—' });
@@ -646,8 +658,11 @@ function OrganizationFormEditor({
           value: v.maxChildOrganizations ?? 'No limit',
         });
         rows.push({
-          label: 'Max child users',
-          value: v.maxChildUsers ?? 'No limit',
+          label: 'Managed customer user capacity',
+          value:
+            Number(v.teacherUserLimit ?? 0) +
+            Number(v.studentUserLimit ?? 0) +
+            Number(v.parentUserLimit ?? 0),
         });
       }
     }
@@ -681,7 +696,12 @@ function OrganizationFormEditor({
         });
         rows.push({
           label: 'Storage status',
-          value: STORAGE_STATUS_LABEL[v.storageStatus as OrganizationStorageStatus],
+          value:
+            STORAGE_STATUS_LABEL[
+              ((v.storageStatus && v.storageStatus !== 'NOT_CONFIGURED'
+                ? v.storageStatus
+                : 'PENDING') as OrganizationStorageStatus)
+            ],
         });
       }
     }
@@ -740,7 +760,7 @@ function OrganizationFormEditor({
             </div>
             {kind === 'CUSTOMER' && (
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Parent partner</label>
+                <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Partner workspace</label>
                 <Select
                   disabled={isEdit || actor?.role !== 'SUPER_ADMIN'}
                   value={parentOrganizationId}
@@ -755,7 +775,7 @@ function OrganizationFormEditor({
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-ink-500">
-                  Optional — pick a partner if this customer is being resold through them.
+                  Optional - assign this customer workspace under a partner workspace.
                 </p>
               </div>
             )}
@@ -835,7 +855,7 @@ function OrganizationFormEditor({
             <div className="grid gap-4 rounded-lg border border-line bg-surface-variant px-4 py-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-                  Max child organizations
+                  Managed customer organizations
                 </label>
                 <Input
                   type="number"
@@ -844,7 +864,7 @@ function OrganizationFormEditor({
                   {...register('maxChildOrganizations', { valueAsNumber: true })}
                 />
                 <p className="text-xs text-ink-500">
-                  {maxChildOrganizations ?? 'Unlimited'} customer organizations under this partner.
+                  {maxChildOrganizations ?? 'Unlimited'} customer organizations managed by this partner.
                 </p>
                 {errors.maxChildOrganizations && (
                   <p className="text-xs text-danger">{errors.maxChildOrganizations.message}</p>
@@ -852,16 +872,16 @@ function OrganizationFormEditor({
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-                  Max child users
+                  Managed customer user capacity
                 </label>
                 <Input
                   type="number"
-                  min={0}
-                  placeholder="No limit"
-                  {...register('maxChildUsers', { valueAsNumber: true })}
+                  value={derivedMaxChildUsers ?? 0}
+                  disabled
+                  readOnly
                 />
                 <p className="text-xs text-ink-500">
-                  {maxChildUsers ?? 'Unlimited'} total teacher, student, and parent seats across child organizations.
+                  Derived from total users above and shared across managed customer organizations.
                 </p>
                 {errors.maxChildUsers && (
                   <p className="text-xs text-danger">{errors.maxChildUsers.message}</p>
@@ -1150,9 +1170,9 @@ function OrganizationFormEditor({
             <Building2 className="h-5 w-5" />
           </div>
           <div>
-            <h3 className="font-bold text-ink-900">Hierarchy Rules</h3>
+            <h3 className="font-bold text-ink-900">Hierarchy rules</h3>
             <p className="mt-1 text-sm leading-6 text-ink-500">
-              Super admins can create internal, partner, and customer organizations. Partner admins create customer organizations under their own partner scope.
+              Partner workspaces are top-level. Customer organizations can be managed directly by SoftLogic or assigned under a partner workspace.
             </p>
           </div>
         </Card>

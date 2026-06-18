@@ -1,4 +1,5 @@
 import { AlertTriangle, CheckCircle2, Info, ShieldAlert } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
@@ -16,7 +17,7 @@ interface ConfirmationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
-  description: string;
+  description: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   tone?: ConfirmationTone;
@@ -82,9 +83,13 @@ export function ConfirmationDialog({
           </div>
           <div>
             <DialogTitle>{title}</DialogTitle>
-            <DialogDescription className="mt-1.5 leading-6">
-              {description}
-            </DialogDescription>
+            {typeof description === 'string' ? (
+              <DialogDescription className="mt-1.5 leading-6">
+                {description}
+              </DialogDescription>
+            ) : (
+              <div className="mt-1.5 text-sm text-ink-500">{description}</div>
+            )}
           </div>
         </DialogHeader>
         <DialogFooter>

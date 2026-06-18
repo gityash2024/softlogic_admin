@@ -20,7 +20,11 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { organizationsApi } from '@/services/organizations.api';
+import {
+  organizationsApi,
+  type ArchiveOrganizationWithChildrenResult,
+  type DeleteOrganizationResult,
+} from '@/services/organizations.api';
 import type { AdminExportFormat, AdminListQuery } from '@/services/admin-api';
 import { extractApiError } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
@@ -150,8 +154,21 @@ export function OrganizationsPage() {
     queryKey: ['organizations', 'all'],
     queryFn: organizationsApi.all,
   });
+  const archiveChildrenQuery = useQuery({
+    queryKey: ['organizations', 'archive-children', archiveAction?.id],
+    queryFn: () =>
+      organizationsApi.list({
+        parentOrganizationId: archiveAction!.id,
+        status: 'ACTIVE',
+        perPage: 100,
+        sortBy: 'name',
+        sortOrder: 'asc',
+      }),
+    enabled: Boolean(archiveAction?.id && archiveAction.kind === 'PARTNER'),
+  });
 
   const organizations = organizationsQuery.data?.data ?? [];
+  const archiveChildren = archiveChildrenQuery.data?.data ?? [];
   const meta = organizationsQuery.data?.meta;
   const partners = partnerOrganizations(allOrgsQuery.data ?? []);
   const activeCount = organizations.filter((org) => org.status === 'ACTIVE').length;
@@ -234,14 +251,34 @@ export function OrganizationsPage() {
     onError: (err) => toast.error(extractApiError(err)),
   });
 
-  const archiveOrganization = useMutation({
-    mutationFn: (id: string) => organizationsApi.delete(id),
-    onSuccess: () => {
+  const archiveOrganization = useMutation<
+    DeleteOrganizationResult | ArchiveOrganizationWithChildrenResult,
+    Error,
+    { id: string; childOrganizationIds?: string[] }
+  >({
+    mutationFn: ({
+      id,
+      childOrganizationIds,
+    }: {
+      id: string;
+      childOrganizationIds?: string[];
+    }) =>
+      childOrganizationIds
+        ? organizationsApi.archiveWithChildren(id, childOrganizationIds)
+        : organizationsApi.delete(id),
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['organizations'] });
       queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
+      queryClient.invalidateQueries({ queryKey: ['license-details'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
-      toast.success('Organization archived and license usage released');
+      const archivedChildCount =
+        result && 'archivedChildCount' in result ? result.archivedChildCount : 0;
+      toast.success(
+        archivedChildCount > 0
+          ? `${archivedChildCount} managed customer organization(s) and partner archived`
+          : 'Organization archived and license usage released',
+      );
       setArchiveAction(null);
     },
     onError: (err) => toast.error(extractApiError(err)),
@@ -630,7 +667,7 @@ export function OrganizationsPage() {
                               ? 'Organization is already archived'
                               : org.kind === 'INTERNAL'
                               ? 'Internal SoftLogic organizations cannot be deleted'
-                              : 'Delete organization'
+                              : 'Archive organization'
                           }
                           onClick={() => setArchiveAction(org)}
                         >
@@ -728,14 +765,66 @@ export function OrganizationsPage() {
       <ConfirmationDialog
         open={!!archiveAction}
         onOpenChange={(open) => !open && setArchiveAction(null)}
-        title="Delete this organization?"
-        description={`${archiveAction?.name ?? 'This organization'} will be archived. All organization users lose access, active/trial subscriptions are canceled, license usage is released, and hardware/storage/AI access is disabled. Billing, whiteboards, sessions, exports, and audit history stay preserved.`}
-        confirmLabel="Delete organization"
+        title="Archive this organization?"
+        description={
+          <div className="space-y-3 leading-6">
+            <p>
+              {archiveAction?.name ?? 'This organization'} will be archived. Users lose access,
+              active/trial subscriptions are canceled, license usage is released, and
+              hardware/storage/AI access is disabled. Billing, whiteboards, sessions, exports, and
+              audit history stay preserved.
+            </p>
+            {archiveAction?.kind === 'PARTNER' && (
+              <div className="rounded-lg border border-line bg-surface-variant p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  Managed customer organizations
+                </p>
+                {archiveChildrenQuery.isLoading ? (
+                  <div className="mt-3 flex items-center gap-2 text-xs text-ink-500">
+                    <Spinner className="h-4 w-4 text-brand-primary" />
+                    Loading active customer organizations...
+                  </div>
+                ) : archiveChildren.length ? (
+                  <div className="mt-3 max-h-44 divide-y divide-line overflow-y-auto rounded-md border border-line bg-white">
+                    {archiveChildren.map((child) => (
+                      <div key={child.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold text-ink-900">
+                            {child.name}
+                          </span>
+                          <span className="block truncate text-xs text-ink-500">
+                            {child.slug} - {child._count?.memberships ?? 0} members
+                          </span>
+                        </span>
+                        <Badge variant="info">{ORG_KIND_LABEL[child.kind]}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm text-ink-500">
+                    No active managed customer organizations are blocking this archive.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        }
+        confirmLabel={
+          archiveAction?.kind === 'PARTNER' && archiveChildren.length > 0
+            ? 'Archive customers and partner'
+            : 'Archive organization'
+        }
         tone="danger"
-        loading={archiveOrganization.isPending}
+        loading={archiveOrganization.isPending || archiveChildrenQuery.isFetching}
         onConfirm={() => {
           if (!archiveAction) return;
-          archiveOrganization.mutate(archiveAction.id);
+          archiveOrganization.mutate({
+            id: archiveAction.id,
+            childOrganizationIds:
+              archiveAction.kind === 'PARTNER' && archiveChildren.length > 0
+                ? archiveChildren.map((child) => child.id)
+                : undefined,
+          });
         }}
       />
       <ConfirmationDialog

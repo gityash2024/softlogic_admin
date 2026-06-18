@@ -71,6 +71,26 @@ export interface UpsertOrganizationStoragePayload {
   lastError?: string | null;
 }
 
+export interface DeleteOrganizationResult {
+  id: string;
+  deletedAt: string;
+  archivedSlug: string;
+  archivedSupportEmail: string | null;
+  affectedUserCount: number;
+  canceledSubscriptionCount: number;
+  canceledCheckoutSessionCount: number;
+  disabledHardwareKeyCount: number;
+  disabledHardwareActivationCount: number;
+  disabledAiCreditAccountCount: number;
+  disconnectedStorageConnectionCount: number;
+}
+
+export interface ArchiveOrganizationWithChildrenResult {
+  parent: DeleteOrganizationResult;
+  children: DeleteOrganizationResult[];
+  archivedChildCount: number;
+}
+
 export const organizationsApi = {
   list: (query?: AdminListQuery) =>
     getAdminList<AdminOrganization>('/admin/organizations', query),
@@ -94,7 +114,14 @@ export const organizationsApi = {
     return res.data.data;
   },
   delete: async (id: string) => {
-    const res = await api.delete<ApiResponse<unknown>>(`/admin/organizations/${id}`);
+    const res = await api.delete<ApiResponse<DeleteOrganizationResult>>(`/admin/organizations/${id}`);
+    return res.data.data;
+  },
+  archiveWithChildren: async (id: string, childOrganizationIds: string[]) => {
+    const res = await api.post<ApiResponse<ArchiveOrganizationWithChildrenResult>>(
+      `/admin/organizations/${id}/archive-with-children`,
+      { childOrganizationIds },
+    );
     return res.data.data;
   },
   uploadLogo: async (id: string, file: File) => {

@@ -130,6 +130,7 @@ export function SubscriptionFormPage() {
   // admins are unchanged.
   const lockToOwnOrg = actor?.role === 'CUSTOMER_ADMIN' || actor?.role === 'ADMIN';
   const ownOrganizationId = actor?.primaryOrganization?.id ?? null;
+  const requestedOrganizationId = searchParams.get('organizationId');
   const initialStartDate = toInputDate(new Date().toISOString());
   const [durationMonths, setDurationMonths] = useState<number | null>(isEdit ? null : 12);
   const [selectedPartnerOrganizationId, setSelectedPartnerOrganizationId] = useState(
@@ -161,7 +162,10 @@ export function SubscriptionFormPage() {
     resolver: zodResolver(schema),
     defaultValues: {
       scope: 'organization',
-      organizationId: lockToOwnOrg && ownOrganizationId ? ownOrganizationId : 'NONE',
+      organizationId:
+        lockToOwnOrg && ownOrganizationId
+          ? ownOrganizationId
+          : requestedOrganizationId ?? 'NONE',
       userId: 'NONE',
       planName: INTERNAL_PLAN_NAME,
       status: 'ACTIVE',
@@ -195,6 +199,31 @@ export function SubscriptionFormPage() {
     setValue('scope', 'organization');
     if (ownOrganizationId) setValue('organizationId', ownOrganizationId);
   }, [isEdit, lockToOwnOrg, ownOrganizationId, setValue]);
+
+  useEffect(() => {
+    if (isEdit || lockToOwnOrg || !requestedOrganizationId || !orgsQuery.data) return;
+    const requestedOrganization = orgsQuery.data.find(
+      (organization) => organization.id === requestedOrganizationId,
+    );
+    if (!requestedOrganization) return;
+    setValue('scope', 'organization');
+    setValue('organizationId', requestedOrganization.id);
+    if (isSuperAdmin) {
+      setSelectedPartnerOrganizationId(
+        requestedOrganization.parentOrganizationId ??
+          (requestedOrganization.kind === 'PARTNER'
+            ? requestedOrganization.id
+            : ALL_PARTNERS_VALUE),
+      );
+    }
+  }, [
+    isEdit,
+    isSuperAdmin,
+    lockToOwnOrg,
+    orgsQuery.data,
+    requestedOrganizationId,
+    setValue,
+  ]);
 
   const createMutation = useMutation({
     mutationFn: subscriptionsApi.create,
