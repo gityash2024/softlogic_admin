@@ -85,6 +85,10 @@ function kindVariant(kind: OrganizationKind) {
   return 'info' as const;
 }
 
+function organizationKindLabel(kind: OrganizationKind) {
+  return ORG_KIND_LABEL[kind];
+}
+
 function organizationStatusLabel(organization: AdminOrganization) {
   if (organization.deletedAt) return 'Archived';
   return organization.status === 'ACTIVE' ? 'Active' : 'Inactive';
@@ -204,7 +208,6 @@ export function OrganizationsPage() {
       updatedTo && { key: 'updatedTo', label: 'Updated to', value: updatedTo },
     ].filter(Boolean) as FilterChip[];
   }, [
-    allOrgsQuery.data,
     createdFrom,
     createdTo,
     hasLogo,
@@ -299,9 +302,9 @@ export function OrganizationsPage() {
     }
   };
 
-  const copySupportEmail = async (email: string) => {
+  const copySupportEmail = async (email: string, isPartnerAccount: boolean) => {
     await navigator.clipboard.writeText(email);
-    toast.success('Organization email copied');
+    toast.success(isPartnerAccount ? 'Partner email copied' : 'Organization email copied');
   };
 
   return (
@@ -483,14 +486,14 @@ export function OrganizationsPage() {
             <Spinner className="h-6 w-6 text-brand-primary" />
           </div>
         ) : (
-          <Table className="min-w-[980px]">
+          <Table className="min-w-[1040px]">
             <colgroup>
               <col />
-              <col className="w-[14%]" />
-              <col className="w-[14%]" />
-              <col className="w-[14%]" />
-              <col className="w-[10%]" />
-              <col className="w-[11%]" />
+              <col className="w-[104px]" />
+              <col className="w-[112px]" />
+              <col className="w-[148px]" />
+              <col className="w-[84px]" />
+              <col className="w-[128px]" />
               <col className="w-[292px]" />
             </colgroup>
             <TableHeader>
@@ -505,18 +508,20 @@ export function OrganizationsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {organizations.map((org) => (
+              {organizations.map((org) => {
+                const isPartnerAccount = org.kind === 'PARTNER';
+                return (
                 <TableRow
                   key={org.id}
                   className={
-                    org.kind === 'PARTNER'
+                    isPartnerAccount
                       ? 'bg-purple-50/45 hover:bg-purple-50'
                       : undefined
                   }
                 >
-                  <TableCell>
+                  <TableCell className="min-w-0">
                     <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border border-line bg-surface-variant">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-line bg-surface-variant">
                         {org.logoUrl ? (
                           <img
                             src={org.logoUrl}
@@ -534,15 +539,19 @@ export function OrganizationsPage() {
                         <p className="truncate text-xs text-ink-500">{org.slug}</p>
                         <div className="mt-1 flex min-w-0 items-center gap-1">
                           <p className="truncate text-xs text-ink-500">
-                            {org.supportEmail ?? 'No support email'}
+                            {org.supportEmail ?? (isPartnerAccount ? 'No partner email' : 'No support email')}
                           </p>
                           {org.supportEmail && (
                             <Button
                               className="h-6 w-6 shrink-0 p-0"
                               size="icon"
                               variant="ghost"
-                              title="Copy organization email"
-                              onClick={() => copySupportEmail(org.supportEmail!)}
+                              title={
+                                isPartnerAccount
+                                  ? 'Copy partner account email'
+                                  : 'Copy organization email'
+                              }
+                              onClick={() => copySupportEmail(org.supportEmail!, isPartnerAccount)}
                             >
                               <Copy className="h-3.5 w-3.5 text-ink-500" />
                             </Button>
@@ -551,12 +560,12 @@ export function OrganizationsPage() {
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="whitespace-nowrap">
                     <Badge variant={kindVariant(org.kind)}>
-                      {ORG_KIND_LABEL[org.kind]}
+                      {organizationKindLabel(org.kind)}
                     </Badge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="whitespace-nowrap">
                     <Badge
                       variant={
                         org.deletedAt
@@ -569,19 +578,19 @@ export function OrganizationsPage() {
                       {organizationStatusLabel(org)}
                     </Badge>
                   </TableCell>
-                  <TableCell>
-                    <span className="text-sm text-ink-900">
+                  <TableCell className="min-w-0">
+                    <span className="block max-w-[140px] truncate text-sm text-ink-900">
                       {org.subscriptions?.[0]?.planName ?? (
                         <span className="text-ink-400">-</span>
                       )}
                     </span>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="whitespace-nowrap">
                     <span className="text-sm text-ink-700">
                       {org._count?.memberships ?? 0}
                     </span>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="whitespace-nowrap">
                     <Badge variant="info">Centralized</Badge>
                   </TableCell>
                   <TableCell className="w-[292px] px-1.5 text-right">
@@ -721,7 +730,8 @@ export function OrganizationsPage() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
               {organizations.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={7} className="py-12 text-center">

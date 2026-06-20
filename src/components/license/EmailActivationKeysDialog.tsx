@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Mail } from 'lucide-react';
 import { toast } from 'sonner';
@@ -46,16 +46,17 @@ export function EmailActivationKeysDialog({
   onOpenChange,
   onSent,
 }: EmailActivationKeysDialogProps) {
+  const canEmailKey = useCallback((key: HardwareActivationKeyRecord) =>
+    Boolean(key.activationKey) &&
+    !key.emailSentAt &&
+    (key.status === 'AVAILABLE' || key.status === 'BOUND'), []);
   const emailableIds = useMemo(
-    () => keys.filter((key) => Boolean(key.activationKey)).map((key) => key.id),
-    [keys],
+    () => keys.filter(canEmailKey).map((key) => key.id),
+    [canEmailKey, keys],
   );
   const unsentEmailableIds = useMemo(
-    () =>
-      keys
-        .filter((key) => Boolean(key.activationKey) && !key.emailSentAt)
-        .map((key) => key.id),
-    [keys],
+    () => emailableIds,
+    [emailableIds],
   );
   const defaultSelectedIds = useMemo(() => {
     if (newEmailSlotsRemaining === null || newEmailSlotsRemaining === undefined) {
@@ -64,15 +65,13 @@ export function EmailActivationKeysDialog({
     const selected: string[] = [];
     let newCount = 0;
     for (const key of keys) {
-      if (!key.activationKey) continue;
-      if (!key.emailSentAt) {
-        if (newCount >= newEmailSlotsRemaining) continue;
-        newCount += 1;
-      }
+      if (!canEmailKey(key)) continue;
+      if (newCount >= newEmailSlotsRemaining) continue;
+      newCount += 1;
       selected.push(key.id);
     }
     return selected;
-  }, [emailableIds, keys, newEmailSlotsRemaining]);
+  }, [canEmailKey, emailableIds, keys, newEmailSlotsRemaining]);
   const [selectedIds, setSelectedIds] = useState<string[]>(defaultSelectedIds);
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const selectedUnsentCount = useMemo(
@@ -91,11 +90,9 @@ export function EmailActivationKeysDialog({
     let newCount = 0;
     for (const id of ids) {
       const key = keys.find((item) => item.id === id);
-      if (!key?.activationKey) continue;
-      if (!key.emailSentAt) {
-        if (newCount >= newEmailSlotsRemaining) continue;
-        newCount += 1;
-      }
+      if (!key || !canEmailKey(key)) continue;
+      if (newCount >= newEmailSlotsRemaining) continue;
+      newCount += 1;
       selected.push(id);
     }
     setSelectedIds(selected);
@@ -119,16 +116,12 @@ export function EmailActivationKeysDialog({
     onError: (error) => toast.error(extractApiError(error)),
   });
 
-  useEffect(() => {
-    if (open) setSelectedIds(defaultSelectedIds);
-  }, [defaultSelectedIds, open]);
-
   const toggleOne = (keyId: string, checked: boolean) => {
     const key = keys.find((item) => item.id === keyId);
     if (
       checked &&
-      key?.activationKey &&
-      !key.emailSentAt &&
+      key &&
+      canEmailKey(key) &&
       newEmailSlotsRemaining !== null &&
       newEmailSlotsRemaining !== undefined &&
       selectedUnsentCount >= newEmailSlotsRemaining
@@ -207,10 +200,9 @@ export function EmailActivationKeysDialog({
               </TableHeader>
               <TableBody>
                 {keys.map((key) => {
-                  const canEmail = Boolean(key.activationKey);
+                  const canEmail = canEmailKey(key);
                   const unsentLimitReached =
                     canEmail &&
-                    !key.emailSentAt &&
                     !selectedSet.has(key.id) &&
                     newEmailSlotsRemaining !== null &&
                     newEmailSlotsRemaining !== undefined &&
@@ -227,10 +219,10 @@ export function EmailActivationKeysDialog({
                           aria-label={`Email ${key.label ?? 'activation key'}`}
                         />
                       </TableCell>
-                      <TableCell className="font-semibold text-ink-900">
+                      <TableCell className="max-w-[180px] truncate font-semibold text-ink-900">
                         {key.label ?? '—'}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         {canEmail ? (
                           <code className="rounded border border-line bg-surface-variant px-2 py-1 font-mono text-xs">
                             ••••••••••••
@@ -241,7 +233,7 @@ export function EmailActivationKeysDialog({
                           </span>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         {!canEmail ? (
                           <Badge variant="default">Not email-able</Badge>
                         ) : key.emailSentAt ? (
@@ -255,7 +247,7 @@ export function EmailActivationKeysDialog({
                           <Badge variant="warning">Unsent</Badge>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <Badge
                           variant={
                             key.status === 'AVAILABLE'
@@ -268,7 +260,7 @@ export function EmailActivationKeysDialog({
                           {key.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="min-w-0">
                         <p className="text-sm text-ink-700">
                           {key.boundActivation?.deviceModel ?? '—'}
                         </p>
@@ -276,7 +268,7 @@ export function EmailActivationKeysDialog({
                           {key.boundActivation?.devicePlatform ?? ''}
                         </p>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         {key.expiresAt ? formatDate(key.expiresAt) : 'No expiry'}
                       </TableCell>
                     </TableRow>

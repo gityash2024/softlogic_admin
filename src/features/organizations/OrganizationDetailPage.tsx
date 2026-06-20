@@ -287,29 +287,29 @@ function UserTable({
       <TableBody>
         {rows.map((user) => (
           <TableRow key={user.id}>
-            <TableCell>
+            <TableCell className="min-w-0">
               <UserCell user={user} />
             </TableCell>
-            <TableCell>
+            <TableCell className="whitespace-nowrap">
               <Badge variant={user.role === 'SUPER_ADMIN' ? 'navy' : 'default'}>
                 {ROLE_LABEL[user.role]}
               </Badge>
             </TableCell>
-            <TableCell>
+            <TableCell className="whitespace-nowrap">
               <Badge variant={user.deletedAt ? 'default' : user.status === 'ACTIVE' ? 'success' : 'warning'}>
                 {user.deletedAt ? 'Archived' : user.status === 'ACTIVE' ? 'Active' : 'Suspended'}
               </Badge>
             </TableCell>
-            <TableCell>
+            <TableCell className="whitespace-nowrap">
               <Badge variant={user.isEmailVerified ? 'success' : 'warning'}>
                 {user.isEmailVerified ? 'Verified' : 'Pending'}
               </Badge>
             </TableCell>
-            <TableCell className="text-xs text-ink-500">
+            <TableCell className="whitespace-nowrap text-xs text-ink-500">
               {formatDateTime(user.lastLoginAt)}
             </TableCell>
-            <TableCell className="text-right">
-              <div className="flex justify-end gap-1">
+            <TableCell className="text-right whitespace-nowrap">
+              <div className="flex justify-end gap-1 whitespace-nowrap">
                 <Button size="icon" variant="ghost" title="Edit user" onClick={() => onEdit(user)}>
                   <Pencil className="h-4 w-4 text-ink-500" />
                 </Button>
@@ -382,23 +382,23 @@ function SubscriptionTable({
       <TableBody>
         {rows.map((subscription) => (
           <TableRow key={subscription.id}>
-            <TableCell>
+            <TableCell className="min-w-0">
               <p className="text-sm font-semibold text-ink-900">{subscription.planName}</p>
               <p className="text-xs text-ink-500">{subscription.id}</p>
             </TableCell>
-            <TableCell>
+            <TableCell className="whitespace-nowrap">
               <Badge variant={subscriptionStatusVariant(subscription.status)}>
                 {SUBSCRIPTION_STATUS_LABEL[subscription.status]}
               </Badge>
             </TableCell>
-            <TableCell className="text-sm text-ink-700">
+            <TableCell className="whitespace-nowrap text-sm text-ink-700">
               {subscription.seatUsage}/{subscription.seatLimit}
             </TableCell>
-            <TableCell className="text-xs text-ink-500">
+            <TableCell className="whitespace-nowrap text-xs text-ink-500">
               {formatDate(subscription.startDate)} - {formatDate(subscription.endDate)}
             </TableCell>
-            <TableCell className="text-right">
-              <div className="flex justify-end gap-1">
+            <TableCell className="text-right whitespace-nowrap">
+              <div className="flex justify-end gap-1 whitespace-nowrap">
                 <Button
                   size="icon"
                   variant="ghost"
@@ -471,25 +471,25 @@ function ActivationKeysTable({
       <TableBody>
         {rows.map((key) => (
           <TableRow key={key.id}>
-            <TableCell>
+            <TableCell className="min-w-0">
               <p className="text-sm font-semibold text-ink-900">{key.label ?? 'Activation key'}</p>
               <p className="text-xs text-ink-500">{key.id}</p>
             </TableCell>
-            <TableCell>
+            <TableCell className="whitespace-nowrap">
               <Badge variant={keyStatusVariant(key.status)}>{key.status}</Badge>
             </TableCell>
-            <TableCell className="text-sm text-ink-700">
+            <TableCell className="max-w-[220px] truncate text-sm text-ink-700">
               {key.assignedUser?.name ?? key.assignedUser?.email ?? '-'}
             </TableCell>
-            <TableCell className="text-sm text-ink-700">
+            <TableCell className="whitespace-nowrap text-sm text-ink-700">
               {key.activations?.length ?? 0}
             </TableCell>
-            <TableCell className="text-xs text-ink-500">
+            <TableCell className="whitespace-nowrap text-xs text-ink-500">
               {key.expiresAt ? formatDate(key.expiresAt) : 'No expiry'}
             </TableCell>
-            <TableCell className="text-right">
+            <TableCell className="text-right whitespace-nowrap">
               {canManage && key.status !== 'DISABLED' ? (
-                <div className="flex justify-end gap-1">
+                <div className="flex justify-end gap-1 whitespace-nowrap">
                   <Button size="icon" variant="ghost" title="Replace activation key" onClick={() => onReplace(key)}>
                     <RotateCcw className="h-4 w-4 text-brand-primary" />
                   </Button>
@@ -531,7 +531,7 @@ function CanvasTable({
       <TableBody>
         {rows.map((canvas) => (
           <TableRow key={canvas.id}>
-            <TableCell>
+            <TableCell className="min-w-0">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="w-24 shrink-0">
                   <BoardPreviewTile
@@ -553,15 +553,15 @@ function CanvasTable({
             <TableCell className="text-sm text-ink-700">
               {canvas.user?.name ?? canvas.user?.email ?? '-'}
             </TableCell>
-            <TableCell>
+            <TableCell className="whitespace-nowrap">
               <Badge variant={canvas.isPublic ? 'info' : 'default'}>
                 {canvas.isPublic ? 'Public' : 'Private'}
               </Badge>
             </TableCell>
-            <TableCell className="text-xs text-ink-500">
+            <TableCell className="whitespace-nowrap text-xs text-ink-500">
               {canvas._count.slides} slides, {canvas._count.liveSessions} sessions, {canvas._count.exports} exports
             </TableCell>
-            <TableCell className="text-xs text-ink-500">
+            <TableCell className="whitespace-nowrap text-xs text-ink-500">
               {formatDateTime(canvas.updatedAt)}
             </TableCell>
           </TableRow>
@@ -594,7 +594,7 @@ function LiveSessionsTable({
       <TableBody>
         {rows.map((session) => (
           <TableRow key={session.id}>
-            <TableCell>
+            <TableCell className="min-w-0">
               <p className="text-sm font-semibold text-ink-900">
                 {session.title ?? session.canvas?.name ?? 'Live session'}
               </p>
@@ -603,15 +603,15 @@ function LiveSessionsTable({
             <TableCell className="text-sm text-ink-700">
               {session.host?.name ?? session.host?.email ?? session.createdBy?.name ?? session.createdBy?.email ?? '-'}
             </TableCell>
-            <TableCell>
+            <TableCell className="whitespace-nowrap">
               <Badge variant={liveStatusVariant(session.status)}>
                 {LIVE_SESSION_STATUS_LABEL[session.status]}
               </Badge>
             </TableCell>
-            <TableCell className="text-xs text-ink-500">
+            <TableCell className="whitespace-nowrap text-xs text-ink-500">
               {session._count.participants} participants, {session._count.messages} messages
             </TableCell>
-            <TableCell className="text-xs text-ink-500">
+            <TableCell className="whitespace-nowrap text-xs text-ink-500">
               {formatDateTime(session.startedAt)}
             </TableCell>
           </TableRow>
@@ -645,7 +645,7 @@ function ExportsTable({
       <TableBody>
         {rows.map((record) => (
           <TableRow key={record.id}>
-            <TableCell>
+            <TableCell className="min-w-0">
               <p className="text-sm font-semibold text-ink-900">
                 {record.canvas?.name ?? 'Canvas export'}
               </p>
@@ -654,18 +654,18 @@ function ExportsTable({
             <TableCell className="text-sm text-ink-700">
               {record.user?.name ?? record.user?.email ?? '-'}
             </TableCell>
-            <TableCell>
+            <TableCell className="whitespace-nowrap">
               <Badge>{record.format}</Badge>
             </TableCell>
-            <TableCell>
+            <TableCell className="whitespace-nowrap">
               <Badge variant={exportStatusVariant(record.status)}>
                 {EXPORT_STATUS_LABEL[record.status]}
               </Badge>
             </TableCell>
-            <TableCell className="text-sm text-ink-700">
+            <TableCell className="whitespace-nowrap text-sm text-ink-700">
               {formatBytes(record.fileSize)}
             </TableCell>
-            <TableCell className="text-xs text-ink-500">
+            <TableCell className="whitespace-nowrap text-xs text-ink-500">
               {formatDateTime(record.completedAt)}
             </TableCell>
           </TableRow>
@@ -697,7 +697,7 @@ function ActivityTable({
       <TableBody>
         {rows.map((entry) => (
           <TableRow key={entry.id}>
-            <TableCell>
+            <TableCell className="min-w-0">
               <div className="flex min-w-0 items-center gap-3">
                 <Avatar className="h-8 w-8">
                   <AvatarFallback>
@@ -712,13 +712,13 @@ function ActivityTable({
                 </div>
               </div>
             </TableCell>
-            <TableCell>
+            <TableCell className="whitespace-nowrap">
               <Badge variant="info">{actionLabel(entry.action)}</Badge>
             </TableCell>
             <TableCell className="text-sm text-ink-700">
               {entry.summary ?? '-'}
             </TableCell>
-            <TableCell className="text-xs text-ink-500">
+            <TableCell className="whitespace-nowrap text-xs text-ink-500">
               {formatDateTime(entry.createdAt)}
             </TableCell>
           </TableRow>
@@ -783,7 +783,7 @@ export function OrganizationDetailPage() {
     queryFn: () =>
       organizationsApi.list({
         parentOrganizationId: id,
-        perPage: LINKED_PAGE_SIZE,
+        perPage: 100,
         sortBy: 'name',
         sortOrder: 'asc',
       }),
@@ -1019,6 +1019,7 @@ export function OrganizationDetailPage() {
   const activity = activityQuery.data?.data ?? [];
   const children = childrenQuery.data?.data ?? [];
   const activeChildren = children.filter((child) => child.status === 'ACTIVE' && !child.deletedAt);
+  const capacity = licenseQuery.data?.capacitySummary;
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const isPartnerAdmin = user?.role === 'PARTNER_ADMIN';
   const canManageOrganization = Boolean(org && !org.deletedAt);
@@ -1245,6 +1246,39 @@ export function OrganizationDetailPage() {
                     .join(', ') || '-'}
                   className="sm:col-span-2"
                 />
+                <div className="grid gap-3 border-t border-line pt-4 sm:col-span-2 sm:grid-cols-3">
+                  <DetailItem
+                    label="Teachers"
+                    value={`${capacity?.roleUsage.teacher ?? 0}/${capacity?.roleLimits.teacher ?? 'No limit'}`}
+                  />
+                  <DetailItem
+                    label="Students"
+                    value={`${capacity?.roleUsage.student ?? 0}/${capacity?.roleLimits.student ?? 'No limit'}`}
+                  />
+                  <DetailItem
+                    label="Parents"
+                    value={`${capacity?.roleUsage.parent ?? 0}/${capacity?.roleLimits.parent ?? 'No limit'}`}
+                  />
+                  <DetailItem
+                    label="Teacher seats"
+                    value={`${capacity?.activeTeachers ?? 0}/${capacity?.teacherSeats ?? 0}`}
+                  />
+                  <DetailItem
+                    label="Activation keys"
+                    value={`${capacity?.activationKeysUsable ?? 0}/${capacity?.activationKeyCapacity ?? 0}`}
+                  />
+                  <DetailItem
+                    label="Child organizations"
+                    value={`${capacity?.childOrganizationUsed ?? activeChildren.length}/${capacity?.childOrganizationLimit ?? 'No limit'}`}
+                  />
+                  {org.kind === 'PARTNER' && (
+                    <DetailItem
+                      label="Child user allocation"
+                      value={`${capacity?.childUserAllocated ?? 0}/${capacity?.childUserLimit ?? 'No limit'}`}
+                      className="sm:col-span-3"
+                    />
+                  )}
+                </div>
               </div>
             </Card>
 
@@ -1257,25 +1291,37 @@ export function OrganizationDetailPage() {
                 <DetailItem
                   label="Primary color"
                   value={
-                    <span className="inline-flex items-center gap-2">
-                      <span
-                        className="h-4 w-4 rounded border border-line"
-                        style={{ backgroundColor: org.brandPrimaryColor ?? '#ffffff' }}
-                      />
-                      {org.brandPrimaryColor ?? '-'}
-                    </span>
+                    org.brandPrimaryColor ? (
+                      <span className="inline-flex items-center gap-2">
+                        <span
+                          className="h-5 w-5 shrink-0 rounded border border-line"
+                          style={{ backgroundColor: org.brandPrimaryColor }}
+                        />
+                        <code className="font-mono text-xs uppercase">
+                          {org.brandPrimaryColor}
+                        </code>
+                      </span>
+                    ) : (
+                      <span className="text-ink-500">Not configured</span>
+                    )
                   }
                 />
                 <DetailItem
                   label="Accent color"
                   value={
-                    <span className="inline-flex items-center gap-2">
-                      <span
-                        className="h-4 w-4 rounded border border-line"
-                        style={{ backgroundColor: org.brandAccentColor ?? '#ffffff' }}
-                      />
-                      {org.brandAccentColor ?? '-'}
-                    </span>
+                    org.brandAccentColor ? (
+                      <span className="inline-flex items-center gap-2">
+                        <span
+                          className="h-5 w-5 shrink-0 rounded border border-line"
+                          style={{ backgroundColor: org.brandAccentColor }}
+                        />
+                        <code className="font-mono text-xs uppercase">
+                          {org.brandAccentColor}
+                        </code>
+                      </span>
+                    ) : (
+                      <span className="text-ink-500">Not configured</span>
+                    )
                   }
                 />
                 <DetailItem

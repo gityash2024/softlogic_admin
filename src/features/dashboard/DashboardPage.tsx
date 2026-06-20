@@ -160,9 +160,9 @@ export function DashboardPage() {
   }
 
   const utilizationData = [
-    { name: 'Used seats', value: data.subscriptions.seatUsage },
+    { name: 'Used teacher licenses', value: data.subscriptions.seatUsage },
     {
-      name: 'Available seats',
+      name: 'Available teacher licenses',
       value: Math.max(data.subscriptions.seatLimit - data.subscriptions.seatUsage, 0),
     },
   ];
@@ -186,7 +186,7 @@ export function DashboardPage() {
             <p className="mt-2 max-w-2xl text-sm leading-6 text-white/70">
               The workspace is tracking {data.users.active} active users across{' '}
               {data.organizations.active} active organizations with{' '}
-              {data.subscriptions.utilizationRate}% seat utilization.
+              {data.subscriptions.utilizationRate}% teacher license utilization.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -234,7 +234,7 @@ export function DashboardPage() {
           accent="#0EA5E9"
         />
         <MetricCard
-          label="Seat Usage"
+          label="Teacher Licenses"
           value={`${data.subscriptions.seatUsage}/${data.subscriptions.seatLimit}`}
           detail={`${data.subscriptions.utilizationRate}% allocated`}
           icon={CreditCard}
@@ -299,7 +299,7 @@ export function DashboardPage() {
           )}
         </ChartCard>
 
-        <ChartCard title="Seat Utilization" subtitle="Current allocation">
+        <ChartCard title="Teacher License Utilization" subtitle="Current allocation">
           <div className="grid h-full gap-3 sm:grid-cols-[1fr_130px] sm:items-center">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -322,7 +322,7 @@ export function DashboardPage() {
                 {data.subscriptions.utilizationRate}%
               </p>
               <p className="mt-2 text-sm text-ink-500">
-                {data.subscriptions.seatUsage} of {data.subscriptions.seatLimit} seats in use
+                {data.subscriptions.seatUsage} of {data.subscriptions.seatLimit} teacher licenses in use
               </p>
             </div>
           </div>

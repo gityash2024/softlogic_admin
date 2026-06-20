@@ -247,30 +247,30 @@ export function SupportInboxPage() {
             <TableBody>
               {threadsQuery.data?.data.map((thread) => (
                 <TableRow key={thread.id}>
-                  <TableCell>
+                  <TableCell className="min-w-0">
                     <Link
                       to={`/support/${thread.id}`}
-                      className="text-sm font-semibold text-ink-900 hover:underline"
+                      className="block max-w-[280px] truncate text-sm font-semibold text-ink-900 hover:underline"
                     >
                       {thread.subject}
                     </Link>
-                    <p className="text-xs text-ink-500">
+                    <p className="max-w-[320px] truncate text-xs text-ink-500">
                       Opened {formatDate(thread.createdAt)} by{' '}
                       {thread.openedBy.name ?? thread.openedBy.email}
                     </p>
                   </TableCell>
-                  <TableCell>{thread.organization.name}</TableCell>
-                  <TableCell>{SUPPORT_CATEGORY_LABEL[thread.category]}</TableCell>
-                  <TableCell>
+                  <TableCell className="max-w-[180px] truncate">{thread.organization.name}</TableCell>
+                  <TableCell className="whitespace-nowrap">{SUPPORT_CATEGORY_LABEL[thread.category]}</TableCell>
+                  <TableCell className="whitespace-nowrap">
                     <Badge variant={statusVariant(thread.status)}>
                       {SUPPORT_STATUS_LABEL[thread.status]}
                     </Badge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="whitespace-nowrap">
                     <Badge variant="default">{SUPPORT_PRIORITY_LABEL[thread.priority]}</Badge>
                   </TableCell>
-                  <TableCell>{formatDate(thread.lastActivityAt)}</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="whitespace-nowrap">{formatDate(thread.lastActivityAt)}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap">
                     <Button
                       size="icon"
                       variant="ghost"

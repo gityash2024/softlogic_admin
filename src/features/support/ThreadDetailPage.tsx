@@ -296,15 +296,17 @@ export function ThreadDetailPage({ variant }: ThreadDetailPageProps) {
           {variant === 'org' && thread.status !== 'CLOSED' && (
             <Card className="space-y-3 px-4 py-5 sm:px-6">
               <h3 className="text-sm font-bold text-ink-900">Actions</h3>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => statusMutation.mutate('CLOSED')}
-                disabled={statusMutation.isPending}
-              >
-                <X className="h-4 w-4" />
-                Close this request
-              </Button>
+              <div className="flex justify-stretch sm:justify-start">
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  onClick={() => statusMutation.mutate('CLOSED')}
+                  disabled={statusMutation.isPending}
+                >
+                  <X className="h-4 w-4" />
+                  Close this request
+                </Button>
+              </div>
             </Card>
           )}
 
@@ -361,7 +363,7 @@ function ActionPanel({
         />
         <Button
           variant="primary"
-          className="w-full"
+          className="w-full sm:w-auto"
           disabled={disabled || seats < 1}
           onClick={() =>
             onApply({
@@ -389,7 +391,7 @@ function ActionPanel({
         />
         <Button
           variant="primary"
-          className="w-full"
+          className="w-full sm:w-auto"
           disabled={disabled || !endDate}
           onClick={() =>
             onApply({

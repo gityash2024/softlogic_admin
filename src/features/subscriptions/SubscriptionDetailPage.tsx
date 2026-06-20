@@ -484,7 +484,7 @@ export function SubscriptionDetailPage() {
               const displayKey = formatActivationKeyForDisplay(plain);
               return (
                 <TableRow key={key.id}>
-                  <TableCell>
+                  <TableCell className="min-w-0">
                     <div className="flex items-center gap-1">
                       <span>{key.label ?? '—'}</span>
                       <Button
@@ -499,8 +499,8 @@ export function SubscriptionDetailPage() {
                       </Button>
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
+                  <TableCell className="whitespace-nowrap">
+                    <div className="flex items-center gap-2 whitespace-nowrap">
                       <code className="rounded border border-line bg-surface-variant px-2 py-1 font-mono text-xs">
                         {showKey && plain
                           ? displayKey
@@ -535,7 +535,7 @@ export function SubscriptionDetailPage() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="whitespace-nowrap">
                     <Badge
                       variant={
                         key.status === 'AVAILABLE'
@@ -548,13 +548,13 @@ export function SubscriptionDetailPage() {
                       {key.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="max-w-[220px] truncate">
                     {key.assignedUser?.name ?? key.assignedUser?.email ?? '—'}
                   </TableCell>
-                  <TableCell>{key.expiresAt ? formatDate(key.expiresAt) : 'No expiry'}</TableCell>
+                  <TableCell className="whitespace-nowrap">{key.expiresAt ? formatDate(key.expiresAt) : 'No expiry'}</TableCell>
                   {isSuperAdmin && (
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
+                    <TableCell className="text-right whitespace-nowrap">
+                      <div className="flex justify-end gap-1 whitespace-nowrap">
                         <Button
                           size="sm"
                           variant="outline"
@@ -611,28 +611,28 @@ export function SubscriptionDetailPage() {
           <TableBody>
             {allDevices.map(({ activation, key }) => (
               <TableRow key={activation.id}>
-                <TableCell>
+                <TableCell className="min-w-0">
                   <p className="text-sm font-semibold text-ink-900">
                     {activation.deviceModel ?? activation.deviceLabel ?? key.label ?? 'Unnamed device'}
                   </p>
                   <p className="text-xs text-ink-500">{key.label ?? '—'}</p>
                 </TableCell>
-                <TableCell>
+                <TableCell className="max-w-[180px] truncate">
                   <p className="text-sm text-ink-700">{activation.devicePlatform ?? '—'}</p>
                   <p className="text-xs text-ink-500">{activation.deviceOsVersion ?? ''}</p>
                 </TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">
                   <code className="font-mono text-xs text-ink-500">
                     {fingerprintTail(activation.deviceFingerprintHash)}
                   </code>
                 </TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">
                   {activation.firstBoundAt ? formatDate(activation.firstBoundAt) : '—'}
                 </TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">
                   {activation.lastVerifiedAt ? formatDate(activation.lastVerifiedAt) : '—'}
                 </TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">
                   <Badge
                     variant={
                       activation.status === 'ACTIVE'
@@ -645,7 +645,7 @@ export function SubscriptionDetailPage() {
                     {activation.status}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right whitespace-nowrap">
                   <Button
                     size="sm"
                     variant="outline"
@@ -694,13 +694,13 @@ export function SubscriptionDetailPage() {
           <TableBody>
             {payments.map((payment) => (
               <TableRow key={payment.id}>
-                <TableCell>{formatDate(payment.createdAt)}</TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">{formatDate(payment.createdAt)}</TableCell>
+                <TableCell className="whitespace-nowrap">
                   <p className="text-sm font-semibold text-ink-900">
                     {formatMoney(payment.amountMinor, payment.currency)}
                   </p>
                 </TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">
                   <Badge
                     variant={
                       payment.status === 'SUCCEEDED' || payment.status === 'PAID'
@@ -713,22 +713,22 @@ export function SubscriptionDetailPage() {
                     {payment.status}
                   </Badge>
                 </TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">
                   <span className="font-mono text-xs text-ink-700">
                     {payment.invoiceNumber ?? '—'}
                   </span>
                 </TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">
                   <p className="text-xs text-ink-700">
                     {payment.periodStart ? formatDate(payment.periodStart) : '—'}
                     {payment.periodEnd ? ` – ${formatDate(payment.periodEnd)}` : ''}
                   </p>
                 </TableCell>
-                <TableCell>
-                  <p className="text-sm text-ink-700">{payment.referenceNote ?? '—'}</p>
+                <TableCell className="min-w-0">
+                  <p className="max-w-[240px] truncate text-sm text-ink-700">{payment.referenceNote ?? '—'}</p>
                 </TableCell>
-                <TableCell>
-                  <p className="text-sm text-ink-700">
+                <TableCell className="min-w-0">
+                  <p className="max-w-[200px] truncate text-sm text-ink-700">
                     {payment.recordedBy?.name ?? payment.recordedBy?.email ?? '—'}
                   </p>
                 </TableCell>

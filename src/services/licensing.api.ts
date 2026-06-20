@@ -12,6 +12,8 @@ import type {
   PartnerLicenseDetailRecord,
   PaymentProvider,
   PaymentProviderMode,
+  PaymentTransactionStatus,
+  PartnerLicensePaymentRecord,
 } from '@/types/api';
 
 export interface PaymentProviderConfig {
@@ -61,6 +63,16 @@ export interface BulkHardwareActivationKeyPayload {
   keys: BulkHardwareActivationKeyItem[];
 }
 
+export interface UpdatePaymentTransactionPayload {
+  amountMinor?: number;
+  currency?: string;
+  status?: PaymentTransactionStatus;
+  referenceNote?: string | null;
+  invoiceNumber?: string | null;
+  periodStart?: string | null;
+  periodEnd?: string | null;
+}
+
 export interface BulkHardwareActivationKeyResponse {
   createdCount: number;
   keys: CreateHardwareActivationKeyResponse[];
@@ -70,6 +82,16 @@ export interface EmailActivationKeysResponse {
   delivered: boolean;
   recipient?: string;
   keyCount: number;
+}
+
+export interface AssignEmailActivationKeysPayload {
+  organizationId: string;
+  sourcePartnerOrganizationId?: string | null;
+  activationKeyIds: string[];
+}
+
+export interface AssignEmailActivationKeysResponse extends EmailActivationKeysResponse {
+  assignedOrganizationId: string;
 }
 
 export const licensingApi = {
@@ -92,6 +114,16 @@ export const licensingApi = {
   },
   recordOfflinePayment: async (payload: OfflinePaymentPayload) => {
     const res = await api.post<ApiResponse<unknown>>('/admin/payments/offline', payload);
+    return res.data.data;
+  },
+  updatePaymentTransaction: async (
+    paymentId: string,
+    payload: UpdatePaymentTransactionPayload,
+  ) => {
+    const res = await api.patch<ApiResponse<PartnerLicensePaymentRecord>>(
+      `/admin/payments/${paymentId}`,
+      payload,
+    );
     return res.data.data;
   },
   createHardwareActivationKey: async (payload: HardwareActivationKeyPayload) => {
@@ -159,6 +191,13 @@ export const licensingApi = {
   getOrganizationLicenseDetails: async (organizationId: string) => {
     const res = await api.get<ApiResponse<OrganizationLicenseDetailRecord>>(
       `/admin/organizations/${organizationId}/license-details`,
+    );
+    return res.data.data;
+  },
+  assignEmailActivationKeysToOrgAdmin: async (payload: AssignEmailActivationKeysPayload) => {
+    const res = await api.post<ApiResponse<AssignEmailActivationKeysResponse>>(
+      '/admin/hardware/activation-keys/assign-email-org-admin',
+      payload,
     );
     return res.data.data;
   },

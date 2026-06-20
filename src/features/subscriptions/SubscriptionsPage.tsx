@@ -98,6 +98,12 @@ function statusVariant(s: SubscriptionRecord['status']) {
   }
 }
 
+function subscriptionScopeLabel(subscription: SubscriptionRecord) {
+  if (subscription.organization?.kind === 'PARTNER') return 'Partner';
+  if (subscription.organization?.parentOrganizationId) return 'Child org';
+  return subscription.organizationId ? 'Organization' : 'User';
+}
+
 export function SubscriptionsPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -192,7 +198,34 @@ export function SubscriptionsPage() {
   const organizationOptions = organizationsForPartner(allOrganizations, partnerOrganizationId);
   const activeCount = subscriptions.filter((s) => s.status === 'ACTIVE').length;
   const trialCount = subscriptions.filter((s) => s.status === 'TRIAL').length;
-  const totalSeats = subscriptions.reduce((sum, s) => sum + s.seatLimit, 0);
+  const partnerCapacityOrganizationId =
+    organizationId === 'ALL' && userId === 'ALL'
+      ? isSuperAdmin && partnerOrganizationId !== ALL_PARTNERS_VALUE
+        ? partnerOrganizationId
+        : actor?.role === 'PARTNER_ADMIN'
+          ? actor.primaryOrganization?.id ?? null
+          : null
+      : null;
+  const partnerCapacityRows = partnerCapacityOrganizationId
+    ? subscriptions.filter(
+        (subscription) =>
+          subscription.organizationId === partnerCapacityOrganizationId ||
+          subscription.organization?.kind === 'PARTNER',
+      )
+    : [];
+  const topLevelCapacityRows =
+    organizationId === 'ALL' && userId === 'ALL'
+      ? subscriptions.filter(
+          (subscription) => !subscription.organization?.parentOrganizationId,
+        )
+      : subscriptions;
+  const seatCapacityRows =
+    partnerCapacityOrganizationId && partnerCapacityRows.length > 0
+      ? partnerCapacityRows
+      : topLevelCapacityRows.length > 0
+        ? topLevelCapacityRows
+        : subscriptions;
+  const totalSeats = seatCapacityRows.reduce((sum, s) => sum + s.seatLimit, 0);
   const usedSeats = subscriptions.reduce((sum, s) => sum + s.seatUsage, 0);
 
   const activeFilters = useMemo<FilterChip[]>(() => {
@@ -575,7 +608,15 @@ export function SubscriptionsPage() {
             <Spinner className="h-6 w-6 text-brand-primary" />
           </div>
         ) : (
-          <Table className="min-w-[900px]">
+          <Table className="min-w-[960px]">
+            <colgroup>
+              <col />
+              <col className="w-[170px]" />
+              <col className="w-[190px]" />
+              <col className="w-[150px]" />
+              <col className="w-[190px]" />
+              <col className="w-[210px]" />
+            </colgroup>
             <TableHeader>
               <TableRow>
                 <TableHead>Scope</TableHead>
@@ -590,27 +631,27 @@ export function SubscriptionsPage() {
               {subscriptions.map((s) => {
                 const scopeName =
                   s.organization?.name ?? s.user?.name ?? s.user?.email ?? '-';
-                const scopeKind = s.organizationId ? 'Organization' : 'User';
+                const scopeKind = subscriptionScopeLabel(s);
                 const pct = Math.min(
                   100,
                   s.seatLimit > 0 ? (s.seatUsage / s.seatLimit) * 100 : 0,
                 );
                 return (
                   <TableRow key={s.id}>
-                    <TableCell>
+                    <TableCell className="min-w-0">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-ink-900">
                           {scopeName}
                         </p>
-                        <p className="text-xs text-ink-500">{scopeKind}</p>
+                        <p className="truncate text-xs text-ink-500">{scopeKind}</p>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <p className="text-sm font-semibold text-ink-900">
+                    <TableCell className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-ink-900">
                         {s.planName}
                       </p>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <div className="w-full max-w-48 space-y-1">
                         <Progress value={pct} />
                         <p className="text-xs text-ink-500">
@@ -618,7 +659,7 @@ export function SubscriptionsPage() {
                         </p>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <Badge variant={statusVariant(s.status)}>
                         {SUBSCRIPTION_STATUS_LABEL[s.status]}
                       </Badge>
@@ -628,12 +669,12 @@ export function SubscriptionsPage() {
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <p className="text-sm leading-5 text-ink-700">
                         {formatDate(s.startDate)} - {formatDate(s.endDate)}
                       </p>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right whitespace-nowrap">
                       <div className="flex justify-end gap-1 whitespace-nowrap">
                         {isSuperAdmin && s.status === 'PENDING_APPROVAL' && (
                           <>

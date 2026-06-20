@@ -20,6 +20,12 @@ export type StorageCredentialScope = 'GLOBAL' | 'ORGANIZATION';
 export type StorageCredentialSource = StorageCredentialScope | 'ENV_LEGACY' | 'NONE';
 export type PaymentProvider = 'MANUAL';
 export type PaymentProviderMode = 'TEST' | 'LIVE';
+export type PaymentTransactionStatus =
+  | 'PENDING'
+  | 'PAID'
+  | 'FAILED'
+  | 'REFUNDED'
+  | 'MANUAL_APPROVED';
 export type LiveSessionStatus = 'SCHEDULED' | 'LIVE' | 'ENDED' | 'CANCELLED';
 export type ExportStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 export type ExportFormat = 'PDF' | 'PNG' | 'JPG' | 'SVG';
@@ -207,6 +213,7 @@ export interface AdminOrganization {
   } | null;
   setupEmailSent?: boolean | null;
   subscriptions: SubscriptionRecord[];
+  capacitySummary?: OrganizationCapacitySummaryRecord;
   _count: {
     memberships: number;
     canvases: number;
@@ -535,6 +542,16 @@ export interface HardwareActivationKeyRecord {
     id: string;
     email: string;
     name: string | null;
+    role?: UserRole;
+  } | null;
+  emailRecipientEmail?: string | null;
+  emailRecipientName?: string | null;
+  emailSentById?: string | null;
+  emailSentBy?: {
+    id: string;
+    email: string;
+    name: string | null;
+    role?: UserRole;
   } | null;
   expiresAt: string | null;
   emailSentAt?: string | null;
@@ -548,6 +565,53 @@ export interface SubscriptionDetailRecord extends SubscriptionRecord {
   hardwareActivationKeys: HardwareActivationKeyRecord[];
 }
 
+export interface OrganizationCapacitySummaryRecord {
+  roleUsage: {
+    teacher: number;
+    student: number;
+    parent: number;
+  };
+  roleLimits: {
+    teacher: number | null;
+    student: number | null;
+    parent: number | null;
+  };
+  roleRemaining: {
+    teacher: number | null;
+    student: number | null;
+    parent: number | null;
+  };
+  childOrganizationLimit: number | null;
+  childOrganizationUsed: number;
+  childOrganizationRemaining: number | null;
+  childUserLimit: number | null;
+  childUserAllocated: number;
+  childUserRemaining: number | null;
+  activationKeyCapacity: number;
+  activationKeysUsable: number;
+  activationKeyRemaining: number;
+  teacherSeats: number;
+  activeTeachers: number;
+}
+
+export interface LicenseKeySummaryRecord {
+  seatLimit: number;
+  teacherUsage: number;
+  capacityUsed: number;
+  remainingCapacity: number;
+  totalKeyCount: number;
+  usableKeyCount: number;
+  availableKeyCount: number;
+  boundKeyCount: number;
+  disabledKeyCount: number;
+  expiredKeyCount: number;
+  sentKeyCount: number;
+  unsentKeyCount: number;
+  assignedKeyCount: number;
+  poolAvailableKeyCount: number;
+  uncreatedKeySlots: number;
+}
+
 export interface OrganizationLicenseDetailRecord {
   organization: {
     id: string;
@@ -555,12 +619,18 @@ export interface OrganizationLicenseDetailRecord {
     status: OrganizationStatus;
     kind?: OrganizationKind;
     parentOrganizationId?: string | null;
+    teacherUserLimit?: number | null;
+    studentUserLimit?: number | null;
+    parentUserLimit?: number | null;
+    maxChildOrganizations?: number | null;
+    maxChildUsers?: number | null;
     primaryAdminUserId: string | null;
     primaryAdminUser: {
       id: string;
       email: string;
       name: string | null;
     } | null;
+    capacitySummary?: OrganizationCapacitySummaryRecord;
   };
   partnerPool?: {
     organizationId: string;
@@ -582,6 +652,8 @@ export interface OrganizationLicenseDetailRecord {
       endDate: string | null;
     }>;
   } | null;
+  capacitySummary?: OrganizationCapacitySummaryRecord;
+  summary: LicenseKeySummaryRecord;
   subscriptions: SubscriptionRecord[];
   hardwareActivationKeys: HardwareActivationKeyRecord[];
 }
@@ -622,7 +694,7 @@ export interface PartnerLicenseDetailRecord {
     seatUsage: number;
     usableKeyCount: number;
     remainingActivationKeys: number;
-  };
+  } & LicenseKeySummaryRecord;
   subscriptions: SubscriptionRecord[];
   payments: PartnerLicensePaymentRecord[];
   hardwareActivationKeys: HardwareActivationKeyRecord[];

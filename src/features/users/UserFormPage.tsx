@@ -726,11 +726,36 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
               {selectedOrganization?.name ?? 'No organization selected'}
             </p>
             <p>
-              Seats {activeSubscription?.seatUsage ?? 0}/
+              Teacher licenses {activeSubscription?.seatUsage ?? 0}/
               {activeSubscription?.seatLimit ?? 0}
             </p>
+            {!isSuperAdmin && selectedOrganization && (
+              <div className="grid gap-2 border-t border-line pt-2">
+                {LICENSED_USER_ROLES.map((capacityRole) => {
+                  const used = roleUsage[capacityRole] ?? 0;
+                  const limit = roleLimitForOrganization(selectedOrganization, capacityRole);
+                  const remaining = limit === null ? null : Math.max(limit - used, 0);
+                  return (
+                    <div
+                      key={capacityRole}
+                      className="flex items-center justify-between gap-3 text-xs"
+                    >
+                      <span className="font-semibold text-ink-700">
+                        {ROLE_LABEL[capacityRole]}
+                      </span>
+                      <span className="text-ink-500">
+                        {used}/{limit ?? 'No limit'} used
+                        {' · '}
+                        {remaining === null ? 'Unlimited left' : `${remaining} left`}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             <p className="text-xs text-ink-500">
-              Student login {selectedOrganization?.studentLoginEnabled ? 'enabled' : 'disabled'} · Parent login{' '}
+              Only teachers consume subscription seats. Student login{' '}
+              {selectedOrganization?.studentLoginEnabled ? 'enabled' : 'disabled'} · Parent login{' '}
               {selectedOrganization?.parentLoginEnabled ? 'enabled' : 'disabled'}
             </p>
           </div>

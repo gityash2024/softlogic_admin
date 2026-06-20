@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { authApi } from '@/services/auth.api';
 import { useAuthStore } from '@/lib/auth-store';
 import { extractApiError } from '@/lib/api';
+import { loginAttemptLockout, type LoginAttemptDecision } from '@/lib/login-attempt-lockout';
 import { isAdminRole } from '@/types/api';
 import { BlueprintBackdrop } from '@/components/brand/Logo';
 import { Button } from '@/components/ui/button';
@@ -33,6 +34,13 @@ const schema = z.object({
 });
 
 type FormValues = z.infer<typeof schema>;
+
+function lockoutMessage(decision: Exclude<LoginAttemptDecision, { allowed: true }>) {
+  const remaining = loginAttemptLockout.formatRemaining(decision.remainingMs);
+  return decision.finalBlock
+    ? `Login blocked on this device. Try again in ${remaining}.`
+    : `Too many failed login attempts. Please wait ${remaining} before trying again.`;
+}
 
 export function LoginScreen() {
   const navigate = useNavigate();
@@ -55,6 +63,13 @@ export function LoginScreen() {
   }
 
   const onSubmit = async (values: FormValues) => {
+    const email = values.email.trim().toLowerCase();
+    const decision = loginAttemptLockout.canAttempt(email);
+    if (!decision.allowed) {
+      toast.error(lockoutMessage(decision));
+      return;
+    }
+
     setSubmitting(true);
     try {
       let result;
@@ -63,11 +78,21 @@ export function LoginScreen() {
       } catch {
         result = await authApi.portalLogin(values.email, values.password);
       }
+      loginAttemptLockout.recordSuccess(email);
       setSession(result);
       toast.success(`Welcome, ${result.user.name ?? result.user.email}`);
       navigate(isAdminRole(result.user.role) ? '/dashboard' : '/portal', { replace: true });
     } catch (error) {
-      toast.error(extractApiError(error));
+      const failure = loginAttemptLockout.recordFailure(email);
+      toast.error(
+        failure.locked
+          ? lockoutMessage({
+              allowed: false,
+              remainingMs: failure.remainingMs,
+              finalBlock: failure.finalBlock,
+            })
+          : extractApiError(error),
+      );
     } finally {
       setSubmitting(false);
     }

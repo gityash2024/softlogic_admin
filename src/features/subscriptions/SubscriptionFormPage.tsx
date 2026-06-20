@@ -51,8 +51,8 @@ const schema = z
     brandingMode: z.string(),
     seatLimit: z
       .number()
-      .int('Number of seats must be a whole number')
-      .min(1, 'Number of seats must be at least 1'),
+      .int('Teacher seats must be a whole number')
+      .min(1, 'Teacher seats must be at least 1'),
     startDate: z.string().min(1, 'Start date required'),
     endDate: z.string().min(1, 'End date required'),
   })
@@ -110,11 +110,7 @@ function addDaysToDate(dateStr: string, days: number): string {
 
 function allocatedSeatTotal(org: AdminOrganization | null | undefined): number {
   if (!org) return 0;
-  return (
-    (org.teacherUserLimit ?? 0) +
-    (org.studentUserLimit ?? 0) +
-    (org.parentUserLimit ?? 0)
-  );
+  return org.teacherUserLimit ?? 0;
 }
 
 export function SubscriptionFormPage() {
@@ -330,7 +326,7 @@ export function SubscriptionFormPage() {
         return;
       }
       if (selectedOrgSeatTotal > 0 && values.seatLimit !== selectedOrgSeatTotal) {
-        toast.error(`Seats must match teacher + student + parent users (${selectedOrgSeatTotal})`);
+        toast.error(`Seats must match teacher user capacity (${selectedOrgSeatTotal})`);
         return;
       }
     }
@@ -420,7 +416,7 @@ export function SubscriptionFormPage() {
       { label: 'Plan name', value: INTERNAL_PLAN_NAME },
       { label: 'Status', value: statusLabel },
       { label: 'Branding mode', value: BRANDING_MODE_LABEL[inheritedBrandingMode] },
-      { label: 'Number of seats', value: v.seatLimit },
+      { label: 'Teacher seats', value: v.seatLimit },
       { label: 'Duration', value: durLabel },
       { label: 'Start date', value: v.startDate ? formatDate(v.startDate) : '—' },
       { label: 'End date', value: v.endDate ? formatDate(v.endDate) : '—' },
@@ -587,7 +583,7 @@ export function SubscriptionFormPage() {
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Number of seats</label>
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Teacher seats</label>
               <Input
                 type="number"
                 min={1}
@@ -597,7 +593,7 @@ export function SubscriptionFormPage() {
               />
               {scope === 'organization' && selectedOrgSeatTotal > 0 && (
                 <p className="text-xs text-ink-500">
-                  Seats are teacher + student + parent users: {selectedOrgSeatTotal}.
+                  Seats follow teacher user capacity: {selectedOrgSeatTotal}.
                 </p>
               )}
               {errors.seatLimit && <p className="text-xs text-danger">{errors.seatLimit.message}</p>}
@@ -674,7 +670,7 @@ export function SubscriptionFormPage() {
             <div>
               <h3 className="font-bold text-ink-900">Seats</h3>
               <p className="mt-1 text-sm leading-6 text-ink-500">
-                Set the number of activation keys and licensed users available for this subscription.
+                Set teacher license capacity and activation key capacity for this subscription.
               </p>
             </div>
           </Card>

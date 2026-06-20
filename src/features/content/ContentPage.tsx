@@ -927,7 +927,7 @@ function CanvasTable({
       <TableBody>
         {rows.map((canvas) => (
           <TableRow key={canvas.id}>
-            <TableCell>
+            <TableCell className="min-w-0">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="w-24 shrink-0">
                   <BoardPreviewTile
@@ -948,7 +948,7 @@ function CanvasTable({
                 </div>
               </div>
             </TableCell>
-            <TableCell>
+            <TableCell className="min-w-0">
               <UserCell
                 name={canvas.user?.name}
                 email={canvas.user?.email}
@@ -960,7 +960,7 @@ function CanvasTable({
                 {canvas.organization?.name ?? '-'}
               </p>
             </TableCell>
-            <TableCell>
+            <TableCell className="whitespace-nowrap">
               <Badge variant={canvas.isPublic ? 'info' : 'default'}>
                 {canvas.isPublic ? 'Public' : 'Private'}
               </Badge>
@@ -971,7 +971,7 @@ function CanvasTable({
                 {canvas._count.exports} exports
               </div>
             </TableCell>
-            <TableCell>
+            <TableCell className="whitespace-nowrap">
               <p className="text-xs leading-5 text-ink-500">
                 {formatDateTime(canvas.updatedAt)}
               </p>
@@ -1007,7 +1007,7 @@ function LiveSessionsTable({
       <TableBody>
         {rows.map((session) => (
           <TableRow key={session.id}>
-            <TableCell>
+            <TableCell className="min-w-0">
               <div className="flex min-w-0 items-center gap-3">
                 <PreviewTile thumbnail={session.canvas?.thumbnail} icon="session" />
                 <div className="min-w-0">
@@ -1027,7 +1027,7 @@ function LiveSessionsTable({
                 role={session.host?.role ?? session.createdBy?.role}
               />
             </TableCell>
-            <TableCell>
+            <TableCell className="whitespace-nowrap">
               <Badge variant={liveStatusVariant(session.status)}>
                 {LIVE_SESSION_STATUS_LABEL[session.status]}
               </Badge>
@@ -1038,12 +1038,12 @@ function LiveSessionsTable({
                 {session._count.messages} messages, {session._count.mediaAssets} media
               </div>
             </TableCell>
-            <TableCell>
+            <TableCell className="whitespace-nowrap">
               <p className="text-xs leading-5 text-ink-500">
                 {formatDateTime(session.startedAt)}
               </p>
             </TableCell>
-            <TableCell>
+            <TableCell className="whitespace-nowrap">
               <p className="text-xs leading-5 text-ink-500">
                 {formatDateTime(session.endedAt)}
               </p>
@@ -1080,7 +1080,7 @@ function ExportsTable({
       <TableBody>
         {rows.map((record) => (
           <TableRow key={record.id}>
-            <TableCell>
+            <TableCell className="min-w-0">
               <div className="flex min-w-0 items-center gap-3">
                 <PreviewTile thumbnail={record.canvas?.thumbnail} icon="export" />
                 <div className="min-w-0">
@@ -1105,10 +1105,10 @@ function ExportsTable({
                 role={record.user?.role}
               />
             </TableCell>
-            <TableCell>
+            <TableCell className="whitespace-nowrap">
               <Badge variant="default">{record.format}</Badge>
             </TableCell>
-            <TableCell>
+            <TableCell className="whitespace-nowrap">
               <Badge variant={exportStatusVariant(record.status)}>
                 {EXPORT_STATUS_LABEL[record.status]}
               </Badge>
@@ -1116,13 +1116,13 @@ function ExportsTable({
             <TableCell>
               <p className="text-sm text-ink-700">{formatBytes(record.fileSize)}</p>
             </TableCell>
-            <TableCell>
+            <TableCell className="whitespace-nowrap">
               <p className="text-xs leading-5 text-ink-500">
                 {formatDateTime(record.completedAt)}
               </p>
             </TableCell>
-            <TableCell className="text-right">
-              <div className="flex justify-end gap-1">
+            <TableCell className="text-right whitespace-nowrap">
+              <div className="flex justify-end gap-1 whitespace-nowrap">
                 <Button
                   size="icon"
                   variant="ghost"
@@ -1191,7 +1191,7 @@ function ImportsTable({
       <TableBody>
         {rows.map((record) => (
           <TableRow key={record.id}>
-            <TableCell>
+            <TableCell className="min-w-0">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="flex h-12 w-16 shrink-0 items-center justify-center rounded-lg border border-line bg-surface-variant">
                   <FileUp className="h-5 w-5 text-brand-primary" />
@@ -1218,7 +1218,7 @@ function ImportsTable({
                 role={record.userRole ?? record.user?.role}
               />
             </TableCell>
-            <TableCell>
+            <TableCell className="whitespace-nowrap">
               <Badge variant={importStatusVariant(record.status)}>
                 {CONTENT_IMPORT_STATUS_LABEL[record.status]}
               </Badge>
@@ -1229,18 +1229,18 @@ function ImportsTable({
             <TableCell>
               <p className="text-sm text-ink-700">{formatBytes(record.sizeBytes)}</p>
             </TableCell>
-            <TableCell>
+            <TableCell className="whitespace-nowrap">
               <p className="text-xs leading-5 text-ink-500">
                 {formatDateTime(record.createdAt)}
               </p>
             </TableCell>
-            <TableCell>
+            <TableCell className="whitespace-nowrap">
               <p className="text-xs leading-5 text-ink-500">
                 {formatDateTime(record.convertedAt)}
               </p>
             </TableCell>
-            <TableCell className="text-right">
-              <div className="flex justify-end gap-1">
+            <TableCell className="text-right whitespace-nowrap">
+              <div className="flex justify-end gap-1 whitespace-nowrap">
                 <Button
                   size="icon"
                   variant="ghost"

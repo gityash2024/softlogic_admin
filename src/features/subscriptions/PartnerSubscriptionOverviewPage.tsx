@@ -64,7 +64,7 @@ export function PartnerSubscriptionOverviewPage() {
       ).size,
     [childSubscriptions],
   );
-  const seatLimit = subscriptions.reduce((sum, subscription) => sum + subscription.seatLimit, 0);
+  const seatLimit = ownSubscriptions.reduce((sum, subscription) => sum + subscription.seatLimit, 0);
   const seatUsage = subscriptions.reduce((sum, subscription) => sum + subscription.seatUsage, 0);
   const pendingCount = subscriptions.filter(
     (subscription) => subscription.status === 'PENDING_APPROVAL',
@@ -147,16 +147,16 @@ export function PartnerSubscriptionOverviewPage() {
           <TableBody>
             {activationKeys.map((key) => (
               <TableRow key={key.id}>
-                <TableCell className="font-semibold text-ink-900">{key.label ?? '-'}</TableCell>
-                <TableCell>{key.organization?.name ?? '-'}</TableCell>
-                <TableCell>
+                <TableCell className="max-w-[180px] truncate font-semibold text-ink-900">{key.label ?? '-'}</TableCell>
+                <TableCell className="max-w-[180px] truncate">{key.organization?.name ?? '-'}</TableCell>
+                <TableCell className="min-w-0">
                   <p className="text-sm text-ink-900">{key.subscription?.planName ?? '-'}</p>
                   <p className="text-xs text-ink-500">{key.subscription?.organization?.name ?? ''}</p>
                 </TableCell>
-                <TableCell><Badge variant={key.status === 'BOUND' ? 'success' : 'info'}>{key.status}</Badge></TableCell>
-                <TableCell>{key.createdBy?.name ?? key.createdBy?.email ?? '-'}</TableCell>
-                <TableCell>{key.emailSentAt ? formatDate(key.emailSentAt) : '-'}</TableCell>
-                <TableCell>{formatDate(key.createdAt)}</TableCell>
+                <TableCell className="whitespace-nowrap"><Badge variant={key.status === 'BOUND' ? 'success' : 'info'}>{key.status}</Badge></TableCell>
+                <TableCell className="max-w-[180px] truncate">{key.createdBy?.name ?? key.createdBy?.email ?? '-'}</TableCell>
+                <TableCell className="whitespace-nowrap">{key.emailSentAt ? formatDate(key.emailSentAt) : '-'}</TableCell>
+                <TableCell className="whitespace-nowrap">{formatDate(key.createdAt)}</TableCell>
               </TableRow>
             ))}
             {activationKeys.length === 0 && (
@@ -221,9 +221,9 @@ function SubscriptionSection({
             );
             return (
               <TableRow key={subscription.id}>
-                <TableCell>{subscription.organization?.name ?? subscription.user?.email ?? '-'}</TableCell>
-                <TableCell className="font-semibold text-ink-900">{subscription.planName}</TableCell>
-                <TableCell>
+                <TableCell className="max-w-[180px] truncate">{subscription.organization?.name ?? subscription.user?.email ?? '-'}</TableCell>
+                <TableCell className="max-w-[160px] truncate font-semibold text-ink-900">{subscription.planName}</TableCell>
+                <TableCell className="whitespace-nowrap">
                   <div className="w-40 space-y-1">
                     <Progress value={pct} />
                     <p className="text-xs text-ink-500">
@@ -231,14 +231,14 @@ function SubscriptionSection({
                     </p>
                   </div>
                 </TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">
                   <Badge variant={subscription.status === 'ACTIVE' ? 'success' : 'warning'}>
                     {SUBSCRIPTION_STATUS_LABEL[subscription.status]}
                   </Badge>
                 </TableCell>
-                <TableCell>{subscription.allocatedFromSubscription?.organization?.name ?? '-'}</TableCell>
-                <TableCell>{subscription.createdBy?.name ?? subscription.createdBy?.email ?? '-'}</TableCell>
-                <TableCell>
+                <TableCell className="max-w-[180px] truncate">{subscription.allocatedFromSubscription?.organization?.name ?? '-'}</TableCell>
+                <TableCell className="max-w-[180px] truncate">{subscription.createdBy?.name ?? subscription.createdBy?.email ?? '-'}</TableCell>
+                <TableCell className="whitespace-nowrap">
                   {formatDate(subscription.startDate)} - {subscription.endDate ? formatDate(subscription.endDate) : 'No end'}
                 </TableCell>
               </TableRow>

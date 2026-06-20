@@ -38,6 +38,8 @@ import {
   BRANDING_MODE_LABEL,
   STORAGE_STATUS_LABEL,
   SUBSCRIPTION_STATUS_LABEL,
+  type PartnerLicensePaymentRecord,
+  type PaymentTransactionStatus,
 } from '@/types/api';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -63,6 +65,7 @@ import {
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { ActivationKeyLabelDialog } from '@/components/license/ActivationKeyLabelDialog';
 import { EmailActivationKeysDialog } from '@/components/license/EmailActivationKeysDialog';
+import { AssignActivationKeysDialog } from '@/components/license/AssignActivationKeysDialog';
 import {
   Table,
   TableHeader,
@@ -96,6 +99,36 @@ function paymentOrganizationName(payment: {
   return payment.organization?.name ?? '-';
 }
 
+const PAYMENT_STATUS_OPTIONS: PaymentTransactionStatus[] = [
+  'PENDING',
+  'PAID',
+  'FAILED',
+  'REFUNDED',
+  'MANUAL_APPROVED',
+];
+
+function dateInputValue(value: string | null | undefined): string {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toISOString().slice(0, 10);
+}
+
+function dateInputToIso(value: string): string | null {
+  return value ? new Date(`${value}T00:00:00.000Z`).toISOString() : null;
+}
+
+interface PaymentEditState {
+  id: string;
+  amount: string;
+  currency: string;
+  status: PaymentTransactionStatus;
+  referenceNote: string;
+  invoiceNumber: string;
+  periodStart: string;
+  periodEnd: string;
+}
+
 function SeatsBanner({
   seatLimit,
   seatUsage,
@@ -116,8 +149,8 @@ function SeatsBanner({
       : 'border-amber-200 bg-amber-50 text-amber-700';
   const message =
     pct >= 1
-      ? 'All seats are in use'
-      : `Seats are at ${Math.round(pct * 100)}% capacity`;
+      ? 'All teacher licenses are in use'
+      : `Teacher licenses are at ${Math.round(pct * 100)}% capacity`;
   return (
     <div
       className={cn(
@@ -129,7 +162,7 @@ function SeatsBanner({
       <AlertTriangle className="h-4 w-4 shrink-0" />
       <span className="font-medium">{message}</span>
       <span className="text-xs opacity-80">
-        {seatUsage}/{seatLimit} seats
+        {seatUsage}/{seatLimit} licenses
       </span>
     </div>
   );
@@ -150,13 +183,13 @@ export function LicensePage() {
   const queryClient = useQueryClient();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const isPartnerAdmin = user?.role === 'PARTNER_ADMIN';
-  const canManageActivationKeys = isSuperAdmin || isPartnerAdmin;
   const requestedOrganizationId = searchParams.get('organizationId');
   const [selectedPartnerId, setSelectedPartnerId] = useState<string>(
     GLOBAL_LICENSE_VALUE,
   );
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(
-    requestedOrganizationId ?? (isSuperAdmin ? null : (user?.primaryOrganization?.id ?? null)),
+    requestedOrganizationId ??
+      (isSuperAdmin || isPartnerAdmin ? null : (user?.primaryOrganization?.id ?? null)),
   );
   const [manualReference, setManualReference] = useState('');
   const [amountMinor, setAmountMinor] = useState(100000);
@@ -177,6 +210,8 @@ export function LicensePage() {
   const [replaceKeyId, setReplaceKeyId] = useState<string | null>(null);
   const [labelEdit, setLabelEdit] = useState<{ id: string; label: string } | null>(null);
   const [emailKeysOpen, setEmailKeysOpen] = useState(false);
+  const [assignKeysOpen, setAssignKeysOpen] = useState(false);
+  const [paymentEdit, setPaymentEdit] = useState<PaymentEditState | null>(null);
 
   const subscriptionsQuery = useQuery({
     queryKey: ['subscriptions', 'all'],
@@ -195,20 +230,25 @@ export function LicensePage() {
     isSuperAdmin &&
     selectedPartnerId !== GLOBAL_LICENSE_VALUE &&
     selectedPartnerId !== DIRECT_ORGANIZATIONS_VALUE;
+  const partnerScopeId = superAdminPartnerScope
+    ? selectedPartnerId
+    : isPartnerAdmin
+      ? user?.primaryOrganization?.id ?? null
+      : null;
   const partnerDetailsQuery = useQuery({
-    queryKey: ['partner-license-details', selectedPartnerId],
-    queryFn: () => licensingApi.getPartnerLicenseDetails(selectedPartnerId),
-    enabled: superAdminPartnerScope,
+    queryKey: ['partner-license-details', partnerScopeId],
+    queryFn: () => licensingApi.getPartnerLicenseDetails(partnerScopeId!),
+    enabled: Boolean(partnerScopeId && (superAdminPartnerScope || isPartnerAdmin)),
   });
 
   useEffect(() => {
-    if (!isSuperAdmin && !selectedOrgId && user?.primaryOrganization?.id) {
+    if (!isSuperAdmin && !isPartnerAdmin && !selectedOrgId && user?.primaryOrganization?.id) {
       const timer = window.setTimeout(() => {
         setSelectedOrgId(user.primaryOrganization?.id ?? null);
       }, 0);
       return () => window.clearTimeout(timer);
     }
-  }, [isSuperAdmin, selectedOrgId, user?.primaryOrganization?.id]);
+  }, [isPartnerAdmin, isSuperAdmin, selectedOrgId, user?.primaryOrganization?.id]);
 
   const partnerChildOrganizations = useMemo(
     () => {
@@ -224,18 +264,23 @@ export function LicensePage() {
         (org, index, list) => list.findIndex((item) => item.id === org.id) === index,
       );
     },
-    [isPartnerAdmin, organizationsQuery.data, user?.primaryOrganization?.id],
+    [isPartnerAdmin, organizationsQuery.data, user],
   );
 
   useEffect(() => {
     if (!isPartnerAdmin || partnerChildOrganizations.length === 0) return;
+    if (selectedOrgId === null) return;
     const selectedChild = partnerChildOrganizations.some((org) => org.id === selectedOrgId);
     if (!selectedChild) {
-      setSelectedOrgId(partnerChildOrganizations[0].id);
+      const timer = window.setTimeout(() => setSelectedOrgId(null), 0);
+      return () => window.clearTimeout(timer);
     }
   }, [isPartnerAdmin, partnerChildOrganizations, selectedOrgId]);
 
-  const allOrganizations = organizationsQuery.data ?? [];
+  const allOrganizations = useMemo(
+    () => organizationsQuery.data ?? [],
+    [organizationsQuery.data],
+  );
   const partners = useMemo(
     () => partnerOrganizations(allOrganizations),
     [allOrganizations],
@@ -261,7 +306,43 @@ export function LicensePage() {
         : [],
     [allOrganizations, selectedPartnerId, superAdminPartnerScope],
   );
-  const aggregatePartnerMode = superAdminPartnerScope && !selectedOrgId;
+  const aggregatePartnerMode = Boolean(
+    partnerScopeId && !selectedOrgId && (superAdminPartnerScope || isPartnerAdmin),
+  );
+  const partnerScopeName =
+    partnerDetailsQuery.data?.partner.name ??
+    selectedPartner?.name ??
+    user?.primaryOrganization?.name ??
+    'Partner';
+  const partnerAssignableOrganizations = useMemo(() => {
+    if (!partnerScopeId) return [];
+    const detailedOrganizations = partnerDetailsQuery.data?.organizations ?? [];
+    if (detailedOrganizations.length > 0) {
+      return detailedOrganizations.filter(
+        (organization) =>
+          organization.id !== partnerScopeId &&
+          organization.parentOrganizationId === partnerScopeId,
+      );
+    }
+    if (superAdminPartnerScope) {
+      return selectedPartnerChildOrganizations;
+    }
+    if (isPartnerAdmin) {
+      return partnerChildOrganizations.filter(
+        (organization) =>
+          organization.id !== partnerScopeId &&
+          organization.parentOrganizationId === partnerScopeId,
+      );
+    }
+    return [];
+  }, [
+    isPartnerAdmin,
+    partnerChildOrganizations,
+    partnerDetailsQuery.data?.organizations,
+    partnerScopeId,
+    selectedPartnerChildOrganizations,
+    superAdminPartnerScope,
+  ]);
 
   useEffect(() => {
     if (!isSuperAdmin || !requestedOrganizationId || allOrganizations.length === 0) return;
@@ -269,18 +350,21 @@ export function LicensePage() {
       (organization) => organization.id === requestedOrganizationId,
     );
     if (!requestedOrganization) return;
-    if (requestedOrganization.kind === 'PARTNER') {
-      setSelectedPartnerId(requestedOrganization.id);
+    const timer = window.setTimeout(() => {
+      if (requestedOrganization.kind === 'PARTNER') {
+        setSelectedPartnerId(requestedOrganization.id);
+        setSelectedOrgId(requestedOrganization.id);
+        return;
+      }
+      if (requestedOrganization.parentOrganizationId) {
+        setSelectedPartnerId(requestedOrganization.parentOrganizationId);
+        setSelectedOrgId(requestedOrganization.id);
+        return;
+      }
+      setSelectedPartnerId(DIRECT_ORGANIZATIONS_VALUE);
       setSelectedOrgId(requestedOrganization.id);
-      return;
-    }
-    if (requestedOrganization.parentOrganizationId) {
-      setSelectedPartnerId(requestedOrganization.parentOrganizationId);
-      setSelectedOrgId(requestedOrganization.id);
-      return;
-    }
-    setSelectedPartnerId(DIRECT_ORGANIZATIONS_VALUE);
-    setSelectedOrgId(requestedOrganization.id);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [allOrganizations, isSuperAdmin, requestedOrganizationId]);
 
   const selectedOrganization = useMemo(
@@ -332,6 +416,22 @@ export function LicensePage() {
     onSuccess: () => {
       invalidateCommercialQueries();
       toast.success('Offline payment activated');
+    },
+    onError: (error) => toast.error(extractApiError(error)),
+  });
+
+  const updatePaymentMutation = useMutation({
+    mutationFn: ({
+      paymentId,
+      payload,
+    }: {
+      paymentId: string;
+      payload: Parameters<typeof licensingApi.updatePaymentTransaction>[1];
+    }) => licensingApi.updatePaymentTransaction(paymentId, payload),
+    onSuccess: () => {
+      invalidateCommercialQueries();
+      setPaymentEdit(null);
+      toast.success('Billing history updated');
     },
     onError: (error) => toast.error(extractApiError(error)),
   });
@@ -410,11 +510,10 @@ export function LicensePage() {
   const globalActiveSubscriptions = (subscriptionsQuery.data ?? []).filter(
     (subscription) => subscription.status === 'ACTIVE' || subscription.status === 'TRIAL',
   );
+  const globalCapacitySubscriptions = globalActiveSubscriptions.filter(
+    (subscription) => !subscription.organization?.parentOrganizationId,
+  );
   const globalActivationKeys = globalKeysQuery.data?.data ?? [];
-  const usage = primarySub
-    ? Math.min(100, (primarySub.seatUsage / Math.max(primarySub.seatLimit, 1)) * 100)
-    : 0;
-
   const aggregateDetails = aggregatePartnerMode ? partnerDetailsQuery.data : null;
   const aggregateSubscriptions = aggregateDetails?.subscriptions ?? [];
   const aggregateSummary = aggregateDetails?.summary ?? null;
@@ -423,7 +522,7 @@ export function LicensePage() {
   const displayedPaymentRows = aggregatePartnerMode ? aggregatePaymentRows : paymentRows;
   const displayedBillingSubscriptions = aggregatePartnerMode ? aggregateSubscriptions : orgSubs;
   const billingScopeLabel = aggregatePartnerMode
-    ? `${selectedPartner?.name ?? 'this partner'} and child organizations`
+    ? `${partnerScopeName} and child organizations`
     : selectedOrganization?.name ?? 'this workspace';
   const billingIsLoading = aggregatePartnerMode
     ? partnerDetailsQuery.isLoading
@@ -437,10 +536,15 @@ export function LicensePage() {
   const displayedActivationKeys = aggregatePartnerMode
     ? aggregateActivationKeys
     : activationKeys;
-  const partnerPool = isPartnerAdmin
-    ? orgDetailsQuery.data?.partnerPool ?? null
-    : selectedChildUnderPartner || aggregatePartnerMode
-      ? partnerDetailsQuery.data?.partnerPool ?? null
+  const orgLicenseSummary = orgDetailsQuery.data?.summary ?? null;
+  const licenseSummary = aggregatePartnerMode ? aggregateSummary : orgLicenseSummary;
+  const partnerPool =
+    partnerScopeId &&
+    (aggregatePartnerMode ||
+      isPartnerAdmin ||
+      selectedChildUnderPartner ||
+      selectedOrganization?.id === partnerScopeId)
+      ? partnerDetailsQuery.data?.partnerPool ?? orgDetailsQuery.data?.partnerPool ?? null
       : null;
   const usableKeyCount = activationKeys.filter((key) =>
     key.status === 'AVAILABLE' || key.status === 'BOUND',
@@ -452,61 +556,52 @@ export function LicensePage() {
   ).length;
   const activePrimarySub =
     primarySub && ['ACTIVE', 'TRIAL'].includes(primarySub.status) ? primarySub : null;
-  const activeOrgSeatLimit = orgSubs
-    .filter((subscription) => subscription.status === 'ACTIVE' || subscription.status === 'TRIAL')
-    .reduce((sum, subscription) => sum + subscription.seatLimit, 0);
-  const selectedOwnPartnerOrg =
-    isPartnerAdmin &&
-    !!user?.primaryOrganization?.id &&
-    selectedOrganization?.id === user.primaryOrganization.id;
   const selectedSuperAdminPartnerOrg =
     isSuperAdmin &&
     superAdminPartnerScope &&
     selectedOrganization?.id === selectedPartnerId;
-  const partnerKeySourceSubscription =
-    partnerPool?.subscriptions.find((subscription) => subscription.remainingActivationKeys > 0) ??
-    partnerPool?.subscriptions[0] ??
-    null;
-  const usesPartnerActivationPool = isPartnerAdmin || selectedChildUnderPartner;
-  const activationPoolSubscriptionId = usesPartnerActivationPool
-    ? partnerKeySourceSubscription?.id ?? null
-    : activePrimarySub?.id ?? null;
-  const activationPoolSeatLimit = usesPartnerActivationPool
-    ? selectedOwnPartnerOrg || selectedSuperAdminPartnerOrg
-      ? partnerPool?.seatLimit ?? 0
-      : activeOrgSeatLimit
-    : activePrimarySub?.seatLimit ?? 0;
-  const activationPoolUsableKeyCount = usesPartnerActivationPool
-    ? selectedOwnPartnerOrg || selectedSuperAdminPartnerOrg
-      ? partnerPool?.usableKeyCount ?? usableKeyCount
-      : usableKeyCount
-    : usableKeyCount;
+  const activationPoolSubscriptionId = activePrimarySub?.id ?? null;
+  const activationPoolSeatLimit = activePrimarySub?.seatLimit ?? 0;
+  const activationPoolUsableKeyCount = usableKeyCount;
   const organizationRemainingActivationKeys = Math.max(
     activationPoolSeatLimit - activationPoolUsableKeyCount,
     0,
   );
-  const partnerRemainingActivationKeys = usesPartnerActivationPool
-    ? partnerPool?.remainingActivationKeys ?? 0
-    : organizationRemainingActivationKeys;
-  const remainingActivationKeys = usesPartnerActivationPool
-    ? Math.min(organizationRemainingActivationKeys, partnerRemainingActivationKeys)
-    : organizationRemainingActivationKeys;
+  const remainingActivationKeys = organizationRemainingActivationKeys;
   const newEmailSlotsRemaining = Math.max(
-    activationPoolSeatLimit - emailedUsableKeyCount,
+    (orgLicenseSummary?.seatLimit ?? activationPoolSeatLimit) - emailedUsableKeyCount,
     0,
   );
   const canCreateActivationKey =
     !!selectedOrganization &&
-    canManageActivationKeys &&
+    isSuperAdmin &&
+    !selectedChildUnderPartner &&
     !!activationPoolSubscriptionId &&
     remainingActivationKeys > 0 &&
-    !orgDetailsQuery.isLoading &&
-    !(usesPartnerActivationPool && partnerDetailsQuery.isLoading);
+    !orgDetailsQuery.isLoading;
   const capacityText = activationPoolSeatLimit > 0
     ? `${activationPoolUsableKeyCount}/${activationPoolSeatLimit} usable keys`
-    : usesPartnerActivationPool
-      ? 'No active partner subscription'
-      : 'No active subscription';
+    : 'No active subscription';
+  const partnerPoolKeys = partnerDetailsQuery.data?.hardwareActivationKeys ?? [];
+  const availablePartnerPoolKeys = partnerScopeId
+    ? partnerPoolKeys.filter(
+        (key) =>
+          key.organizationId === partnerScopeId &&
+          key.status === 'AVAILABLE' &&
+          Boolean(key.activationKey),
+      )
+    : [];
+  const teacherCapacityLimit =
+    licenseSummary?.seatLimit ?? aggregateSummary?.seatLimit ?? primarySub?.seatLimit ?? 0;
+  const teacherCapacityUsed =
+    licenseSummary?.capacityUsed ?? aggregateSummary?.seatUsage ?? primarySub?.seatUsage ?? 0;
+  const teacherUsage =
+    licenseSummary?.teacherUsage ?? aggregateSummary?.seatUsage ?? primarySub?.seatUsage ?? 0;
+  const licenseProgress = Math.min(
+    100,
+    (teacherCapacityUsed / Math.max(teacherCapacityLimit, 1)) * 100,
+  );
+  const activationKeysColSpan = 7 + (aggregatePartnerMode ? 1 : 0) + (isSuperAdmin ? 1 : 0);
   const allDevices = displayedActivationKeys.flatMap((key) =>
     key.activations.map((activation) => ({ activation, key })),
   );
@@ -517,6 +612,51 @@ export function LicensePage() {
   const copyValue = async (value: string, success: string) => {
     await navigator.clipboard.writeText(value);
     toast.success(success);
+  };
+
+  const openPaymentEdit = (payment: PartnerLicensePaymentRecord) => {
+    setPaymentEdit({
+      id: payment.id,
+      amount: String(payment.amountMinor / 100),
+      currency: payment.currency,
+      status: PAYMENT_STATUS_OPTIONS.includes(payment.status as PaymentTransactionStatus)
+        ? (payment.status as PaymentTransactionStatus)
+        : 'MANUAL_APPROVED',
+      referenceNote: payment.referenceNote ?? '',
+      invoiceNumber: payment.invoiceNumber ?? '',
+      periodStart: dateInputValue(payment.periodStart),
+      periodEnd: dateInputValue(payment.periodEnd),
+    });
+  };
+
+  const submitPaymentEdit = () => {
+    if (!paymentEdit) return;
+    const amount = Number(paymentEdit.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error('Enter a valid amount');
+      return;
+    }
+    const currencyCode = paymentEdit.currency.trim().toUpperCase();
+    if (currencyCode.length !== 3) {
+      toast.error('Currency must be a 3-letter code');
+      return;
+    }
+    updatePaymentMutation.mutate({
+      paymentId: paymentEdit.id,
+      payload: {
+        amountMinor: Math.round(amount * 100),
+        currency: currencyCode,
+        status: paymentEdit.status,
+        referenceNote: paymentEdit.referenceNote.trim()
+          ? paymentEdit.referenceNote.trim()
+          : null,
+        invoiceNumber: paymentEdit.invoiceNumber.trim()
+          ? paymentEdit.invoiceNumber.trim()
+          : null,
+        periodStart: dateInputToIso(paymentEdit.periodStart),
+        periodEnd: dateInputToIso(paymentEdit.periodEnd),
+      },
+    });
   };
 
   const openBulkDialog = () => {
@@ -567,7 +707,7 @@ export function LicensePage() {
     bulkMutation.mutate({
       organizationId: selectedOrganization.id,
       subscriptionId: activationPoolSubscriptionId,
-      sourcePartnerOrganizationId: selectedChildUnderPartner ? selectedPartnerId : null,
+      sourcePartnerOrganizationId: null,
       keys: validBulkRows.map((row) => ({
         label: row.label.trim(),
         maxDevices: 1,
@@ -585,7 +725,7 @@ export function LicensePage() {
     bulkMutation.mutate({
       organizationId: selectedOrganization.id,
       subscriptionId: activationPoolSubscriptionId,
-      sourcePartnerOrganizationId: selectedChildUnderPartner ? selectedPartnerId : null,
+      sourcePartnerOrganizationId: null,
       keys: Array.from({ length: count }, (_, index) => ({
         label: `Auto activation key ${index + 1}`,
         maxDevices: 1,
@@ -619,10 +759,10 @@ export function LicensePage() {
   };
 
   const exportPartnerKeys = async () => {
-    if (!superAdminPartnerScope) return;
+    if (!partnerScopeId) return;
     setIsExporting(true);
     try {
-      await licensingApi.exportKeyList({ partnerOrganizationId: selectedPartnerId }, exportFormat);
+      await licensingApi.exportKeyList({ partnerOrganizationId: partnerScopeId }, exportFormat);
       toast.success(`Activation keys exported (${exportFormat.toUpperCase()})`);
     } catch (error) {
       toast.error(extractApiError(error));
@@ -752,16 +892,21 @@ export function LicensePage() {
           )}
           {isPartnerAdmin && partnerChildOrganizations.length > 0 && (
             <Select
-              value={selectedOrganization?.id ?? partnerChildOrganizations[0].id}
-              onValueChange={(value) => setSelectedOrgId(value)}
+              value={selectedOrgId ?? PARTNER_AGGREGATE_VALUE}
+              onValueChange={(value) =>
+                setSelectedOrgId(value === PARTNER_AGGREGATE_VALUE ? null : value)
+              }
             >
               <SelectTrigger className="w-72">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent searchPlaceholder="Search organization...">
+                <SelectItem value={PARTNER_AGGREGATE_VALUE}>
+                  {partnerScopeName} + all organizations
+                </SelectItem>
                 {partnerChildOrganizations.map((organization) => (
                   <SelectItem key={organization.id} value={organization.id}>
-                    {organization.name}
+                    {organization.id === partnerScopeId ? 'Partner organization only' : organization.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -795,8 +940,8 @@ export function LicensePage() {
             </p>
             <p className="text-sm leading-6">
               {pendingSub
-                ? 'Your subscription request is awaiting SoftLogic Super Admin approval. Licensed users (teachers, students, parents) can be added once it is approved — you’ll receive an email.'
-                : 'This workspace needs an active subscription before you can add licensed users (teachers, students, parents). Create a subscription request and a SoftLogic Super Admin will review it.'}
+                ? 'Your subscription request is awaiting SoftLogic Super Admin approval. Teacher licenses can be used once it is approved; students and parents keep their organization access rules.'
+                : 'This workspace needs an active subscription before teacher licenses can be used. Students and parents remain controlled by organization access settings.'}
             </p>
             {!pendingSub && (
               <Button
@@ -835,7 +980,7 @@ export function LicensePage() {
           </Card>
           <Card className="px-4 py-5 sm:px-6">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-              Seats
+              Teacher licenses
             </p>
             <p className="mt-2 text-3xl font-black text-ink-900">
               {globalActiveSubscriptions.reduce(
@@ -844,13 +989,13 @@ export function LicensePage() {
               )}
               <span className="text-base font-semibold text-ink-500">
                 {' '}/{' '}
-                {globalActiveSubscriptions.reduce(
+                {globalCapacitySubscriptions.reduce(
                   (total, subscription) => total + subscription.seatLimit,
                   0,
                 )}
               </span>
             </p>
-            <p className="mt-1 text-sm text-ink-500">Across all organizations</p>
+            <p className="mt-1 text-sm text-ink-500">Teacher capacity across all organizations</p>
           </Card>
           <Card className="relative px-4 py-5 sm:px-6">
             <Badge variant="info" className="absolute right-4 top-4">Coming Soon</Badge>
@@ -908,7 +1053,7 @@ export function LicensePage() {
                   <TableHead>Source subscription</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created by</TableHead>
-                  <TableHead>Emailed</TableHead>
+                  <TableHead>Email</TableHead>
                   <TableHead>Bound device</TableHead>
                   <TableHead>Created</TableHead>
                 </TableRow>
@@ -916,20 +1061,20 @@ export function LicensePage() {
               <TableBody>
                 {globalActivationKeys.map((key) => (
                   <TableRow key={key.id}>
-                    <TableCell className="font-semibold text-ink-900">
+                    <TableCell className="max-w-[180px] truncate font-semibold text-ink-900">
                       {key.label ?? '-'}
                     </TableCell>
-                    <TableCell>
-                      <p className="text-sm text-ink-900">{key.organization?.name ?? '-'}</p>
+                    <TableCell className="min-w-0">
+                      <p className="truncate text-sm text-ink-900">{key.organization?.name ?? '-'}</p>
                       <p className="text-xs text-ink-500">{key.organization?.kind ?? ''}</p>
                     </TableCell>
-                    <TableCell>
-                      <p className="text-sm text-ink-900">{key.subscription?.planName ?? '-'}</p>
+                    <TableCell className="min-w-0">
+                      <p className="truncate text-sm text-ink-900">{key.subscription?.planName ?? '-'}</p>
                       <p className="text-xs text-ink-500">
                         {key.subscription?.organization?.name ?? ''}
                       </p>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <Badge
                         variant={
                           key.status === 'AVAILABLE'
@@ -942,22 +1087,32 @@ export function LicensePage() {
                         {key.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      <p className="text-sm text-ink-900">
+                    <TableCell className="min-w-0">
+                      <p className="truncate text-sm text-ink-900">
                         {key.createdBy?.name ?? key.createdBy?.email ?? '-'}
                       </p>
                       <p className="text-xs text-ink-500">{key.createdBy?.role ?? ''}</p>
                     </TableCell>
-                    <TableCell>{key.emailSentAt ? formatDate(key.emailSentAt) : '-'}</TableCell>
-                    <TableCell>
-                      <p className="text-sm text-ink-900">
+                    <TableCell className="min-w-0">
+                      <p className="truncate text-sm text-ink-900">
+                        {key.emailRecipientEmail ?? (key.emailSentAt ? 'Sent' : 'Not sent')}
+                      </p>
+                      <p className="text-xs text-ink-500">
+                        {key.emailSentAt ? formatDate(key.emailSentAt) : ''}
+                        {key.emailSentBy
+                          ? ` by ${key.emailSentBy.name ?? key.emailSentBy.email}`
+                          : ''}
+                      </p>
+                    </TableCell>
+                    <TableCell className="min-w-0">
+                      <p className="truncate text-sm text-ink-900">
                         {key.boundActivation?.deviceModel ?? '-'}
                       </p>
                       <p className="text-xs text-ink-500">
                         {key.boundActivation?.devicePlatform ?? ''}
                       </p>
                     </TableCell>
-                    <TableCell>{formatDate(key.createdAt)}</TableCell>
+                    <TableCell className="whitespace-nowrap">{formatDate(key.createdAt)}</TableCell>
                   </TableRow>
                 ))}
                 {globalActivationKeys.length === 0 && (
@@ -983,7 +1138,7 @@ export function LicensePage() {
                   Partner Scope
                 </h3>
                 <p className="text-xs text-ink-500">
-                  {selectedPartner?.name ?? 'Partner'} + child organizations
+                  {partnerScopeName} + child organizations
                 </p>
               </div>
               <Badge variant="info">Combined</Badge>
@@ -1024,18 +1179,16 @@ export function LicensePage() {
                     </div>
                     <div>
                       <p className="text-xs uppercase tracking-wide text-ink-500">
-                        Activation keys
+                        Uncreated slots
                       </p>
                       <p className="text-sm font-semibold text-ink-900">
-                        {aggregateSummary
-                          ? `${aggregateSummary.usableKeyCount}/${aggregateSummary.seatLimit} usable keys`
-                          : '0/0 usable keys'}
+                        {aggregateSummary?.uncreatedKeySlots ?? 0}
                       </p>
                     </div>
                   </div>
                   <p className="pt-2 text-xs text-ink-500">
-                    Partner pool remaining:{' '}
-                    {partnerPool?.remainingActivationKeys ?? aggregateSummary?.remainingActivationKeys ?? 0}
+                    Partner pool available to assign:{' '}
+                    {availablePartnerPoolKeys.length}
                   </p>
                 </>
               )}
@@ -1046,38 +1199,67 @@ export function LicensePage() {
             <div className="border-b border-line px-4 py-4 sm:px-6">
               <h3 className="flex items-center gap-2 text-base font-semibold text-ink-900">
                 <Sofa className="h-4 w-4 text-brand-primary" />
-                Seats
+                Teacher Licenses
               </h3>
               <p className="text-xs text-ink-500">
-                Active users across the selected partner scope
+                Used capacity is the higher of active teachers or usable activation keys.
               </p>
             </div>
             <div className="space-y-4 px-4 py-5 sm:px-6">
-              {aggregateSummary && (
+              {teacherCapacityLimit > 0 && (
                 <SeatsBanner
-                  seatLimit={aggregateSummary.seatLimit}
-                  seatUsage={aggregateSummary.seatUsage}
+                  seatLimit={teacherCapacityLimit}
+                  seatUsage={teacherCapacityUsed}
                 />
               )}
               <p className="text-2xl font-bold text-ink-900">
-                {aggregateSummary?.seatUsage ?? 0}
+                {teacherCapacityUsed}
                 <span className="text-sm font-medium text-ink-500">
-                  {' '}/ {aggregateSummary?.seatLimit ?? 0}
+                  {' '}/ {teacherCapacityLimit}
                 </span>
               </p>
-              <Progress
-                value={
-                  aggregateSummary
-                    ? Math.min(
-                        100,
-                        (aggregateSummary.seatUsage / Math.max(aggregateSummary.seatLimit, 1)) * 100,
-                      )
-                    : 0
-                }
-              />
+              <Progress value={licenseProgress} />
               <p className="text-xs text-ink-500">
-                Seats include teachers, students, and parents combined.
+                Active teachers: {teacherUsage}. Usable keys: {licenseSummary?.usableKeyCount ?? 0}.
               </p>
+            </div>
+          </Card>
+
+          <Card className="lg:col-span-2">
+            <div className="border-b border-line px-4 py-4 sm:px-6">
+              <h3 className="flex items-center gap-2 text-base font-semibold text-ink-900">
+                <Cpu className="h-4 w-4 text-brand-primary" />
+                Activation Key Pool
+              </h3>
+              <p className="text-xs text-ink-500">
+                Pool keys stay on the partner until they are assigned and emailed to a child organization.
+              </p>
+            </div>
+            <div className="grid gap-3 px-4 py-5 sm:grid-cols-2 xl:grid-cols-4 sm:px-6">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-ink-500">Total keys</p>
+                <p className="text-sm font-semibold text-ink-900">
+                  {licenseSummary?.totalKeyCount ?? 0}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-ink-500">Available pool</p>
+                <p className="text-sm font-semibold text-ink-900">
+                  {availablePartnerPoolKeys.length}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-ink-500">Emailed / never emailed</p>
+                <p className="text-sm font-semibold text-ink-900">
+                  {licenseSummary?.sentKeyCount ?? 0} / {licenseSummary?.unsentKeyCount ?? 0}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-ink-500">Bound / available</p>
+                <p className="text-sm font-semibold text-ink-900">
+                  {licenseSummary?.boundKeyCount ?? 0} / {licenseSummary?.availableKeyCount ?? 0}
+                </p>
+              </div>
             </div>
           </Card>
         </div>
@@ -1115,7 +1297,7 @@ export function LicensePage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-ink-500">Number of seats</p>
+                  <p className="text-xs uppercase tracking-wide text-ink-500">Teacher seats</p>
                   <p className="text-sm font-semibold text-ink-900">
                     {primarySub?.seatLimit ?? 0}
                   </p>
@@ -1124,12 +1306,16 @@ export function LicensePage() {
               <div className="grid gap-3 pt-1 sm:grid-cols-2">
                 <div>
                   <p className="text-xs uppercase tracking-wide text-ink-500">Activation keys</p>
-                  <p className="text-sm font-semibold text-ink-900">{capacityText}</p>
+                  <p className="text-sm font-semibold text-ink-900">
+                    {licenseSummary
+                      ? `${licenseSummary.usableKeyCount}/${licenseSummary.seatLimit} usable keys`
+                      : capacityText}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-ink-500">Remaining</p>
+                  <p className="text-xs uppercase tracking-wide text-ink-500">Remaining capacity</p>
                   <p className="text-sm font-semibold text-ink-900">
-                    {remainingActivationKeys}
+                    {licenseSummary?.remainingCapacity ?? remainingActivationKeys}
                   </p>
                 </div>
               </div>
@@ -1146,26 +1332,28 @@ export function LicensePage() {
             <div className="border-b border-line px-4 py-4 sm:px-6">
               <h3 className="flex items-center gap-2 text-base font-semibold text-ink-900">
                 <Sofa className="h-4 w-4 text-brand-primary" />
-                Seats
+                Teacher Licenses
               </h3>
-              <p className="text-xs text-ink-500">Active organization users</p>
+              <p className="text-xs text-ink-500">
+                Used capacity is active teachers or usable activation keys, whichever is higher.
+              </p>
             </div>
             <div className="space-y-4 px-4 py-5 sm:px-6">
-              {primarySub && (
+              {teacherCapacityLimit > 0 && (
                 <SeatsBanner
-                  seatLimit={primarySub.seatLimit}
-                  seatUsage={primarySub.seatUsage}
+                  seatLimit={teacherCapacityLimit}
+                  seatUsage={teacherCapacityUsed}
                 />
               )}
               <p className="text-2xl font-bold text-ink-900">
-                {primarySub?.seatUsage ?? 0}
+                {teacherCapacityUsed}
                 <span className="text-sm font-medium text-ink-500">
-                  {' '}/ {primarySub?.seatLimit ?? 0}
+                  {' '}/ {teacherCapacityLimit}
                 </span>
               </p>
-              <Progress value={usage} />
+              <Progress value={licenseProgress} />
               <p className="text-xs text-ink-500">
-                Seats include teachers, students, and parents combined.
+                Active teachers: {teacherUsage}. Usable keys: {licenseSummary?.usableKeyCount ?? 0}.
               </p>
             </div>
           </Card>
@@ -1255,85 +1443,97 @@ export function LicensePage() {
                   Hardware Activation Keys
                 </h3>
                 <p className="text-xs text-ink-500">
-                  Each key activates one board/device. Any active user in that organization can use the app on that activated device.
+                  {selectedChildUnderPartner
+                    ? 'Child organizations receive keys from the partner pool. Select the partner scope to assign and email pool keys.'
+                    : 'Each key activates one board/device. Any active user in that organization can use the app on that activated device.'}
                 </p>
                 <p className="mt-1 text-xs font-medium text-ink-600">
                   {capacityText} · {remainingActivationKeys} remaining
                 </p>
               </div>
 
-              <div className="space-y-3">
-                <div className="grid gap-3 md:grid-cols-[1fr_140px]">
-                  <div className="space-y-1.5">
-                    <Input
-                      value={keyLabel}
-                      onChange={(event) => setKeyLabel(event.target.value)}
-                      onBlur={() => setKeyLabelTouched(true)}
-                      maxLength={120}
-                      placeholder="Label (e.g. Lab whiteboard 1)"
-                      aria-invalid={keyLabelTouched && keyLabel.trim().length === 0}
-                    />
-                    {keyLabelTouched && keyLabel.trim().length === 0 && (
-                      <p className="text-xs font-medium text-danger">Label is required</p>
-                    )}
+              {selectedChildUnderPartner ? (
+                <div className="rounded-lg border border-line bg-surface-variant px-3 py-3 text-sm text-ink-600">
+                  Pool keys are created on {partnerScopeName} and then assigned to this organization.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="grid gap-3 md:grid-cols-[1fr_140px]">
+                    <div className="space-y-1.5">
+                      <Input
+                        value={keyLabel}
+                        onChange={(event) => setKeyLabel(event.target.value)}
+                        onBlur={() => setKeyLabelTouched(true)}
+                        maxLength={120}
+                        placeholder="Label (e.g. Lab whiteboard 1)"
+                        aria-invalid={keyLabelTouched && keyLabel.trim().length === 0}
+                      />
+                      {keyLabelTouched && keyLabel.trim().length === 0 && (
+                        <p className="text-xs font-medium text-danger">Label is required</p>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Input
+                        type="number"
+                        min={1}
+                        value={1}
+                        disabled
+                        placeholder="Max devices"
+                      />
+                      <p className="text-xs text-ink-500">1 = single device lock</p>
+                    </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <Input
-                      type="number"
-                      min={1}
-                      value={1}
-                      disabled
-                      placeholder="Max devices"
-                    />
-                    <p className="text-xs text-ink-500">1 = single device lock</p>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+                    <Button
+                      variant="primary"
+                      className="w-full sm:w-auto"
+                      disabled={
+                        !canCreateActivationKey ||
+                        keyLabel.trim().length === 0 ||
+                        hardwareMutation.isPending
+                      }
+                      onClick={() => {
+                        if (!selectedOrganization) return;
+                        if (keyLabel.trim().length === 0) {
+                          setKeyLabelTouched(true);
+                          return;
+                        }
+                        hardwareMutation.mutate({
+                          organizationId: selectedOrganization.id,
+                          subscriptionId: activationPoolSubscriptionId,
+                          sourcePartnerOrganizationId: null,
+                          label: keyLabel.trim(),
+                          maxDevices: 1,
+                        });
+                      }}
+                    >
+                      {hardwareMutation.isPending && <Spinner className="h-4 w-4" />}
+                      Create activation key
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full sm:w-auto"
+                      disabled={!canCreateActivationKey}
+                      onClick={openBulkDialog}
+                    >
+                      <Layers className="h-4 w-4" />
+                      Bulk create keys
+                    </Button>
                   </div>
                 </div>
-                <Button
-                  variant="primary"
-                  className="w-full"
-                  disabled={
-                    !canCreateActivationKey ||
-                    keyLabel.trim().length === 0 ||
-                    hardwareMutation.isPending
-                  }
-                  onClick={() => {
-                    if (!selectedOrganization) return;
-                    if (keyLabel.trim().length === 0) {
-                      setKeyLabelTouched(true);
-                      return;
-                    }
-                    hardwareMutation.mutate({
-                      organizationId: selectedOrganization.id,
-                      subscriptionId: activationPoolSubscriptionId,
-                      sourcePartnerOrganizationId: selectedChildUnderPartner ? selectedPartnerId : null,
-                      label: keyLabel.trim(),
-                      maxDevices: 1,
-                    });
-                  }}
-                >
-                  {hardwareMutation.isPending && <Spinner className="h-4 w-4" />}
-                  Create activation key
-                </Button>
+              )}
+
+              <div className="flex justify-stretch sm:justify-end">
                 <Button
                   variant="outline"
-                  className="w-full"
-                  disabled={!canCreateActivationKey}
-                  onClick={openBulkDialog}
+                  className="w-full sm:w-auto"
+                  disabled={!selectedOrganization || activationKeys.length === 0}
+                  onClick={() => setEmailKeysOpen(true)}
                 >
-                  <Layers className="h-4 w-4" />
-                  Bulk create keys
+                  <Mail className="h-4 w-4" />
+                  Choose keys to email org admin
                 </Button>
               </div>
-
-              <Button
-                variant="outline"
-                className="w-full"
-                disabled={!selectedOrganization || activationKeys.length === 0}
-                onClick={() => setEmailKeysOpen(true)}
-              >
-                <Mail className="h-4 w-4" />
-                Choose keys to email org admin
-              </Button>
 
               <div className="pointer-events-none absolute inset-x-6 bottom-3 rounded-lg border border-line bg-surface-variant px-3 py-2 text-xs text-ink-500">
                 <span className="mr-2 inline-flex items-center rounded bg-warning/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warning">
@@ -1346,95 +1546,69 @@ export function LicensePage() {
         </div>
       )}
 
-      {isPartnerAdmin && !globalMode && selectedOrganization && (
+      {partnerScopeId &&
+        (aggregatePartnerMode ||
+          selectedSuperAdminPartnerOrg ||
+          selectedChildUnderPartner ||
+          isPartnerAdmin) && (
         <Card className="space-y-5 px-4 py-5 sm:px-6">
           <div>
             <h3 className="flex items-center gap-2 text-base font-semibold text-ink-900">
-              <Cpu className="h-4 w-4 text-brand-primary" />
-              Hardware Activation Keys
+              <Mail className="h-4 w-4 text-brand-primary" />
+              Assign/email pool keys
             </h3>
             <p className="text-xs text-ink-500">
-              Each key activates one board/device. Keys are allocated from the partner pool.
+              Select available keys from the partner pool and email them to a child organization admin.
             </p>
             <p className="mt-1 text-xs font-medium text-ink-600">
               {partnerPool
-                ? `${partnerPool.organizationName} pool: ${capacityText} · ${remainingActivationKeys} remaining`
-                : capacityText}
+                ? `${partnerPool.organizationName} pool: ${availablePartnerPoolKeys.length} available to assign`
+                : 'No active partner pool'}
             </p>
           </div>
 
-          <div className="space-y-3">
-            <div className="grid gap-3 md:grid-cols-[1fr_140px]">
-              <div className="space-y-1.5">
-                <Input
-                  value={keyLabel}
-                  onChange={(event) => setKeyLabel(event.target.value)}
-                  onBlur={() => setKeyLabelTouched(true)}
-                  maxLength={120}
-                  placeholder="Label (e.g. Lab whiteboard 1)"
-                  aria-invalid={keyLabelTouched && keyLabel.trim().length === 0}
-                />
-                {keyLabelTouched && keyLabel.trim().length === 0 && (
-                  <p className="text-xs font-medium text-danger">Label is required</p>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <Input
-                  type="number"
-                  min={1}
-                  value={1}
-                  disabled
-                  placeholder="Max devices"
-                />
-                <p className="text-xs text-ink-500">1 = single device lock</p>
-              </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-ink-500">Pool capacity</p>
+              <p className="text-sm font-semibold text-ink-900">
+                {partnerPool?.usableKeyCount ?? 0}/{partnerPool?.seatLimit ?? 0}
+              </p>
             </div>
-            <Button
-              variant="primary"
-              className="w-full"
-              disabled={
-                !canCreateActivationKey ||
-                keyLabel.trim().length === 0 ||
-                hardwareMutation.isPending
-              }
-              onClick={() => {
-                if (!selectedOrganization) return;
-                if (keyLabel.trim().length === 0) {
-                  setKeyLabelTouched(true);
-                  return;
-                }
-                hardwareMutation.mutate({
-                  organizationId: selectedOrganization.id,
-                  subscriptionId: activationPoolSubscriptionId,
-                  sourcePartnerOrganizationId: selectedChildUnderPartner ? selectedPartnerId : null,
-                  label: keyLabel.trim(),
-                  maxDevices: 1,
-                });
-              }}
-            >
-              {hardwareMutation.isPending && <Spinner className="h-4 w-4" />}
-              Create activation key
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full"
-              disabled={!canCreateActivationKey}
-              onClick={openBulkDialog}
-            >
-              <Layers className="h-4 w-4" />
-              Bulk create keys
-            </Button>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-ink-500">Available to assign</p>
+              <p className="text-sm font-semibold text-ink-900">
+                {availablePartnerPoolKeys.length}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-ink-500">Child organizations</p>
+              <p className="text-sm font-semibold text-ink-900">
+                {partnerAssignableOrganizations.length}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-ink-500">Emailed keys</p>
+              <p className="text-sm font-semibold text-ink-900">
+                {partnerDetailsQuery.data?.summary.sentKeyCount ?? 0}
+              </p>
+            </div>
           </div>
 
-          <Button
-            variant="outline"
-            className="w-full"
-            disabled={!selectedOrganization || activationKeys.length === 0}
-            onClick={() => setEmailKeysOpen(true)}
-          >
-            <Mail className="h-4 w-4" />
-            Choose keys to email org admin
-          </Button>
+          <div className="flex justify-stretch sm:justify-end">
+            <Button
+              variant="primary"
+              className="w-full sm:w-auto"
+              disabled={
+                partnerDetailsQuery.isLoading ||
+                partnerAssignableOrganizations.length === 0 ||
+                availablePartnerPoolKeys.length === 0
+              }
+              onClick={() => setAssignKeysOpen(true)}
+            >
+              <Mail className="h-4 w-4" />
+              Assign/email pool keys
+            </Button>
+          </div>
         </Card>
       )}
 
@@ -1471,7 +1645,7 @@ export function LicensePage() {
                   {isExporting ? <Spinner className="h-4 w-4" /> : <Download className="h-4 w-4" />}
                   Export
                 </Button>
-                {canManageActivationKeys && !aggregatePartnerMode && (
+                {isSuperAdmin && !aggregatePartnerMode && (
                   <Button
                     variant="outline"
                     disabled={activationKeys.length === 0}
@@ -1483,13 +1657,15 @@ export function LicensePage() {
                 )}
               </div>
             </div>
-            <Table className="min-w-[980px]">
+            <Table className="min-w-[1320px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Label</TableHead>
                   {aggregatePartnerMode && <TableHead>Organization</TableHead>}
                   <TableHead>Key</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Source</TableHead>
+                  <TableHead>Email</TableHead>
                   <TableHead>Bound device</TableHead>
                   <TableHead>Expires</TableHead>
                   {isSuperAdmin && <TableHead className="text-right">Actions</TableHead>}
@@ -1502,7 +1678,7 @@ export function LicensePage() {
                   const displayKey = formatActivationKeyForDisplay(plain);
                   return (
                     <TableRow key={key.id}>
-                      <TableCell>
+                      <TableCell className="min-w-0">
                         <div className="flex items-center gap-1">
                           <span>{key.label ?? '—'}</span>
                           <Button
@@ -1518,8 +1694,8 @@ export function LicensePage() {
                         </div>
                       </TableCell>
                       {aggregatePartnerMode && (
-                        <TableCell>
-                          <p className="text-sm font-medium text-ink-900">
+                        <TableCell className="min-w-0">
+                          <p className="truncate text-sm font-medium text-ink-900">
                             {key.organization?.name ?? '-'}
                           </p>
                           <p className="text-xs text-ink-500">
@@ -1527,8 +1703,8 @@ export function LicensePage() {
                           </p>
                         </TableCell>
                       )}
-                      <TableCell>
-                        <div className="flex items-center gap-2">
+                      <TableCell className="whitespace-nowrap">
+                        <div className="flex items-center gap-2 whitespace-nowrap">
                           <code className="rounded border border-line bg-surface-variant px-2 py-1 font-mono text-xs">
                             {revealed && plain ? displayKey : plain ? '••••••••••••' : '<legacy — reissue to reveal>'}
                           </code>
@@ -1554,7 +1730,7 @@ export function LicensePage() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <Badge
                           variant={
                             key.status === 'AVAILABLE'
@@ -1567,22 +1743,43 @@ export function LicensePage() {
                           {key.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        <p className="text-sm text-ink-700">
+                      <TableCell className="min-w-0">
+                        <p className="truncate text-sm text-ink-700">
+                          {key.subscription?.planName ?? '-'}
+                        </p>
+                        <p className="text-xs text-ink-500">
+                          {key.subscription?.organization?.name ?? ''}
+                        </p>
+                      </TableCell>
+                      <TableCell className="min-w-0">
+                        <p className="truncate text-sm text-ink-700">
+                          {key.emailRecipientEmail ?? (key.emailSentAt ? 'Sent' : 'Not sent')}
+                        </p>
+                        <p className="text-xs text-ink-500">
+                          {key.emailSentAt ? formatDate(key.emailSentAt) : ''}
+                        </p>
+                        <p className="text-xs text-ink-500">
+                          {key.emailSentBy
+                            ? `By ${key.emailSentBy.name ?? key.emailSentBy.email}`
+                            : ''}
+                        </p>
+                      </TableCell>
+                      <TableCell className="min-w-0">
+                        <p className="truncate text-sm text-ink-700">
                           {key.boundActivation?.deviceModel ?? '—'}
                         </p>
                         <p className="text-xs text-ink-500">
                           {key.boundActivation?.devicePlatform ?? ''}
                         </p>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <p className="text-sm text-ink-700">
                           {key.expiresAt ? formatDate(key.expiresAt) : 'No expiry'}
                         </p>
                       </TableCell>
                       {isSuperAdmin && (
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
+                        <TableCell className="text-right whitespace-nowrap">
+                          <div className="flex justify-end gap-1 whitespace-nowrap">
                             <Button
                               size="sm"
                               variant="outline"
@@ -1607,9 +1804,7 @@ export function LicensePage() {
                 {displayedActivationKeys.length === 0 && (
                   <TableRow>
                     <TableCell
-                      colSpan={
-                        (isSuperAdmin ? 6 : 5) + (aggregatePartnerMode ? 1 : 0)
-                      }
+                      colSpan={activationKeysColSpan}
                       className="py-12 text-center"
                     >
                       <div className="mx-auto flex max-w-sm flex-col items-center gap-2">
@@ -1620,9 +1815,11 @@ export function LicensePage() {
                           No activation keys issued yet
                         </p>
                         <p className="text-xs text-ink-500">
-                          Create activation keys to lock the app to your devices.
+                          {aggregatePartnerMode || isPartnerAdmin
+                            ? 'No pool or assigned keys are visible for this scope yet.'
+                            : 'Create activation keys to lock the app to your devices.'}
                         </p>
-                        {canManageActivationKeys && !aggregatePartnerMode && (
+                        {canCreateActivationKey && (
                           <Button
                             variant="primary"
                             size="sm"
@@ -1664,28 +1861,28 @@ export function LicensePage() {
               <TableBody>
                 {allDevices.map(({ activation, key }) => (
                   <TableRow key={activation.id}>
-                    <TableCell>
+                    <TableCell className="min-w-0">
                       <p className="text-sm font-semibold text-ink-900">
                         {activation.deviceModel ?? activation.deviceLabel ?? key.label ?? 'Unnamed device'}
                       </p>
                       <p className="text-xs text-ink-500">{key.label ?? '—'}</p>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="max-w-[180px] truncate">
                       <p className="text-sm text-ink-700">{activation.devicePlatform ?? '—'}</p>
                       <p className="text-xs text-ink-500">{activation.deviceOsVersion ?? ''}</p>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <code className="font-mono text-xs text-ink-500">
                         {fingerprintTail(activation.deviceFingerprintHash)}
                       </code>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       {activation.firstBoundAt ? formatDate(activation.firstBoundAt) : '—'}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       {activation.lastVerifiedAt ? formatDate(activation.lastVerifiedAt) : '—'}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <Badge
                         variant={
                           activation.status === 'ACTIVE'
@@ -1698,7 +1895,7 @@ export function LicensePage() {
                         {activation.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right whitespace-nowrap">
                       {isSuperAdmin && (
                         <Button
                           size="sm"
@@ -1746,32 +1943,33 @@ export function LicensePage() {
                 <TableHead>Status</TableHead>
                 <TableHead>Notes</TableHead>
                 <TableHead>Recorded by</TableHead>
+                {isSuperAdmin && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {displayedPaymentRows.map((payment) => (
                 <TableRow key={payment.id}>
-                  <TableCell>
+                  <TableCell className="whitespace-nowrap">
                     <p className="font-mono text-sm font-medium text-ink-900">
                       {payment.invoiceNumber ?? `#PAY-${payment.id.slice(0, 6).toUpperCase()}`}
                     </p>
                   </TableCell>
                   {aggregatePartnerMode && (
-                    <TableCell>
-                      <p className="text-sm text-ink-700">
+                    <TableCell className="min-w-0">
+                      <p className="max-w-[180px] truncate text-sm text-ink-700">
                         {paymentOrganizationName(payment)}
                       </p>
                     </TableCell>
                   )}
-                  <TableCell>
+                  <TableCell className="whitespace-nowrap">
                     <p className="text-sm text-ink-700">{formatDate(payment.createdAt)}</p>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="whitespace-nowrap">
                     <p className="text-sm font-medium text-ink-900">
                       {formatMoney(payment.amountMinor, payment.currency)}
                     </p>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="whitespace-nowrap">
                     <Badge
                       variant={
                         payment.status === 'MANUAL_APPROVED' ||
@@ -1786,16 +1984,29 @@ export function LicensePage() {
                       {payment.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>
-                    <p className="max-w-xs whitespace-normal text-sm text-ink-700">
+                  <TableCell className="min-w-0">
+                    <p className="max-w-xs truncate text-sm text-ink-700">
                       {payment.referenceNote ?? '—'}
                     </p>
                   </TableCell>
-                  <TableCell>
-                    <p className="text-sm text-ink-700">
+                  <TableCell className="min-w-0">
+                    <p className="max-w-[200px] truncate text-sm text-ink-700">
                       {payment.recordedBy?.name ?? payment.recordedBy?.email ?? '—'}
                     </p>
                   </TableCell>
+                  {isSuperAdmin && (
+                    <TableCell className="text-right">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openPaymentEdit(payment)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        Edit
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
               {displayedPaymentRows.length === 0 &&
@@ -1832,12 +2043,25 @@ export function LicensePage() {
                     <TableCell>
                       <p className="text-sm text-ink-700">—</p>
                     </TableCell>
+                    {isSuperAdmin && (
+                      <TableCell className="text-right">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => navigate(`/subscriptions/${subscription.id}/edit`)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          Edit
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               {displayedPaymentRows.length === 0 && displayedBillingSubscriptions.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={6 + (aggregatePartnerMode ? 1 : 0)}
+                    colSpan={6 + (aggregatePartnerMode ? 1 : 0) + (isSuperAdmin ? 1 : 0)}
                     className="py-10 text-center text-sm text-ink-500"
                   >
                     {billingIsLoading ? 'Loading billing history...' : 'No invoices yet.'}
@@ -1848,6 +2072,145 @@ export function LicensePage() {
           </Table>
         </Card>
       )}
+
+      <Dialog open={Boolean(paymentEdit)} onOpenChange={(open) => !open && setPaymentEdit(null)}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Edit billing history</DialogTitle>
+            <DialogDescription>
+              Update the manual payment details shown in the licensing history.
+            </DialogDescription>
+          </DialogHeader>
+          {paymentEdit && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  Amount
+                </label>
+                <Input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={paymentEdit.amount}
+                  onChange={(event) =>
+                    setPaymentEdit((current) =>
+                      current ? { ...current, amount: event.target.value } : current,
+                    )
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  Currency
+                </label>
+                <Input
+                  maxLength={3}
+                  value={paymentEdit.currency}
+                  onChange={(event) =>
+                    setPaymentEdit((current) =>
+                      current ? { ...current, currency: event.target.value.toUpperCase() } : current,
+                    )
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  Status
+                </label>
+                <Select
+                  value={paymentEdit.status}
+                  onValueChange={(value) =>
+                    setPaymentEdit((current) =>
+                      current
+                        ? { ...current, status: value as PaymentTransactionStatus }
+                        : current,
+                    )
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_STATUS_OPTIONS.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  Invoice number
+                </label>
+                <Input
+                  value={paymentEdit.invoiceNumber}
+                  onChange={(event) =>
+                    setPaymentEdit((current) =>
+                      current ? { ...current, invoiceNumber: event.target.value } : current,
+                    )
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  Period start
+                </label>
+                <Input
+                  type="date"
+                  value={paymentEdit.periodStart}
+                  onChange={(event) =>
+                    setPaymentEdit((current) =>
+                      current ? { ...current, periodStart: event.target.value } : current,
+                    )
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  Period end
+                </label>
+                <Input
+                  type="date"
+                  value={paymentEdit.periodEnd}
+                  onChange={(event) =>
+                    setPaymentEdit((current) =>
+                      current ? { ...current, periodEnd: event.target.value } : current,
+                    )
+                  }
+                />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  Reference or invoice note
+                </label>
+                <Input
+                  value={paymentEdit.referenceNote}
+                  onChange={(event) =>
+                    setPaymentEdit((current) =>
+                      current ? { ...current, referenceNote: event.target.value } : current,
+                    )
+                  }
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setPaymentEdit(null)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              disabled={updatePaymentMutation.isPending}
+              onClick={submitPaymentEdit}
+            >
+              {updatePaymentMutation.isPending && <Spinner className="h-4 w-4" />}
+              Save changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={bulkOpen}
@@ -2042,6 +2405,17 @@ export function LicensePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {partnerScopeId && (
+        <AssignActivationKeysDialog
+          open={assignKeysOpen}
+          sourcePartnerOrganizationId={partnerScopeId}
+          organizations={partnerAssignableOrganizations}
+          keys={partnerPoolKeys}
+          onOpenChange={setAssignKeysOpen}
+          onSent={invalidateCommercialQueries}
+        />
+      )}
 
       {labelEdit && (
         <ActivationKeyLabelDialog

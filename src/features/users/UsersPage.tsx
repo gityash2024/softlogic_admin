@@ -739,7 +739,16 @@ export function UsersPage() {
             </div>
           </div>
         ) : (
-          <Table className="min-w-[960px]">
+          <Table className="min-w-[1040px]">
+            <colgroup>
+              <col />
+              <col className="w-[144px]" />
+              <col className="w-[190px]" />
+              <col className="w-[112px]" />
+              <col className="w-[118px]" />
+              <col className="w-[120px]" />
+              <col className="w-[216px]" />
+            </colgroup>
             <TableHeader>
               <TableRow>
                 <TableHead>User</TableHead>
@@ -762,9 +771,9 @@ export function UsersPage() {
                   resendInvite.isPending && resendInvite.variables === u.id;
                 return (
                   <TableRow key={u.id}>
-                    <TableCell>
+                    <TableCell className="min-w-0">
                       <div className="flex min-w-0 items-center gap-3">
-                        <Avatar className="h-9 w-9">
+                        <Avatar className="h-9 w-9 shrink-0">
                           <AvatarFallback>
                             {initials(u.name ?? displayEmail)}
                           </AvatarFallback>
@@ -777,24 +786,24 @@ export function UsersPage() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <Badge variant={u.role === 'SUPER_ADMIN' ? 'navy' : 'default'}>
                         {ROLE_LABEL[u.role]}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      <p className="truncate text-sm text-ink-900">
+                    <TableCell className="min-w-0">
+                      <p className="max-w-[180px] truncate text-sm text-ink-900">
                         {u.primaryOrganization?.name ?? (
                           <span className="text-ink-400">Unassigned</span>
                         )}
                       </p>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <Badge variant={isArchived ? 'default' : statusVariant(u.status)}>
                         {statusLabel(u)}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <Badge variant={u.isEmailVerified ? 'success' : 'warning'}>
                         {u.isEmailVerified ? (
                           <CheckCircle2 className="h-3 w-3" />
@@ -804,12 +813,12 @@ export function UsersPage() {
                         {u.isEmailVerified ? 'Verified' : 'Pending'}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <span className="text-sm text-ink-500">
                         {formatDate(u.lastLoginAt)}
                       </span>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right whitespace-nowrap">
                       <div className="flex justify-end gap-1 whitespace-nowrap">
                         {pending && (
                           <Button

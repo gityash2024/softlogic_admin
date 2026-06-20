@@ -94,7 +94,7 @@ export function OrganizationFormPage() {
   const orgsQuery = useQuery({
     queryKey: ['organizations', 'all'],
     queryFn: organizationsApi.all,
-    enabled: actor?.role === 'SUPER_ADMIN',
+    enabled: actor?.role === 'SUPER_ADMIN' || actor?.role === 'PARTNER_ADMIN',
   });
 
   // Gate the form mount on the org being loaded so useForm captures correct
@@ -372,7 +372,79 @@ function OrganizationFormEditor({
   const assignableAiTokens = sourceAvailableAiTokens + currentAssignedAiTokens;
   const aiAllocationDelta = aiCreditTokens - currentAssignedAiTokens;
   const afterAiAllocation = Math.max(assignableAiTokens - aiCreditTokens, 0);
+  const partnerWorkspace =
+    actor?.role === 'PARTNER_ADMIN' ? actor.primaryOrganization : null;
+  const activePartnerChildren = partnerWorkspace
+    ? partnerOrganizations.filter(
+        (item) =>
+          item.parentOrganizationId === partnerWorkspace.id &&
+          item.status === 'ACTIVE' &&
+          !item.deletedAt,
+      )
+    : [];
+  const allocatedChildRoles = activePartnerChildren.reduce(
+    (totals, child) => ({
+      teacher: totals.teacher + (child.teacherUserLimit ?? 0),
+      student: totals.student + (child.studentUserLimit ?? 0),
+      parent: totals.parent + (child.parentUserLimit ?? 0),
+    }),
+    { teacher: 0, student: 0, parent: 0 },
+  );
+  const allocatedChildUsers =
+    allocatedChildRoles.teacher + allocatedChildRoles.student + allocatedChildRoles.parent;
+  const remainingPartnerRole = (
+    roleKey: 'teacherUserLimit' | 'studentUserLimit' | 'parentUserLimit',
+    allocated: number,
+  ) => {
+    const limit = partnerWorkspace?.[roleKey] ?? null;
+    return limit === null ? null : Math.max(limit - allocated, 0);
+  };
+  const partnerCapacity = {
+    childOrganizations: {
+      used: activePartnerChildren.length,
+      limit: partnerWorkspace?.maxChildOrganizations ?? null,
+      remaining:
+        partnerWorkspace?.maxChildOrganizations === null ||
+        partnerWorkspace?.maxChildOrganizations === undefined
+          ? null
+          : Math.max(
+              partnerWorkspace.maxChildOrganizations - activePartnerChildren.length,
+              0,
+            ),
+    },
+    teacher: {
+      used: allocatedChildRoles.teacher,
+      limit: partnerWorkspace?.teacherUserLimit ?? null,
+      remaining: remainingPartnerRole('teacherUserLimit', allocatedChildRoles.teacher),
+    },
+    student: {
+      used: allocatedChildRoles.student,
+      limit: partnerWorkspace?.studentUserLimit ?? null,
+      remaining: remainingPartnerRole('studentUserLimit', allocatedChildRoles.student),
+    },
+    parent: {
+      used: allocatedChildRoles.parent,
+      limit: partnerWorkspace?.parentUserLimit ?? null,
+      remaining: remainingPartnerRole('parentUserLimit', allocatedChildRoles.parent),
+    },
+    totalUsers: {
+      used: allocatedChildUsers,
+      limit: partnerWorkspace?.maxChildUsers ?? null,
+      remaining:
+        partnerWorkspace?.maxChildUsers === null ||
+        partnerWorkspace?.maxChildUsers === undefined
+          ? null
+          : Math.max(partnerWorkspace.maxChildUsers - allocatedChildUsers, 0),
+    },
+  };
 
+  const partnerCapacityRows = [
+    { label: 'Child organizations', ...partnerCapacity.childOrganizations },
+    { label: 'Teachers', ...partnerCapacity.teacher },
+    { label: 'Students', ...partnerCapacity.student },
+    { label: 'Parents', ...partnerCapacity.parent },
+    { label: 'Total child users', ...partnerCapacity.totalUsers },
+  ];
   useEffect(() => {
     if (!isEdit || initializedAiCreditsRef.current || !aiOverviewQuery.data) return;
     setValue('aiCreditTokens', currentAssignedAiTokens, { shouldDirty: false });
@@ -480,6 +552,38 @@ function OrganizationFormEditor({
         (values.parentUserLimit ?? 0) < 1
       ) {
         toast.error('Parent users must be at least 1');
+        return;
+      }
+    }
+    if (actor?.role === 'PARTNER_ADMIN' && !isEdit) {
+      const requested = {
+        teacher: Number(values.teacherUserLimit ?? 0),
+        student: values.teacherOnlyMode ? 0 : Number(values.studentUserLimit ?? 0),
+        parent: values.teacherOnlyMode ? 0 : Number(values.parentUserLimit ?? 0),
+      };
+      if (partnerCapacity.childOrganizations.remaining === 0) {
+        toast.error('No child organization slots remain');
+        return;
+      }
+      const roleChecks = [
+        ['Teacher', requested.teacher, partnerCapacity.teacher.remaining],
+        ['Student', requested.student, partnerCapacity.student.remaining],
+        ['Parent', requested.parent, partnerCapacity.parent.remaining],
+      ] as const;
+      for (const [label, requestedCount, remaining] of roleChecks) {
+        if (remaining !== null && requestedCount > remaining) {
+          toast.error(`Only ${remaining} ${label.toLowerCase()} allocation(s) remain`);
+          return;
+        }
+      }
+      const requestedTotal = requested.teacher + requested.student + requested.parent;
+      if (
+        partnerCapacity.totalUsers.remaining !== null &&
+        requestedTotal > partnerCapacity.totalUsers.remaining
+      ) {
+        toast.error(
+          `Only ${partnerCapacity.totalUsers.remaining} total child user allocation(s) remain`,
+        );
         return;
       }
     }
@@ -731,6 +835,33 @@ function OrganizationFormEditor({
 
       <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
         <Card className="space-y-5 px-4 py-5 sm:px-6">
+          {actor?.role === 'PARTNER_ADMIN' && !isEdit && (
+            <div className="rounded-lg border border-line bg-surface-variant px-4 py-4">
+              <div>
+                <h3 className="text-sm font-bold text-ink-900">Available partner capacity</h3>
+                <p className="text-xs text-ink-500">
+                  Requested child limits are taken from this remaining allocation.
+                </p>
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                {partnerCapacityRows.map((row) => {
+                  return (
+                    <div key={row.label}>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                        {row.label}
+                      </p>
+                      <p className="mt-1 text-sm font-bold text-ink-900">
+                        {row.used}/{row.limit ?? 'No limit'}
+                      </p>
+                      <p className="text-xs text-ink-500">
+                        {row.remaining === null ? 'Unlimited remaining' : `${row.remaining} left`}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <div>
             <h3 className="text-base font-bold text-ink-900">Organization Profile</h3>
             <p className="text-sm text-ink-500">Public admin identity and routing details.</p>
