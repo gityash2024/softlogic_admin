@@ -135,6 +135,7 @@ function OrganizationFormEditor({
   const pendingAiCreditTokensRef = useRef<number | null>(0);
   const pendingAiCreditSourceAccountIdRef = useRef<string | null>(null);
   const initializedAiCreditsRef = useRef(false);
+  const initializedPartnerPolicyRef = useRef(false);
   const { allowedKinds } = canCreateOrganizationKind(actor?.role);
   const isSuperAdmin = actor?.role === 'SUPER_ADMIN';
   const canConfigureLaunchPolicies =
@@ -145,6 +146,13 @@ function OrganizationFormEditor({
     queryKey: ['ai-allocation-overview'],
     queryFn: aiApi.allocationOverview,
   });
+  const partnerWorkspace =
+    actor?.role === 'PARTNER_ADMIN'
+      ? partnerOrganizations.find(
+          (item) => item.id === actor.primaryOrganization?.id,
+        ) ?? actor.primaryOrganization
+      : null;
+  const partnerTeacherOnlyMode = Boolean(partnerWorkspace?.teacherOnlyMode);
 
   const defaultValues: FormValues = useMemo(() => {
     if (organization) {
@@ -194,10 +202,17 @@ function OrganizationFormEditor({
       brandName: '',
       brandPrimaryColor: '',
       brandAccentColor: '',
-      studentLoginEnabled: false,
-      parentLoginEnabled: false,
+      studentLoginEnabled:
+        actor?.role === 'PARTNER_ADMIN' && !partnerTeacherOnlyMode
+          ? Boolean(partnerWorkspace?.studentLoginEnabled)
+          : false,
+      parentLoginEnabled:
+        actor?.role === 'PARTNER_ADMIN' && !partnerTeacherOnlyMode
+          ? Boolean(partnerWorkspace?.parentLoginEnabled)
+          : false,
       sessionOnlyJoinEnabled: true,
-      teacherOnlyMode: false,
+      teacherOnlyMode:
+        actor?.role === 'PARTNER_ADMIN' ? partnerTeacherOnlyMode : false,
       teacherUserLimit: 0,
       studentUserLimit: 0,
       parentUserLimit: 0,
@@ -372,8 +387,12 @@ function OrganizationFormEditor({
   const assignableAiTokens = sourceAvailableAiTokens + currentAssignedAiTokens;
   const aiAllocationDelta = aiCreditTokens - currentAssignedAiTokens;
   const afterAiAllocation = Math.max(assignableAiTokens - aiCreditTokens, 0);
-  const partnerWorkspace =
-    actor?.role === 'PARTNER_ADMIN' ? actor.primaryOrganization : null;
+  const partnerRoleLimitTotal =
+    (partnerWorkspace?.teacherUserLimit ?? 0) +
+    (partnerWorkspace?.studentUserLimit ?? 0) +
+    (partnerWorkspace?.parentUserLimit ?? 0);
+  const partnerTotalChildUserLimit =
+    partnerWorkspace?.maxChildUsers ?? (partnerRoleLimitTotal > 0 ? partnerRoleLimitTotal : null);
   const activePartnerChildren = partnerWorkspace
     ? partnerOrganizations.filter(
         (item) =>
@@ -429,12 +448,11 @@ function OrganizationFormEditor({
     },
     totalUsers: {
       used: allocatedChildUsers,
-      limit: partnerWorkspace?.maxChildUsers ?? null,
+      limit: partnerTotalChildUserLimit,
       remaining:
-        partnerWorkspace?.maxChildUsers === null ||
-        partnerWorkspace?.maxChildUsers === undefined
+        partnerTotalChildUserLimit === null
           ? null
-          : Math.max(partnerWorkspace.maxChildUsers - allocatedChildUsers, 0),
+          : Math.max(partnerTotalChildUserLimit - allocatedChildUsers, 0),
     },
   };
 
@@ -450,6 +468,30 @@ function OrganizationFormEditor({
     setValue('aiCreditTokens', currentAssignedAiTokens, { shouldDirty: false });
     initializedAiCreditsRef.current = true;
   }, [aiOverviewQuery.data, currentAssignedAiTokens, isEdit, setValue]);
+
+  useEffect(() => {
+    if (
+      isEdit ||
+      actor?.role !== 'PARTNER_ADMIN' ||
+      initializedPartnerPolicyRef.current ||
+      !partnerWorkspace
+    ) {
+      return;
+    }
+    const teacherOnly = Boolean(partnerWorkspace.teacherOnlyMode);
+    setValue('teacherOnlyMode', teacherOnly, { shouldDirty: false });
+    setValue('studentLoginEnabled', teacherOnly ? false : Boolean(partnerWorkspace.studentLoginEnabled), {
+      shouldDirty: false,
+    });
+    setValue('parentLoginEnabled', teacherOnly ? false : Boolean(partnerWorkspace.parentLoginEnabled), {
+      shouldDirty: false,
+    });
+    if (teacherOnly) {
+      setValue('studentUserLimit', 0, { shouldDirty: false });
+      setValue('parentUserLimit', 0, { shouldDirty: false });
+    }
+    initializedPartnerPolicyRef.current = true;
+  }, [actor?.role, isEdit, partnerWorkspace, setValue]);
 
   useEffect(() => {
     if (!teacherOnlyMode) return;
@@ -597,7 +639,7 @@ function OrganizationFormEditor({
 
   const partnerLimitFor = (field: 'teacherUserLimit' | 'studentUserLimit' | 'parentUserLimit') =>
     actor?.role === 'PARTNER_ADMIN'
-      ? actor.primaryOrganization?.[field] ?? undefined
+      ? partnerWorkspace?.[field] ?? undefined
       : undefined;
 
   const runSubmit = () => {
@@ -1273,10 +1315,10 @@ function OrganizationFormEditor({
                       !canConfigureLaunchPolicies ||
                       (actor?.role === 'PARTNER_ADMIN' &&
                         name === 'studentLoginEnabled' &&
-                        !actor.primaryOrganization?.studentLoginEnabled) ||
+                        !partnerWorkspace?.studentLoginEnabled) ||
                       (actor?.role === 'PARTNER_ADMIN' &&
                         name === 'parentLoginEnabled' &&
-                        !actor.primaryOrganization?.parentLoginEnabled) ||
+                        !partnerWorkspace?.parentLoginEnabled) ||
                       (teacherOnlyMode &&
                         (name === 'studentLoginEnabled' ||
                           name === 'parentLoginEnabled'))

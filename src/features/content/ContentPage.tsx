@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
+  ChevronLeft,
+  ChevronRight,
   Download,
   Eye,
   FileArchive,
@@ -69,6 +71,13 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   ActiveFilterChips,
   ExportButtons,
   PaginationFooter,
@@ -110,6 +119,18 @@ function formatBytes(bytes: number | null | undefined) {
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
   return `${(bytes / 1024 ** index).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+}
+
+function compactPath(value: string | null | undefined) {
+  if (!value) return null;
+  const normalized = value.replace(/^https?:\/\//, '').replace(/^\/+/, '');
+  const parts = normalized.split('/').filter(Boolean);
+  if (parts.length <= 3) {
+    return normalized.length > 48
+      ? `${normalized.slice(0, 18)}...${normalized.slice(-24)}`
+      : normalized;
+  }
+  return `${parts[0]}/.../${parts.slice(-2).join('/')}`;
 }
 
 function liveStatusVariant(status: LiveSessionStatus) {
@@ -157,6 +178,8 @@ export function ContentPage() {
   const [params, setParams] = useSearchParams();
   const { user: actor } = useAuthStore();
   const [exporting, setExporting] = useState<AdminExportFormat | null>(null);
+  const [selectedCanvasId, setSelectedCanvasId] = useState<string | null>(null);
+  const [fileActionId, setFileActionId] = useState<string | null>(null);
   const isSuperAdmin = actor?.role === 'SUPER_ADMIN';
   const requestedTab = params.get('tab') as ContentTab | null;
   const tab: ContentTab =
@@ -172,8 +195,6 @@ export function ContentPage() {
   const role = params.get('role') ?? 'ALL';
   const status = params.get('status') ?? 'ALL';
   const format = params.get('format') ?? 'ALL';
-  const isPublic = params.get('isPublic') ?? 'ALL';
-  const hasThumbnail = params.get('hasThumbnail') ?? 'ALL';
   const createdFrom = params.get('createdFrom') ?? '';
   const createdTo = params.get('createdTo') ?? '';
   const updatedFrom = params.get('updatedFrom') ?? '';
@@ -184,6 +205,14 @@ export function ContentPage() {
   const convertedTo = params.get('convertedTo') ?? '';
   const startedFrom = params.get('startedFrom') ?? '';
   const startedTo = params.get('startedTo') ?? '';
+
+  useEffect(() => {
+    if (!params.has('isPublic') && !params.has('hasThumbnail')) return;
+    const next = new URLSearchParams(params);
+    next.delete('isPublic');
+    next.delete('hasThumbnail');
+    setParams(next, { replace: true });
+  }, [params, setParams]);
 
   const commonQuery = useMemo<AdminListQuery>(
     () => ({
@@ -203,14 +232,12 @@ export function ContentPage() {
   const canvasQuery = useMemo<AdminListQuery>(
     () => ({
       ...commonQuery,
-      isPublic: isPublic === 'ALL' ? undefined : isPublic === 'true',
-      hasThumbnail: hasThumbnail === 'ALL' ? undefined : hasThumbnail === 'true',
       updatedFrom,
       updatedTo,
       sortBy: params.get('sortBy') ?? 'updatedAt',
       sortOrder: params.get('sortOrder') ?? 'desc',
     }),
-    [commonQuery, hasThumbnail, isPublic, params, updatedFrom, updatedTo],
+    [commonQuery, params, updatedFrom, updatedTo],
   );
   const liveQuery = useMemo<AdminListQuery>(
     () => ({
@@ -275,6 +302,11 @@ export function ContentPage() {
     queryKey: ['users', 'all'],
     queryFn: usersApi.all,
   });
+  const canvasPreviewQuery = useQuery({
+    queryKey: ['content', 'canvas-preview', selectedCanvasId],
+    queryFn: () => contentApi.canvases.get(selectedCanvasId as string),
+    enabled: Boolean(selectedCanvasId),
+  });
 
   const currentQuery =
     tab === 'canvases'
@@ -308,6 +340,10 @@ export function ContentPage() {
   const allOrganizations = orgsQuery.data ?? [];
   const partners = partnerOrganizations(allOrganizations);
   const organizationOptions = organizationsForPartner(allOrganizations, partnerOrganizationId);
+  const selectedCanvas =
+    canvasPreviewQuery.data ??
+    canvasRows.find((canvas) => canvas.id === selectedCanvasId) ??
+    null;
 
   const activeFilters = useMemo<FilterChip[]>(() => {
     const partner = partners.find((item) => item.id === partnerOrganizationId);
@@ -336,18 +372,6 @@ export function ContentPage() {
         label: 'Role',
         value: ROLE_LABEL[role as UserRole] ?? role,
       },
-      tab === 'canvases' &&
-        isPublic !== 'ALL' && {
-          key: 'isPublic',
-          label: 'Visibility',
-          value: isPublic === 'true' ? 'Public' : 'Private',
-        },
-      tab === 'canvases' &&
-        hasThumbnail !== 'ALL' && {
-          key: 'hasThumbnail',
-          label: 'Thumbnail',
-          value: hasThumbnail === 'true' ? 'Present' : 'Missing',
-        },
       tab !== 'canvases' &&
         status !== 'ALL' && { key: 'status', label: 'Status', value: status },
       tab === 'exports' &&
@@ -387,9 +411,7 @@ export function ContentPage() {
     createdFrom,
     createdTo,
     format,
-    hasThumbnail,
     isSuperAdmin,
-    isPublic,
     organizationId,
     orgsQuery.data,
     partnerOrganizationId,
@@ -458,6 +480,50 @@ export function ContentPage() {
       toast.error(extractApiError(error));
     } finally {
       setExporting(null);
+    }
+  };
+
+  const handleOpenExportFile = async (record: AdminExportRecord) => {
+    setFileActionId(`export-open-${record.id}`);
+    try {
+      await contentApi.exports.openFile(record.id);
+    } catch (error) {
+      toast.error(extractApiError(error));
+    } finally {
+      setFileActionId(null);
+    }
+  };
+
+  const handleDownloadExportFile = async (record: AdminExportRecord) => {
+    setFileActionId(`export-download-${record.id}`);
+    try {
+      await contentApi.exports.downloadFile(record.id);
+    } catch (error) {
+      toast.error(extractApiError(error));
+    } finally {
+      setFileActionId(null);
+    }
+  };
+
+  const handleOpenImportFile = async (record: AdminContentImportRecord) => {
+    setFileActionId(`import-open-${record.id}`);
+    try {
+      await contentApi.imports.openFile(record.id);
+    } catch (error) {
+      toast.error(extractApiError(error));
+    } finally {
+      setFileActionId(null);
+    }
+  };
+
+  const handleDownloadImportFile = async (record: AdminContentImportRecord) => {
+    setFileActionId(`import-download-${record.id}`);
+    try {
+      await contentApi.imports.downloadFile(record.id);
+    } catch (error) {
+      toast.error(extractApiError(error));
+    } finally {
+      setFileActionId(null);
     }
   };
 
@@ -620,37 +686,7 @@ export function ContentPage() {
             </div>
 
             {tab === 'canvases' && (
-              <div className="grid gap-3 lg:grid-cols-6">
-                <Select
-                  value={isPublic}
-                  onValueChange={(value) =>
-                    setSearchParam(params, setParams, 'isPublic', value)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">Any visibility</SelectItem>
-                    <SelectItem value="true">Public</SelectItem>
-                    <SelectItem value="false">Private</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={hasThumbnail}
-                  onValueChange={(value) =>
-                    setSearchParam(params, setParams, 'hasThumbnail', value)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">Any thumbnail</SelectItem>
-                    <SelectItem value="true">Thumbnail</SelectItem>
-                    <SelectItem value="false">No thumbnail</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid gap-3 lg:grid-cols-4">
                 <Input
                   type="date"
                   value={createdFrom}
@@ -877,7 +913,11 @@ export function ContentPage() {
           </div>
 
           <TabsContent value="canvases" className="mt-0">
-            <CanvasTable rows={canvasRows} loading={canvasesQuery.isLoading} />
+            <CanvasTable
+              rows={canvasRows}
+              loading={canvasesQuery.isLoading}
+              onOpenPreview={setSelectedCanvasId}
+            />
           </TabsContent>
           <TabsContent value="live-sessions" className="mt-0">
             <LiveSessionsTable
@@ -886,10 +926,22 @@ export function ContentPage() {
             />
           </TabsContent>
           <TabsContent value="exports" className="mt-0">
-            <ExportsTable rows={exportRows} loading={exportRecordsQuery.isLoading} />
+            <ExportsTable
+              rows={exportRows}
+              loading={exportRecordsQuery.isLoading}
+              fileActionId={fileActionId}
+              onOpenFile={handleOpenExportFile}
+              onDownloadFile={handleDownloadExportFile}
+            />
           </TabsContent>
           <TabsContent value="imports" className="mt-0">
-            <ImportsTable rows={importRows} loading={importRecordsQuery.isLoading} />
+            <ImportsTable
+              rows={importRows}
+              loading={importRecordsQuery.isLoading}
+              fileActionId={fileActionId}
+              onOpenFile={handleOpenImportFile}
+              onDownloadFile={handleDownloadImportFile}
+            />
           </TabsContent>
         </Tabs>
 
@@ -900,6 +952,15 @@ export function ContentPage() {
           }
         />
       </Card>
+      <CanvasPreviewDialog
+        open={Boolean(selectedCanvasId)}
+        canvas={selectedCanvas}
+        loading={canvasPreviewQuery.isLoading || canvasPreviewQuery.isFetching}
+        error={canvasPreviewQuery.error}
+        onOpenChange={(open) => {
+          if (!open) setSelectedCanvasId(null);
+        }}
+      />
     </div>
   );
 }
@@ -907,9 +968,11 @@ export function ContentPage() {
 function CanvasTable({
   rows,
   loading,
+  onOpenPreview,
 }: {
   rows: AdminCanvasRecord[];
   loading: boolean;
+  onOpenPreview: (canvasId: string) => void;
 }) {
   if (loading) return <TableLoading />;
   return (
@@ -926,7 +989,19 @@ function CanvasTable({
       </TableHeader>
       <TableBody>
         {rows.map((canvas) => (
-          <TableRow key={canvas.id}>
+          <TableRow
+            key={canvas.id}
+            role="button"
+            tabIndex={0}
+            className="cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
+            onClick={() => onOpenPreview(canvas.id)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onOpenPreview(canvas.id);
+              }
+            }}
+          >
             <TableCell className="min-w-0">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="w-24 shrink-0">
@@ -981,6 +1056,166 @@ function CanvasTable({
         {rows.length === 0 && <EmptyContentRow colSpan={6} />}
       </TableBody>
     </Table>
+  );
+}
+
+function CanvasPreviewDialog({
+  open,
+  canvas,
+  loading,
+  error,
+  onOpenChange,
+}: {
+  open: boolean;
+  canvas: AdminCanvasRecord | null;
+  loading: boolean;
+  error: unknown;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const slides = useMemo(
+    () => [...(canvas?.slides ?? [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+    [canvas?.slides],
+  );
+  const [activeIndex, setActiveIndex] = useState(0);
+  const totalPages = canvas?._count.slides ?? slides.length;
+  const activeSlide = slides[activeIndex] ?? null;
+  const activeTitle =
+    activeSlide?.title ?? activeSlide?.name ?? `Page ${Math.min(activeIndex + 1, Math.max(totalPages, 1))}`;
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [canvas?.id]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowLeft') {
+        setActiveIndex((index) => Math.max(0, index - 1));
+      }
+      if (event.key === 'ArrowRight') {
+        setActiveIndex((index) => Math.min(Math.max(slides.length - 1, 0), index + 1));
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, slides.length]);
+
+  const canNavigate = slides.length > 1;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-[calc(100vw-1rem)] max-w-[1180px] gap-0 overflow-hidden p-0 sm:w-[calc(100vw-2rem)]">
+        <DialogHeader className="border-b border-line px-5 py-4 pr-12">
+          <DialogTitle>{canvas?.name ?? 'Canvas preview'}</DialogTitle>
+          <DialogDescription>
+            {totalPages} page{totalPages === 1 ? '' : 's'}
+            {canvas?.organization?.name ? ` - ${canvas.organization.name}` : ''}
+            {loading ? ' - Loading full board...' : ''}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid max-h-[calc(100dvh-9rem)] min-h-[420px] gap-4 overflow-y-auto p-4 lg:grid-cols-[minmax(0,1fr)_220px]">
+          <div className="min-w-0">
+            <div className="relative flex min-h-[300px] items-center justify-center overflow-hidden rounded-xl border border-line bg-surface-variant p-3">
+              {loading && !canvas ? (
+                <Spinner className="h-8 w-8 text-brand-primary" />
+              ) : error ? (
+                <div className="px-6 text-center text-sm text-danger">
+                  {extractApiError(error)}
+                </div>
+              ) : activeSlide ? (
+                <div className="w-full max-w-[900px]">
+                  <BoardPreviewTile
+                    title={activeTitle}
+                    thumbnail={activeSlide.thumbnail ?? null}
+                    slide={activeSlide}
+                  />
+                </div>
+              ) : (
+                <div className="px-6 text-center text-sm text-ink-500">
+                  No preview pages are available for this canvas.
+                </div>
+              )}
+
+              {canNavigate && (
+                <>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="secondary"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white shadow-sm"
+                    disabled={activeIndex === 0}
+                    title="Previous page"
+                    onClick={() => setActiveIndex((index) => Math.max(0, index - 1))}
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="secondary"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white shadow-sm"
+                    disabled={activeIndex >= slides.length - 1}
+                    title="Next page"
+                    onClick={() =>
+                      setActiveIndex((index) => Math.min(slides.length - 1, index + 1))
+                    }
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </Button>
+                </>
+              )}
+            </div>
+
+            <div className="mt-3 flex items-center justify-between gap-3 text-sm text-ink-500">
+              <span className="truncate font-medium text-ink-800">{activeTitle}</span>
+              <span className="shrink-0">
+                Page {slides.length ? activeIndex + 1 : 0} of {slides.length}
+              </span>
+            </div>
+          </div>
+
+          <div className="min-w-0">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-500">
+              Pages
+            </p>
+            <div className="flex gap-2 overflow-x-auto pb-2 lg:max-h-[60vh] lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden lg:pr-1">
+              {slides.map((slide, index) => {
+                const title = slide.title ?? slide.name ?? `Page ${index + 1}`;
+                return (
+                  <button
+                    key={slide.id}
+                    type="button"
+                    className={`w-32 shrink-0 rounded-lg border bg-white p-1 text-left transition lg:w-full ${
+                      index === activeIndex
+                        ? 'border-brand-primary ring-2 ring-brand-primary/20'
+                        : 'border-line hover:border-brand-primary/50'
+                    }`}
+                    onClick={() => setActiveIndex(index)}
+                    title={title}
+                  >
+                    <BoardPreviewTile
+                      title={title}
+                      thumbnail={slide.thumbnail ?? null}
+                      slide={slide}
+                      compact
+                    />
+                    <p className="mt-1 truncate px-1 text-[11px] font-medium text-ink-600">
+                      Page {index + 1}
+                    </p>
+                  </button>
+                );
+              })}
+              {!loading && slides.length === 0 && (
+                <div className="rounded-lg border border-dashed border-line p-4 text-sm text-ink-500">
+                  No pages found.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1059,108 +1294,118 @@ function LiveSessionsTable({
 function ExportsTable({
   rows,
   loading,
+  fileActionId,
+  onOpenFile,
+  onDownloadFile,
 }: {
   rows: AdminExportRecord[];
   loading: boolean;
+  fileActionId: string | null;
+  onOpenFile: (record: AdminExportRecord) => void;
+  onDownloadFile: (record: AdminExportRecord) => void;
 }) {
   if (loading) return <TableLoading />;
   return (
-    <Table className="min-w-[980px]">
+    <Table className="w-full min-w-0 table-fixed">
       <TableHeader>
         <TableRow>
-          <TableHead>Export</TableHead>
-          <TableHead>User</TableHead>
-          <TableHead>Format</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Size</TableHead>
-          <TableHead>Completed</TableHead>
-          <TableHead className="text-right">Actions</TableHead>
+          <TableHead className="w-[34%]">Export</TableHead>
+          <TableHead className="w-[20%]">User</TableHead>
+          <TableHead className="w-[8%]">Format</TableHead>
+          <TableHead className="w-[10%]">Status</TableHead>
+          <TableHead className="w-[8%]">Size</TableHead>
+          <TableHead className="w-[12%]">Completed</TableHead>
+          <TableHead className="w-[8%] text-right">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {rows.map((record) => (
-          <TableRow key={record.id}>
-            <TableCell className="min-w-0">
-              <div className="flex min-w-0 items-center gap-3">
-                <PreviewTile thumbnail={record.canvas?.thumbnail} icon="export" />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-ink-900">
-                    {record.canvas?.name ?? 'Canvas export'}
-                  </p>
-                  <p className="truncate text-xs text-ink-500">
-                    {record.fileName ?? record.canvas?.organization?.name ?? record.id}
-                  </p>
-                  {record.storageKey && (
-                    <p className="truncate text-[11px] text-ink-400">
-                      {record.storageKey}
+        {rows.map((record) => {
+          const pathLabel = compactPath(record.storageKey ?? record.fileUrl);
+          const hasFile = Boolean(record.storageKey);
+          const openActionId = `export-open-${record.id}`;
+          const downloadActionId = `export-download-${record.id}`;
+          return (
+            <TableRow key={record.id}>
+              <TableCell className="min-w-0">
+                <div className="flex min-w-0 items-center gap-3">
+                  <PreviewTile thumbnail={record.canvas?.thumbnail} icon="export" />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-ink-900">
+                      {record.canvas?.name ?? 'Canvas export'}
                     </p>
-                  )}
+                    <p
+                      className="truncate text-xs text-ink-500"
+                      title={record.fileName ?? undefined}
+                    >
+                      {record.fileName ?? record.canvas?.organization?.name ?? record.id}
+                    </p>
+                    {pathLabel && (
+                      <p
+                        className="truncate text-[11px] text-ink-400"
+                        title={record.storageKey ?? record.fileUrl ?? undefined}
+                      >
+                        {pathLabel}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </TableCell>
-            <TableCell>
-              <UserCell
-                name={record.user?.name}
-                email={record.user?.email}
-                role={record.user?.role}
-              />
-            </TableCell>
-            <TableCell className="whitespace-nowrap">
-              <Badge variant="default">{record.format}</Badge>
-            </TableCell>
-            <TableCell className="whitespace-nowrap">
-              <Badge variant={exportStatusVariant(record.status)}>
-                {EXPORT_STATUS_LABEL[record.status]}
-              </Badge>
-            </TableCell>
-            <TableCell>
-              <p className="text-sm text-ink-700">{formatBytes(record.fileSize)}</p>
-            </TableCell>
-            <TableCell className="whitespace-nowrap">
-              <p className="text-xs leading-5 text-ink-500">
-                {formatDateTime(record.completedAt)}
-              </p>
-            </TableCell>
-            <TableCell className="text-right whitespace-nowrap">
-              <div className="flex justify-end gap-1 whitespace-nowrap">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  disabled={!record.fileUrl}
-                  title="Open export"
-                  asChild={Boolean(record.fileUrl)}
-                >
-                  {record.fileUrl ? (
-                    <a href={record.fileUrl} target="_blank" rel="noreferrer">
-                      <Eye className="h-4 w-4 text-brand-primary" />
-                    </a>
-                  ) : (
-                    <span>
-                      <Eye className="h-4 w-4 text-ink-300" />
-                    </span>
-                  )}
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  disabled={!record.fileUrl}
-                  title="Download export"
-                  asChild={Boolean(record.fileUrl)}
-                >
-                  {record.fileUrl ? (
-                    <a href={record.fileUrl} download>
-                      <Download className="h-4 w-4 text-brand-orange" />
-                    </a>
-                  ) : (
-                    <span>
-                      <Download className="h-4 w-4 text-ink-300" />
-                    </span>
-                  )}
-                </Button>
-              </div>
-            </TableCell>
-          </TableRow>
-        ))}
+              </TableCell>
+              <TableCell className="min-w-0">
+                <UserCell
+                  name={record.user?.name}
+                  email={record.user?.email}
+                  role={record.user?.role}
+                />
+              </TableCell>
+              <TableCell className="whitespace-nowrap">
+                <Badge variant="default">{record.format}</Badge>
+              </TableCell>
+              <TableCell className="whitespace-nowrap">
+                <Badge variant={exportStatusVariant(record.status)}>
+                  {EXPORT_STATUS_LABEL[record.status]}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <p className="text-sm text-ink-700">{formatBytes(record.fileSize)}</p>
+              </TableCell>
+              <TableCell className="whitespace-nowrap">
+                <p className="text-xs leading-5 text-ink-500">
+                  {formatDateTime(record.completedAt)}
+                </p>
+              </TableCell>
+              <TableCell className="text-right whitespace-nowrap">
+                <div className="flex justify-end gap-1 whitespace-nowrap">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    disabled={!hasFile || Boolean(fileActionId)}
+                    title="Open export"
+                    onClick={() => onOpenFile(record)}
+                  >
+                    {fileActionId === openActionId ? (
+                      <Spinner className="h-4 w-4 text-brand-primary" />
+                    ) : (
+                      <Eye className={`h-4 w-4 ${hasFile ? 'text-brand-primary' : 'text-ink-300'}`} />
+                    )}
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    disabled={!hasFile || Boolean(fileActionId)}
+                    title="Download export"
+                    onClick={() => onDownloadFile(record)}
+                  >
+                    {fileActionId === downloadActionId ? (
+                      <Spinner className="h-4 w-4 text-brand-orange" />
+                    ) : (
+                      <Download className={`h-4 w-4 ${hasFile ? 'text-brand-orange' : 'text-ink-300'}`} />
+                    )}
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          );
+        })}
         {rows.length === 0 && <EmptyContentRow colSpan={7} />}
       </TableBody>
     </Table>
@@ -1170,98 +1415,122 @@ function ExportsTable({
 function ImportsTable({
   rows,
   loading,
+  fileActionId,
+  onOpenFile,
+  onDownloadFile,
 }: {
   rows: AdminContentImportRecord[];
   loading: boolean;
+  fileActionId: string | null;
+  onOpenFile: (record: AdminContentImportRecord) => void;
+  onDownloadFile: (record: AdminContentImportRecord) => void;
 }) {
   if (loading) return <TableLoading />;
   return (
-    <Table className="min-w-[980px]">
+    <Table className="w-full min-w-0 table-fixed">
       <TableHeader>
         <TableRow>
-          <TableHead>Import</TableHead>
-          <TableHead>User</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Size</TableHead>
-          <TableHead>Created</TableHead>
-          <TableHead>Converted</TableHead>
-          <TableHead className="text-right">Actions</TableHead>
+          <TableHead className="w-[34%]">Import</TableHead>
+          <TableHead className="w-[19%]">User</TableHead>
+          <TableHead className="w-[11%]">Status</TableHead>
+          <TableHead className="w-[8%]">Size</TableHead>
+          <TableHead className="w-[10%]">Created</TableHead>
+          <TableHead className="w-[10%]">Converted</TableHead>
+          <TableHead className="w-[8%] text-right">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {rows.map((record) => (
-          <TableRow key={record.id}>
-            <TableCell className="min-w-0">
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-12 w-16 shrink-0 items-center justify-center rounded-lg border border-line bg-surface-variant">
-                  <FileUp className="h-5 w-5 text-brand-primary" />
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-ink-900">
-                    {record.sourceName}
-                  </p>
-                  <p className="truncate text-xs text-ink-500">
-                    {record.organization?.name ?? record.mimeType ?? record.id}
-                  </p>
-                  {record.storageKey && (
-                    <p className="truncate text-[11px] text-ink-400">
-                      {record.storageKey}
+        {rows.map((record) => {
+          const pathLabel = compactPath(record.storageKey ?? record.publicUrl);
+          const hasFile = Boolean(record.storageKey);
+          const openActionId = `import-open-${record.id}`;
+          const downloadActionId = `import-download-${record.id}`;
+          return (
+            <TableRow key={record.id}>
+              <TableCell className="min-w-0">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-12 w-16 shrink-0 items-center justify-center rounded-lg border border-line bg-surface-variant">
+                    <FileUp className="h-5 w-5 text-brand-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-ink-900" title={record.sourceName}>
+                      {record.sourceName}
                     </p>
-                  )}
+                    <p className="truncate text-xs text-ink-500">
+                      {record.organization?.name ?? record.mimeType ?? record.id}
+                    </p>
+                    {pathLabel && (
+                      <p
+                        className="truncate text-[11px] text-ink-400"
+                        title={record.storageKey ?? record.publicUrl ?? undefined}
+                      >
+                        {pathLabel}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </TableCell>
-            <TableCell>
-              <UserCell
-                name={record.user?.name}
-                email={record.user?.email}
-                role={record.userRole ?? record.user?.role}
-              />
-            </TableCell>
-            <TableCell className="whitespace-nowrap">
-              <Badge variant={importStatusVariant(record.status)}>
-                {CONTENT_IMPORT_STATUS_LABEL[record.status]}
-              </Badge>
-              {record.error && (
-                <p className="mt-1 max-w-52 truncate text-xs text-danger">{record.error}</p>
-              )}
-            </TableCell>
-            <TableCell>
-              <p className="text-sm text-ink-700">{formatBytes(record.sizeBytes)}</p>
-            </TableCell>
-            <TableCell className="whitespace-nowrap">
-              <p className="text-xs leading-5 text-ink-500">
-                {formatDateTime(record.createdAt)}
-              </p>
-            </TableCell>
-            <TableCell className="whitespace-nowrap">
-              <p className="text-xs leading-5 text-ink-500">
-                {formatDateTime(record.convertedAt)}
-              </p>
-            </TableCell>
-            <TableCell className="text-right whitespace-nowrap">
-              <div className="flex justify-end gap-1 whitespace-nowrap">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  disabled={!record.publicUrl}
-                  title="Open import"
-                  asChild={Boolean(record.publicUrl)}
-                >
-                  {record.publicUrl ? (
-                    <a href={record.publicUrl} target="_blank" rel="noreferrer">
-                      <Eye className="h-4 w-4 text-brand-primary" />
-                    </a>
-                  ) : (
-                    <span>
-                      <Eye className="h-4 w-4 text-ink-300" />
-                    </span>
-                  )}
-                </Button>
-              </div>
-            </TableCell>
-          </TableRow>
-        ))}
+              </TableCell>
+              <TableCell className="min-w-0">
+                <UserCell
+                  name={record.user?.name}
+                  email={record.user?.email}
+                  role={record.userRole ?? record.user?.role}
+                />
+              </TableCell>
+              <TableCell className="whitespace-nowrap">
+                <Badge variant={importStatusVariant(record.status)}>
+                  {CONTENT_IMPORT_STATUS_LABEL[record.status]}
+                </Badge>
+                {record.error && (
+                  <p className="mt-1 max-w-52 truncate text-xs text-danger">{record.error}</p>
+                )}
+              </TableCell>
+              <TableCell>
+                <p className="text-sm text-ink-700">{formatBytes(record.sizeBytes)}</p>
+              </TableCell>
+              <TableCell className="whitespace-nowrap">
+                <p className="text-xs leading-5 text-ink-500">
+                  {formatDateTime(record.createdAt)}
+                </p>
+              </TableCell>
+              <TableCell className="whitespace-nowrap">
+                <p className="text-xs leading-5 text-ink-500">
+                  {formatDateTime(record.convertedAt)}
+                </p>
+              </TableCell>
+              <TableCell className="text-right whitespace-nowrap">
+                <div className="flex justify-end gap-1 whitespace-nowrap">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    disabled={!hasFile || Boolean(fileActionId)}
+                    title="Open import"
+                    onClick={() => onOpenFile(record)}
+                  >
+                    {fileActionId === openActionId ? (
+                      <Spinner className="h-4 w-4 text-brand-primary" />
+                    ) : (
+                      <Eye className={`h-4 w-4 ${hasFile ? 'text-brand-primary' : 'text-ink-300'}`} />
+                    )}
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    disabled={!hasFile || Boolean(fileActionId)}
+                    title="Download import"
+                    onClick={() => onDownloadFile(record)}
+                  >
+                    {fileActionId === downloadActionId ? (
+                      <Spinner className="h-4 w-4 text-brand-orange" />
+                    ) : (
+                      <Download className={`h-4 w-4 ${hasFile ? 'text-brand-orange' : 'text-ink-300'}`} />
+                    )}
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          );
+        })}
         {rows.length === 0 && <EmptyContentRow colSpan={7} />}
       </TableBody>
     </Table>

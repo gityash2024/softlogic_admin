@@ -53,7 +53,24 @@ export interface BulkInviteResult {
 
 export const usersApi = {
   list: (query?: AdminListQuery) => getAdminList<AdminUser>('/admin/users', query),
-  all: async () => (await getAdminList<AdminUser>('/admin/users', { perPage: 100 })).data,
+  all: async () => {
+    const users: AdminUser[] = [];
+    let page = 1;
+    while (true) {
+      const result = await getAdminList<AdminUser>('/admin/users', {
+        page,
+        perPage: 100,
+        scope: 'ALL',
+        sortBy: 'name',
+        sortOrder: 'asc',
+      });
+      users.push(...result.data);
+      if (!result.meta.hasNextPage || page >= (result.meta.totalPages ?? 1)) {
+        return users;
+      }
+      page += 1;
+    }
+  },
   get: (id: string) => getAdminItem<AdminUser>(`/admin/users/${id}`),
   export: (query: AdminListQuery, format: AdminExportFormat) =>
     downloadAdminExport('/admin/users/export', query, format),

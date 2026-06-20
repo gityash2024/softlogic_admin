@@ -1,7 +1,9 @@
 import {
+  downloadAdminFile,
   downloadAdminExport,
   getAdminItem,
   getAdminList,
+  openAdminFile,
   type AdminExportFormat,
   type AdminListQuery,
 } from './admin-api';
@@ -36,6 +38,10 @@ export const contentApi = {
       getAdminItem<AdminExportRecord>(`/admin/content/exports/${id}`),
     export: (query: AdminListQuery, format: AdminExportFormat) =>
       downloadAdminExport('/admin/content/exports/export', query, format),
+    openFile: (id: string) =>
+      openAdminFile(`/admin/content/exports/${id}/file`),
+    downloadFile: (id: string) =>
+      downloadAdminFile(`/admin/content/exports/${id}/file`),
   },
   imports: {
     list: (query?: AdminListQuery) =>
@@ -44,5 +50,9 @@ export const contentApi = {
       getAdminItem<AdminContentImportRecord>(`/admin/content/imports/${id}`),
     export: (query: AdminListQuery, format: AdminExportFormat) =>
       downloadAdminExport('/admin/content/imports/export', query, format),
+    openFile: (id: string) =>
+      openAdminFile(`/admin/content/imports/${id}/file`),
+    downloadFile: (id: string) =>
+      downloadAdminFile(`/admin/content/imports/${id}/file`),
   },
 };
