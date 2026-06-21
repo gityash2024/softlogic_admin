@@ -11,6 +11,7 @@ import {
   MonitorPlay,
   Presentation,
   Search,
+  Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -1235,6 +1236,7 @@ function LiveSessionsTable({
           <TableHead>Host</TableHead>
           <TableHead>Status</TableHead>
           <TableHead>Engagement</TableHead>
+          <TableHead>AI output</TableHead>
           <TableHead>Started</TableHead>
           <TableHead>Ended</TableHead>
         </TableRow>
@@ -1274,6 +1276,21 @@ function LiveSessionsTable({
               </div>
             </TableCell>
             <TableCell className="whitespace-nowrap">
+              {session.events?.[0] ? (
+                <div className="space-y-1">
+                  <Badge variant="info">
+                    <Sparkles className="h-3 w-3" />
+                    Notes ready
+                  </Badge>
+                  <p className="text-[11px] text-ink-500">
+                    {formatDateTime(session.events[0].createdAt)}
+                  </p>
+                </div>
+              ) : (
+                <span className="text-xs text-ink-400">Not generated</span>
+              )}
+            </TableCell>
+            <TableCell className="whitespace-nowrap">
               <p className="text-xs leading-5 text-ink-500">
                 {formatDateTime(session.startedAt)}
               </p>
@@ -1285,7 +1302,7 @@ function LiveSessionsTable({
             </TableCell>
           </TableRow>
         ))}
-        {rows.length === 0 && <EmptyContentRow colSpan={6} />}
+        {rows.length === 0 && <EmptyContentRow colSpan={7} />}
       </TableBody>
     </Table>
   );

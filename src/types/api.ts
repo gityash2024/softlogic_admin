@@ -785,6 +785,11 @@ export interface AdminLiveSessionRecord {
     name: string | null;
     role: UserRole;
   } | null;
+  events: Array<{
+    id: string;
+    type: 'AI_SUMMARY_GENERATED';
+    createdAt: string;
+  }>;
   _count: {
     participants: number;
     messages: number;
