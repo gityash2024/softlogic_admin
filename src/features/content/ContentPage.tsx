@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   ChevronLeft,
@@ -176,6 +176,7 @@ function PreviewTile({
 }
 
 export function ContentPage() {
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const { user: actor } = useAuthStore();
   const [exporting, setExporting] = useState<AdminExportFormat | null>(null);
@@ -924,6 +925,9 @@ export function ContentPage() {
             <LiveSessionsTable
               rows={liveRows}
               loading={liveSessionsQuery.isLoading}
+              onOpenSession={(sessionId) =>
+                navigate(`/content/live-sessions/${sessionId}`)
+              }
             />
           </TabsContent>
           <TabsContent value="exports" className="mt-0">
@@ -1223,9 +1227,11 @@ function CanvasPreviewDialog({
 function LiveSessionsTable({
   rows,
   loading,
+  onOpenSession,
 }: {
   rows: AdminLiveSessionRecord[];
   loading: boolean;
+  onOpenSession: (sessionId: string) => void;
 }) {
   if (loading) return <TableLoading />;
   return (
@@ -1243,7 +1249,19 @@ function LiveSessionsTable({
       </TableHeader>
       <TableBody>
         {rows.map((session) => (
-          <TableRow key={session.id}>
+          <TableRow
+            key={session.id}
+            role="button"
+            tabIndex={0}
+            className="cursor-pointer transition-colors hover:bg-brand-primary/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-primary"
+            onClick={() => onOpenSession(session.id)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onOpenSession(session.id);
+              }
+            }}
+          >
             <TableCell className="min-w-0">
               <div className="flex min-w-0 items-center gap-3">
                 <PreviewTile thumbnail={session.canvas?.thumbnail} icon="session" />

@@ -892,6 +892,12 @@ function SessionCard({
       {canManage && (
         <div className="mt-4 space-y-3 border-t border-line pt-3">
           <div className="flex flex-wrap gap-2">
+            <Button asChild type="button" size="sm" variant="outline">
+              <Link to={`/teacher/sessions/${session.id}`}>
+                <Eye className="h-4 w-4" />
+                Details
+              </Link>
+            </Button>
             <Button
               type="button"
               size="sm"

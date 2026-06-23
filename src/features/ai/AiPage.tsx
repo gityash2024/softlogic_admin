@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { io } from 'socket.io-client';
-import { BrainCircuit, CheckCircle2, CloudCog, Database, KeyRound, RefreshCw, Save, Send, Undo2, Wallet } from 'lucide-react';
+import { BrainCircuit, CheckCircle2, ChevronDown, CloudCog, Database, KeyRound, RefreshCw, Save, Send, Undo2, Wallet } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -54,6 +54,13 @@ type PricingFormRow = {
   imageUsdEach: string;
   searchUsdPerThousand: string;
   enabled: boolean;
+};
+
+type AiOverviewOrganization = AiOverview['organizations'][number];
+
+type OrganizationCreditRow = {
+  organization: AiOverviewOrganization;
+  account: AiCreditAccountSummary | undefined;
 };
 
 const pricingRowFromSummary = (row: AiModelPricingSummary): PricingFormRow => ({
@@ -140,6 +147,9 @@ export function AiPage() {
     minCredits: '',
     maxCredits: '',
   });
+  const [openOrganizationGroups, setOpenOrganizationGroups] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   const overviewQuery = useQuery({
     queryKey: ['ai-overview'],
@@ -362,6 +372,41 @@ export function AiPage() {
       })),
     [data],
   );
+  const visibleOrgGroups = useMemo(() => {
+    const rowsById = new Map(visibleOrgRows.map((row) => [row.organization.id, row]));
+    const childrenByParentId = new Map<string, OrganizationCreditRow[]>();
+
+    visibleOrgRows.forEach((row) => {
+      const parentId = row.organization.parentOrganizationId;
+      if (!parentId || !rowsById.has(parentId)) return;
+      const existingChildren = childrenByParentId.get(parentId) ?? [];
+      existingChildren.push(row);
+      childrenByParentId.set(parentId, existingChildren);
+    });
+
+    const collectChildren = (
+      parentId: string,
+      visitedIds = new Set<string>(),
+    ): OrganizationCreditRow[] => {
+      if (visitedIds.has(parentId)) return [];
+      visitedIds.add(parentId);
+
+      return (childrenByParentId.get(parentId) ?? []).flatMap((child) => [
+        child,
+        ...collectChildren(child.organization.id, new Set(visitedIds)),
+      ]);
+    };
+
+    return visibleOrgRows
+      .filter((row) => {
+        const parentId = row.organization.parentOrganizationId;
+        return !parentId || !rowsById.has(parentId);
+      })
+      .map((parent) => ({
+        parent,
+        children: collectChildren(parent.organization.id),
+      }));
+  }, [visibleOrgRows]);
   const visibleUserRows = useMemo(
     () =>
       (data?.users ?? [])
@@ -467,6 +512,18 @@ export function AiPage() {
       return;
     }
     reclaimMutation.mutate();
+  };
+
+  const toggleOrganizationGroup = (organizationId: string) => {
+    setOpenOrganizationGroups((current) => {
+      const next = new Set(current);
+      if (next.has(organizationId)) {
+        next.delete(organizationId);
+      } else {
+        next.add(organizationId);
+      }
+      return next;
+    });
   };
 
   if (overviewQuery.isLoading) {
@@ -985,25 +1042,65 @@ export function AiPage() {
 
       <Card className="px-4 py-5 sm:px-6">
         <h3 className="text-base font-bold text-ink-900">Organizations</h3>
-        <div className="mt-4 overflow-x-auto scrollbar-thin">
-          <table className="min-w-[920px] text-left text-sm">
-            <thead className="text-xs uppercase tracking-wide text-ink-500">
-              <tr>
-                <th className="py-2 pr-4">Organization</th>
-                <th className="py-2 pr-4">Allocated</th>
-                <th className="py-2 pr-4">Used</th>
-                <th className="py-2 pr-4">Reserved</th>
-                <th className="py-2 pr-4">Child allocated</th>
-                <th className="py-2 pr-4">Available</th>
-                <th className="py-2 pr-4">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleOrgRows.map(({ organization, account }) => (
-                <CreditRow key={organization.id} name={organization.name} account={account} />
-              ))}
-            </tbody>
-          </table>
+        <div className="mt-4 space-y-3">
+          {visibleOrgGroups.map(({ parent, children }) => {
+            const isOpen = openOrganizationGroups.has(parent.organization.id);
+            const childLabel = `${children.length} child organization${children.length === 1 ? '' : 's'}`;
+
+            return (
+              <section key={parent.organization.id} className="overflow-hidden rounded-lg border border-line bg-white">
+                <button
+                  type="button"
+                  aria-expanded={isOpen}
+                  aria-controls={`ai-org-group-${parent.organization.id}`}
+                  className="flex w-full flex-col gap-3 px-3 py-3 text-left transition hover:bg-surface-variant/70 sm:flex-row sm:items-center sm:justify-between"
+                  onClick={() => toggleOrganizationGroup(parent.organization.id)}
+                >
+                  <span className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-line bg-surface-variant text-ink-600">
+                      <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-ink-900">
+                        {parent.organization.name}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-ink-500">
+                        {children.length ? childLabel : 'No child organizations'}
+                      </span>
+                    </span>
+                  </span>
+                  <span className="grid w-full grid-cols-2 gap-2 text-xs sm:w-auto sm:grid-cols-[auto_auto_auto] sm:items-center sm:gap-6">
+                    <OrganizationHeaderMetric label="Allocated" value={formatTokens(parent.account?.allocatedTokens)} />
+                    <OrganizationHeaderMetric label="Available" value={formatTokens(parent.account?.availableTokens)} />
+                    <span className="col-span-2 sm:col-span-1">
+                      {parent.account ? (
+                        <StatusBadge account={parent.account} />
+                      ) : (
+                        <span className="text-xs text-ink-500">No pool yet</span>
+                      )}
+                    </span>
+                  </span>
+                </button>
+                {isOpen ? (
+                  <div id={`ai-org-group-${parent.organization.id}`} className="space-y-4 border-t border-line px-3 py-4">
+                    <OrganizationCreditTable title="Parent details" rows={[parent]} />
+                    {children.length ? (
+                      <OrganizationCreditTable title="Child organizations" rows={children} />
+                    ) : (
+                      <p className="rounded-lg border border-dashed border-line px-3 py-4 text-sm text-ink-500">
+                        No child organizations under this parent.
+                      </p>
+                    )}
+                  </div>
+                ) : null}
+              </section>
+            );
+          })}
+          {!visibleOrgGroups.length ? (
+            <p className="rounded-lg border border-dashed border-line px-3 py-4 text-sm text-ink-500">
+              No organizations found.
+            </p>
+          ) : null}
         </div>
       </Card>
 
@@ -1166,6 +1263,43 @@ function ModelField({ label, value }: { label: string; value: string }) {
     <div className="space-y-1.5">
       <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">{label}</label>
       <Input value={value} disabled readOnly />
+    </div>
+  );
+}
+
+function OrganizationHeaderMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="min-w-[6.5rem]">
+      <span className="block text-[11px] font-semibold uppercase tracking-wide text-ink-500">{label}</span>
+      <span className="block font-bold text-ink-900">{value}</span>
+    </span>
+  );
+}
+
+function OrganizationCreditTable({ title, rows }: { title: string; rows: OrganizationCreditRow[] }) {
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">{title}</p>
+      <div className="overflow-x-auto scrollbar-thin">
+        <table className="min-w-[920px] text-left text-sm">
+          <thead className="text-xs uppercase tracking-wide text-ink-500">
+            <tr>
+              <th className="py-2 pr-4">Organization</th>
+              <th className="py-2 pr-4">Allocated</th>
+              <th className="py-2 pr-4">Used</th>
+              <th className="py-2 pr-4">Reserved</th>
+              <th className="py-2 pr-4">Child allocated</th>
+              <th className="py-2 pr-4">Available</th>
+              <th className="py-2 pr-4">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ organization, account }) => (
+              <CreditRow key={organization.id} name={organization.name} account={account} />
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

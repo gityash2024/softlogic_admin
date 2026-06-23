@@ -26,6 +26,7 @@ import { NewSupportThreadPage } from '@/features/support/NewSupportThreadPage';
 import { ThreadDetailPage as SupportThreadDetailPage } from '@/features/support/ThreadDetailPage';
 import { SupportInboxPage } from '@/features/support/SupportInboxPage';
 import { ContentPage } from '@/features/content/ContentPage';
+import { LiveSessionDetailPage } from '@/features/content/LiveSessionDetailPage';
 import { ActivityPage } from '@/features/activity/ActivityPage';
 import { LicensePage } from '@/features/license/LicensePage';
 import { AiPage } from '@/features/ai/AiPage';
@@ -55,6 +56,7 @@ export const router = createBrowserRouter([
               { path: '/users/new', element: <UserFormPage /> },
               { path: '/users/:id/edit', element: <UserFormPage /> },
               { path: '/content', element: <ContentPage /> },
+              { path: '/content/live-sessions/:id', element: <LiveSessionDetailPage /> },
               { path: '/organizations', element: <OrganizationsPage /> },
               { path: '/organizations/new', element: <OrganizationFormPage /> },
               { path: '/organizations/:id/edit', element: <OrganizationFormPage /> },
@@ -84,6 +86,12 @@ export const router = createBrowserRouter([
               { path: '/teacher/dashboard', element: <RolePortalPage module="dashboard" /> },
               { path: '/teacher/boards', element: <RolePortalPage module="boards" /> },
               { path: '/teacher/sessions', element: <RolePortalPage module="sessions" /> },
+              {
+                element: <RoleRoute roles={['TEACHER']} />,
+                children: [
+                  { path: '/teacher/sessions/:id', element: <LiveSessionDetailPage /> },
+                ],
+              },
               { path: '/teacher/materials', element: <RolePortalPage module="materials" /> },
               { path: '/student/dashboard', element: <RolePortalPage module="dashboard" /> },
               { path: '/student/join', element: <RolePortalPage module="join" /> },

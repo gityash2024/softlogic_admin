@@ -75,7 +75,7 @@ const schema = z
   });
 
 type FormValues = z.infer<typeof schema>;
-const INTERNAL_PLAN_NAME = 'Internal Unlimited';
+const INTERNAL_PLAN_NAME = 'Enterprises';
 
 const DURATION_OPTIONS: Array<{ value: string; label: string; months: number | null }> = [
   { value: 'custom', label: 'Custom', months: null },

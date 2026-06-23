@@ -771,6 +771,12 @@ export interface AdminLiveSessionRecord {
     id: string;
     name: string;
     thumbnail?: string | null;
+    description?: string | null;
+    userId?: string;
+    organizationId?: string | null;
+    isPublic?: boolean;
+    createdAt?: string;
+    updatedAt?: string;
   };
   organization: OrganizationSummary | null;
   createdBy: {
@@ -785,10 +791,87 @@ export interface AdminLiveSessionRecord {
     name: string | null;
     role: UserRole;
   } | null;
+  participants?: Array<{
+    id: string;
+    liveSessionId: string;
+    userId: string;
+    role: 'HOST' | 'TEACHER' | 'STUDENT' | 'OBSERVER';
+    joinedAt: string;
+    leftAt: string | null;
+    user: {
+      id: string;
+      email: string;
+      name: string | null;
+      role: UserRole;
+    };
+  }>;
+  messages?: Array<{
+    id: string;
+    liveSessionId: string;
+    senderUserId: string | null;
+    guestParticipantId: string | null;
+    type: 'TEXT' | 'VOICE_NOTE' | 'MEDIA' | 'SYSTEM';
+    body: string | null;
+    attachmentUrl: string | null;
+    attachmentName: string | null;
+    metadata: Record<string, unknown> | null;
+    createdAt: string;
+    sender?: {
+      id: string;
+      email: string;
+      name: string | null;
+      role: UserRole;
+    } | null;
+    guestParticipant?: {
+      id: string;
+      displayName: string | null;
+      role: 'HOST' | 'TEACHER' | 'STUDENT' | 'OBSERVER';
+    } | null;
+  }>;
+  mediaAssets?: Array<{
+    id: string;
+    liveSessionId: string;
+    uploadedById: string;
+    kind: 'FILE' | 'IMAGE' | 'VIDEO' | 'VOICE_NOTE' | 'IMPORT';
+    fileName: string;
+    mimeType: string;
+    sizeBytes: number;
+    storageKey: string;
+    publicUrl: string | null;
+    metadata: Record<string, unknown> | null;
+    createdAt: string;
+  }>;
+  recordings?: Array<{
+    id: string;
+    liveSessionId: string;
+    createdById: string;
+    status: 'PROCESSING' | 'READY' | 'FAILED';
+    storageKey: string | null;
+    publicUrl: string | null;
+    durationSeconds: number | null;
+    metadata: Record<string, unknown> | null;
+    createdAt: string;
+    updatedAt: string;
+    createdBy?: {
+      id: string;
+      email: string;
+      name: string | null;
+      role: UserRole;
+    };
+  }>;
   events: Array<{
     id: string;
-    type: 'AI_SUMMARY_GENERATED';
+    liveSessionId?: string;
+    actorUserId?: string | null;
+    type: string;
+    payload?: Record<string, unknown> | null;
     createdAt: string;
+    actor?: {
+      id: string;
+      email: string;
+      name: string | null;
+      role: UserRole;
+    } | null;
   }>;
   _count: {
     participants: number;

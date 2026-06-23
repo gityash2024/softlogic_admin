@@ -107,7 +107,17 @@ export function Topbar({ onMenuClick }: TopbarProps) {
   const { user } = useAuthStore();
   const brand = runtimeBrandForOrganization(user?.primaryOrganization);
   const meta = PATH_TO_TITLE[location.pathname] ??
-    (location.pathname.startsWith('/users/')
+    (location.pathname.startsWith('/content/live-sessions/')
+      ? {
+          title: 'Live Session Details',
+          subtitle: 'Participants, messages, media, events, and AI output',
+        }
+      : location.pathname.startsWith('/teacher/sessions/')
+        ? {
+            title: 'Live Session Details',
+            subtitle: 'Teaching session activity and learning records',
+          }
+      : location.pathname.startsWith('/users/')
       ? { title: 'User Form', subtitle: 'Create or edit account access' }
       : location.pathname.startsWith('/organizations/')
         ? {
