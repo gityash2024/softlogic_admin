@@ -32,6 +32,11 @@ export interface ForceLogoutResult {
   revoked: boolean;
 }
 
+export interface ForceVersionPayload {
+  releaseId: string;
+  forced: boolean;
+}
+
 export interface BulkInviteUser {
   email: string;
   name?: string;
@@ -95,6 +100,19 @@ export const usersApi = {
   forceLogout: async (id: string) => {
     const res = await api.post<ApiResponse<ForceLogoutResult>>(
       `/admin/users/${id}/force-logout`,
+    );
+    return res.data.data;
+  },
+  forceVersion: async (id: string, payload: ForceVersionPayload) => {
+    const res = await api.post<ApiResponse<unknown>>(
+      `/admin/users/${id}/force-version`,
+      payload,
+    );
+    return res.data.data;
+  },
+  clearForcedVersion: async (id: string) => {
+    const res = await api.delete<ApiResponse<unknown>>(
+      `/admin/users/${id}/force-version`,
     );
     return res.data.data;
   },

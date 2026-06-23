@@ -12,7 +12,9 @@ import {
   PlayCircle,
   Plus,
   Search,
+  ShieldAlert,
   ShieldCheck,
+  Smartphone,
   Trash2,
   Upload,
   UserRoundCheck,
@@ -21,6 +23,7 @@ import { toast } from 'sonner';
 
 import { usersApi, type BulkInviteResult, type BulkInviteUser } from '@/services/users.api';
 import { organizationsApi } from '@/services/organizations.api';
+import { downloadsApi } from '@/services/downloads.api';
 import { authApi } from '@/services/auth.api';
 import type { AdminExportFormat, AdminListQuery } from '@/services/admin-api';
 import { extractApiError } from '@/lib/api';
@@ -172,6 +175,11 @@ export function UsersPage() {
   } | null>(null);
   const [deleteAction, setDeleteAction] = useState<AdminUser | null>(null);
   const [logoutAction, setLogoutAction] = useState<AdminUser | null>(null);
+  const [versionAction, setVersionAction] = useState<{
+    user: AdminUser;
+    releaseId: string;
+    forced: boolean;
+  } | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [csvText, setCsvText] = useState('');
   const [bulkResult, setBulkResult] = useState<BulkInviteResult | null>(null);
@@ -193,6 +201,8 @@ export function UsersPage() {
   const createdTo = params.get('createdTo') ?? '';
   const lastSeenFrom = params.get('lastSeenFrom') ?? '';
   const lastSeenTo = params.get('lastSeenTo') ?? '';
+  const appVersionOp = params.get('appVersionOp') ?? 'ALL';
+  const appVersionBuild = params.get('appVersionBuild') ?? '';
   const superAdminNeedsOrganization =
     isSuperAdmin &&
     partnerOrganizationId === ALL_PARTNERS_VALUE &&
@@ -219,10 +229,15 @@ export function UsersPage() {
       createdTo,
       lastSeenFrom,
       lastSeenTo,
+      appVersionOp: appVersionOp === 'ALL' ? undefined : appVersionOp,
+      appVersionBuild:
+        appVersionOp === 'ALL' || !appVersionBuild ? undefined : appVersionBuild,
       sortBy: params.get('sortBy') ?? 'createdAt',
       sortOrder: params.get('sortOrder') ?? 'desc',
     }),
     [
+      appVersionBuild,
+      appVersionOp,
       createdFrom,
       createdTo,
       isEmailVerified,
@@ -247,6 +262,27 @@ export function UsersPage() {
     queryKey: ['organizations', 'all'],
     queryFn: organizationsApi.all,
   });
+  // Published releases power the version dropdowns (filter + force action).
+  // Super-admin-only endpoint, so only fetch when the actor can use them.
+  const releasesQuery = useQuery({
+    queryKey: ['app-releases'],
+    queryFn: downloadsApi.list,
+    enabled: isSuperAdmin,
+  });
+  const releases = releasesQuery.data ?? [];
+  // Distinct version options (versionName + buildNumber), newest build first.
+  const releaseVersionOptions = useMemo(() => {
+    const byBuild = new Map<number, { buildNumber: number; versionName: string }>();
+    for (const release of releases) {
+      if (!byBuild.has(release.buildNumber)) {
+        byBuild.set(release.buildNumber, {
+          buildNumber: release.buildNumber,
+          versionName: release.versionName,
+        });
+      }
+    }
+    return Array.from(byBuild.values()).sort((a, b) => b.buildNumber - a.buildNumber);
+  }, [releases]);
 
   const users = usersQuery.data?.data ?? [];
   const meta = usersQuery.data?.meta;
@@ -301,8 +337,20 @@ export function UsersPage() {
         value: lastSeenFrom,
       },
       lastSeenTo && { key: 'lastSeenTo', label: 'Seen to', value: lastSeenTo },
+      appVersionOp !== 'ALL' &&
+        appVersionBuild && {
+          key: 'appVersionBuild',
+          label: 'App version',
+          value: `${appVersionOp.toLowerCase()} ${
+            releaseVersionOptions.find(
+              (option) => String(option.buildNumber) === appVersionBuild,
+            )?.versionName ?? `build ${appVersionBuild}`
+          }`,
+        },
     ].filter(Boolean) as FilterChip[];
   }, [
+    appVersionBuild,
+    appVersionOp,
     createdFrom,
     createdTo,
     isEmailVerified,
@@ -314,6 +362,7 @@ export function UsersPage() {
     partnerOrganizationId,
     partners,
     pendingOnly,
+    releaseVersionOptions,
     role,
     search,
     status,
@@ -358,6 +407,34 @@ export function UsersPage() {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       toast.success('All active sessions revoked');
       setLogoutAction(null);
+    },
+    onError: (err) => toast.error(extractApiError(err)),
+  });
+
+  const forceVersion = useMutation({
+    mutationFn: ({
+      id,
+      releaseId,
+      forced,
+    }: {
+      id: string;
+      releaseId: string;
+      forced: boolean;
+    }) => usersApi.forceVersion(id, { releaseId, forced }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast.success('App version target set for user');
+      setVersionAction(null);
+    },
+    onError: (err) => toast.error(extractApiError(err)),
+  });
+
+  const clearForcedVersion = useMutation({
+    mutationFn: (id: string) => usersApi.clearForcedVersion(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast.success('Forced app version cleared');
+      setVersionAction(null);
     },
     onError: (err) => toast.error(extractApiError(err)),
   });
@@ -712,6 +789,51 @@ export function UsersPage() {
             />
           </div>
 
+          {isSuperAdmin && (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[220px_260px]">
+              <Select
+                value={appVersionOp}
+                onValueChange={(value) =>
+                  setSearchParam(params, setParams, 'appVersionOp', value === 'ALL' ? null : value)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Any app version</SelectItem>
+                  <SelectItem value="BELOW">Below version</SelectItem>
+                  <SelectItem value="ABOVE">Above version</SelectItem>
+                  <SelectItem value="EXACT">Exact version</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
+                value={appVersionBuild || 'NONE'}
+                disabled={appVersionOp === 'ALL'}
+                onValueChange={(value) =>
+                  setSearchParam(
+                    params,
+                    setParams,
+                    'appVersionBuild',
+                    value === 'NONE' ? null : value,
+                  )
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select version" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NONE">Select version</SelectItem>
+                  {releaseVersionOptions.map((option) => (
+                    <SelectItem key={option.buildNumber} value={String(option.buildNumber)}>
+                      {option.versionName}+{option.buildNumber}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <ActiveFilterChips
             filters={activeFilters}
             onRemove={(key) => setSearchParam(params, setParams, key, null)}
@@ -739,13 +861,14 @@ export function UsersPage() {
             </div>
           </div>
         ) : (
-          <Table className="min-w-[1040px]">
+          <Table className="min-w-[1180px]">
             <colgroup>
               <col />
               <col className="w-[144px]" />
               <col className="w-[190px]" />
               <col className="w-[112px]" />
               <col className="w-[118px]" />
+              <col className="w-[150px]" />
               <col className="w-[120px]" />
               <col className="w-[216px]" />
             </colgroup>
@@ -756,6 +879,7 @@ export function UsersPage() {
                 <TableHead>Organization</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Email</TableHead>
+                <TableHead>App version</TableHead>
                 <TableHead>Last Seen</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -812,6 +936,28 @@ export function UsersPage() {
                         )}
                         {u.isEmailVerified ? 'Verified' : 'Pending'}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {u.appVersion ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm text-ink-900">
+                            {u.appVersion}
+                            {u.appVersionCode ? `+${u.appVersionCode}` : ''}
+                          </span>
+                          {u.forcedAppRelease && (
+                            <Badge variant={u.forcedAppUpdateForced ? 'warning' : 'default'}>
+                              {u.forcedAppUpdateForced ? 'Forced' : 'Optional'}
+                            </Badge>
+                          )}
+                        </div>
+                      ) : u.forcedAppRelease ? (
+                        <Badge variant={u.forcedAppUpdateForced ? 'warning' : 'default'}>
+                          {u.forcedAppUpdateForced ? 'Forced' : 'Optional'}{' '}
+                          {u.forcedAppRelease.versionName}
+                        </Badge>
+                      ) : (
+                        <span className="text-ink-400">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
                       <span className="text-sm text-ink-500">
@@ -879,6 +1025,22 @@ export function UsersPage() {
                               <Eye className="h-4 w-4 text-ink-500" />
                             </Button>
                           )}
+                        {actor?.role === 'SUPER_ADMIN' && !isArchived && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() =>
+                              setVersionAction({
+                                user: u,
+                                releaseId: u.forcedAppReleaseId ?? '',
+                                forced: u.forcedAppUpdateForced ?? true,
+                              })
+                            }
+                            title="Force app version on next update check"
+                          >
+                            <Smartphone className="h-4 w-4 text-ink-500" />
+                          </Button>
+                        )}
                         <Button
                           size="icon"
                           variant="ghost"
@@ -908,7 +1070,7 @@ export function UsersPage() {
               })}
               {users.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-12 text-center">
+                  <TableCell colSpan={8} className="py-12 text-center">
                     <div className="mx-auto flex max-w-sm flex-col items-center">
                       <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
                         {pendingOnly ? (
@@ -1004,6 +1166,145 @@ export function UsersPage() {
           forceLogout.mutate(logoutAction.id);
         }}
       />
+
+      <Dialog
+        open={!!versionAction}
+        onOpenChange={(open) => !open && setVersionAction(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Force app version</DialogTitle>
+            <DialogDescription>
+              {versionAction?.user.email ?? 'This user'} will be prompted to
+              update to the selected version on their next app launch / update
+              check. A forced update cannot be dismissed; an optional one can.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                Target version
+              </label>
+              <Select
+                value={versionAction?.releaseId || 'NONE'}
+                onValueChange={(value) =>
+                  setVersionAction((prev) =>
+                    prev
+                      ? { ...prev, releaseId: value === 'NONE' ? '' : value }
+                      : null,
+                  )
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a release" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NONE">Select a release</SelectItem>
+                  {releases
+                    .filter((release) => release.isActive)
+                    .map((release) => (
+                      <SelectItem key={release.id} value={release.id}>
+                        {release.versionName}+{release.buildNumber} ·{' '}
+                        {release.platform} · {release.environment}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                Update mode
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setVersionAction((prev) =>
+                      prev ? { ...prev, forced: false } : null,
+                    )
+                  }
+                  className={`flex flex-col gap-1 rounded-lg border p-3 text-left transition ${
+                    versionAction?.forced === false
+                      ? 'border-brand-primary bg-brand-primary/5'
+                      : 'border-line hover:border-ink-300'
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5 text-sm font-semibold text-ink-900">
+                    <CheckCircle2 className="h-4 w-4 text-brand-primary" />
+                    Optional update
+                  </span>
+                  <span className="text-xs text-ink-500">
+                    User can choose “Later”. The prompt returns on the next
+                    launch while outdated.
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setVersionAction((prev) =>
+                      prev ? { ...prev, forced: true } : null,
+                    )
+                  }
+                  className={`flex flex-col gap-1 rounded-lg border p-3 text-left transition ${
+                    versionAction?.forced === true
+                      ? 'border-warning bg-warning/10'
+                      : 'border-line hover:border-ink-300'
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5 text-sm font-semibold text-ink-900">
+                    <ShieldAlert className="h-4 w-4 text-warning" />
+                    Force update
+                  </span>
+                  <span className="text-xs text-ink-500">
+                    User cannot dismiss the modal and must open the update before
+                    continuing.
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="sm:justify-between">
+            {versionAction?.user.forcedAppReleaseId ? (
+              <Button
+                variant="ghost"
+                className="text-danger"
+                disabled={clearForcedVersion.isPending}
+                onClick={() => {
+                  if (!versionAction) return;
+                  clearForcedVersion.mutate(versionAction.user.id);
+                }}
+              >
+                {clearForcedVersion.isPending ? (
+                  <Spinner className="h-4 w-4" />
+                ) : (
+                  'Clear forced version'
+                )}
+              </Button>
+            ) : (
+              <span />
+            )}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setVersionAction(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                disabled={!versionAction?.releaseId || forceVersion.isPending}
+                onClick={() => {
+                  if (!versionAction?.releaseId) return;
+                  forceVersion.mutate({
+                    id: versionAction.user.id,
+                    releaseId: versionAction.releaseId,
+                    forced: versionAction.forced,
+                  });
+                }}
+              >
+                {forceVersion.isPending ? <Spinner className="h-4 w-4" /> : 'Apply'}
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={bulkOpen}

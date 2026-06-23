@@ -146,6 +146,18 @@ export interface AdminUser {
   invitedById: string | null;
   primaryOrganizationId: string | null;
   archivedEmail?: string | null;
+  appVersion?: string | null;
+  appVersionCode?: number | null;
+  appVersionUpdatedAt?: string | null;
+  forcedAppReleaseId?: string | null;
+  forcedAppUpdateForced?: boolean;
+  forcedAppRelease?: {
+    id: string;
+    versionName: string;
+    buildNumber: number;
+    platform: 'android' | 'windows';
+    isForced: boolean;
+  } | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
