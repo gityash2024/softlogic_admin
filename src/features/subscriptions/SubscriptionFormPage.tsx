@@ -325,8 +325,8 @@ export function SubscriptionFormPage() {
         toast.error('Select an organization');
         return;
       }
-      if (selectedOrgSeatTotal > 0 && values.seatLimit !== selectedOrgSeatTotal) {
-        toast.error(`Seats must match teacher user capacity (${selectedOrgSeatTotal})`);
+      if (selectedOrgSeatTotal > 0 && values.seatLimit > selectedOrgSeatTotal) {
+        toast.error(`Teacher seats cannot exceed teacher user capacity (${selectedOrgSeatTotal})`);
         return;
       }
     }
@@ -587,13 +587,18 @@ export function SubscriptionFormPage() {
               <Input
                 type="number"
                 min={1}
-                max={partnerChildOrg ? partnerPool?.remainingAllocationSeats : undefined}
-                readOnly={scope === 'organization' && selectedOrgSeatTotal > 0}
+                max={
+                  partnerChildOrg
+                    ? partnerPool?.remainingAllocationSeats
+                    : selectedOrgSeatTotal > 0
+                      ? selectedOrgSeatTotal
+                      : undefined
+                }
                 {...register('seatLimit', { valueAsNumber: true })}
               />
               {scope === 'organization' && selectedOrgSeatTotal > 0 && (
                 <p className="text-xs text-ink-500">
-                  Seats follow teacher user capacity: {selectedOrgSeatTotal}.
+                  Seats can be at most the teacher user capacity ({selectedOrgSeatTotal}).
                 </p>
               )}
               {errors.seatLimit && <p className="text-xs text-danger">{errors.seatLimit.message}</p>}
