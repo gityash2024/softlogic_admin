@@ -19,17 +19,13 @@ const PATH_TO_TITLE: Record<string, { title: string; subtitle: string }> = {
     title: 'Organizations',
     subtitle: 'Manage partners, customers, branding, and AI access',
   },
-  '/subscriptions': {
-    title: 'Subscriptions',
-    subtitle: 'Track plan state, terms, and seat allocation',
-  },
   '/activity': {
     title: 'Activity',
     subtitle: 'Audit trail for administrative changes',
   },
   '/license': {
     title: 'License',
-    subtitle: 'Workspace subscription reference and billing history',
+    subtitle: 'Activation keys, licence terms, and billing history',
   },
   '/ai': {
     title: 'AI',
@@ -126,8 +122,8 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           }
         : location.pathname.startsWith('/subscriptions/')
           ? {
-              title: 'Subscription Form',
-              subtitle: 'Manage plan state, ownership, and seat allocation',
+              title: 'License',
+              subtitle: 'Activation keys, licence terms, and billing history',
             }
           : {
     title: 'SoftLogic Console',

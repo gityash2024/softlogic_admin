@@ -2,7 +2,6 @@ import axios from 'axios';
 import { api } from '@/lib/api';
 import { activityApi } from '@/services/activity.api';
 import { organizationsApi } from '@/services/organizations.api';
-import { subscriptionsApi } from '@/services/subscriptions.api';
 import { usersApi } from '@/services/users.api';
 import type {
   AdminOrganization,
@@ -13,7 +12,6 @@ import type {
   DashboardOverview,
   OrganizationKind,
   OrganizationStatus,
-  SubscriptionRecord,
   SubscriptionStatus,
   UserRole,
   UserStatus,
@@ -47,12 +45,12 @@ const organizationStatusLabels: Record<OrganizationStatus, string> = {
   INACTIVE: 'Inactive',
 };
 
-const subscriptionStatusLabels: Record<SubscriptionStatus, string> = {
+const licenceStatusLabels: Record<SubscriptionStatus, string> = {
   ACTIVE: 'Active',
-  TRIAL: 'Trial',
-  PENDING_APPROVAL: 'Pending Approval',
+  TRIAL: 'Available',
+  PENDING_APPROVAL: 'Not started',
   EXPIRED: 'Expired',
-  CANCELED: 'Canceled',
+  CANCELED: 'Disabled',
 };
 
 function shouldUseFallbackOverview(error: unknown) {
@@ -104,29 +102,56 @@ function buildTrend(activity: AuditLogEntry[]) {
 }
 
 async function buildFallbackOverview(): Promise<DashboardOverview> {
-  const [usersResult, orgsResult, subsResult, activityResult] =
+  const [usersResult, orgsResult, activityResult] =
     await Promise.allSettled([
       usersApi.all(),
       organizationsApi.all(),
-      subscriptionsApi.all(),
       activityApi.list({ perPage: 100 }),
     ]);
 
   if (usersResult.status === 'rejected') throw usersResult.reason;
   if (orgsResult.status === 'rejected') throw orgsResult.reason;
-  if (subsResult.status === 'rejected') throw subsResult.reason;
 
   const users = usersResult.value as AdminUser[];
   const organizations = orgsResult.value as AdminOrganization[];
-  const subscriptions = subsResult.value as SubscriptionRecord[];
   const activity =
     activityResult.status === 'fulfilled' ? activityResult.value.data : [];
   const periodStart = new Date(Date.now() - 13 * DAY_MS);
-  const seatLimit = subscriptions.reduce((sum, item) => sum + item.seatLimit, 0);
-  const seatUsage = subscriptions.reduce((sum, item) => sum + item.seatUsage, 0);
-  const activeSubscriptions = subscriptions.filter(
-    (item) => item.status === 'ACTIVE',
+  const activeUsers = users.filter(
+    (item) => item.status === 'ACTIVE' && item.primaryOrganizationId,
   );
+  const eligibleLicenseRoles: UserRole[] = [
+    'TEACHER',
+    'CUSTOMER_ADMIN',
+    'PARTNER_ADMIN',
+    'ADMIN',
+  ];
+  const eligibleUsers = activeUsers.filter((item) =>
+    eligibleLicenseRoles.includes(item.role),
+  );
+  const activeTeachersByOrg = new Map<string, number>();
+  const activeAdminsByOrg = new Map<string, Set<string>>();
+  eligibleUsers.forEach((item) => {
+    const organizationId = item.primaryOrganizationId;
+    if (!organizationId) return;
+    if (item.role === 'TEACHER') {
+      activeTeachersByOrg.set(
+        organizationId,
+        (activeTeachersByOrg.get(organizationId) ?? 0) + 1,
+      );
+      return;
+    }
+    const existing = activeAdminsByOrg.get(organizationId) ?? new Set<string>();
+    existing.add(item.id);
+    activeAdminsByOrg.set(organizationId, existing);
+  });
+  const seatLimit = organizations.reduce((sum, org) => {
+    const teacherUsage = activeTeachersByOrg.get(org.id) ?? 0;
+    const teacherCapacity = org.teacherUserLimit ?? teacherUsage;
+    const adminUsage = activeAdminsByOrg.get(org.id)?.size ?? 0;
+    return sum + teacherCapacity + adminUsage;
+  }, 0);
+  const seatUsage = eligibleUsers.length;
 
   return {
     generatedAt: new Date().toISOString(),
@@ -180,21 +205,22 @@ async function buildFallbackOverview(): Promise<DashboardOverview> {
       ),
     },
     subscriptions: {
-      total: subscriptions.length,
-      active: activeSubscriptions.length,
-      expiringSoon: activeSubscriptions.filter((item) => {
-        if (!item.endDate) return false;
-        const remaining = new Date(item.endDate).getTime() - Date.now();
-        return remaining >= 0 && remaining <= 30 * DAY_MS;
-      }).length,
+      total: seatLimit,
+      active: seatUsage,
+      expiringSoon: 0,
       seatLimit,
       seatUsage,
       utilizationRate: seatLimit > 0 ? Math.round((seatUsage / seatLimit) * 100) : 0,
-      byStatus: countBuckets(
-        subscriptions.map((item) => item.status),
-        ['ACTIVE', 'TRIAL', 'EXPIRED', 'CANCELED'],
-        subscriptionStatusLabels,
-      ),
+      byStatus: [
+        { key: 'ACTIVE', label: licenceStatusLabels.ACTIVE, value: seatUsage },
+        {
+          key: 'TRIAL',
+          label: 'Available',
+          value: Math.max(seatLimit - seatUsage, 0),
+        },
+        { key: 'EXPIRED', label: licenceStatusLabels.EXPIRED, value: 0 },
+        { key: 'CANCELED', label: licenceStatusLabels.CANCELED, value: 0 },
+      ],
     },
     content: {
       canvases: {

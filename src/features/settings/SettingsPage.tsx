@@ -25,7 +25,6 @@ import {
   ORG_KIND_LABEL,
   ROLE_LABEL,
   STORAGE_STATUS_LABEL,
-  SUBSCRIPTION_STATUS_LABEL,
 } from '@/types/api';
 import { PasswordRequirements } from '@/components/auth/PasswordRequirements';
 import { Card } from '@/components/ui/card';
@@ -91,12 +90,27 @@ function describeSessionDevice(session: AuthLoginSession) {
   return { label, platform };
 }
 
+function licenceStatusLabel(status?: string | null) {
+  switch (status) {
+    case 'ACTIVE':
+      return 'Active';
+    case 'NOT_STARTED':
+      return 'Not started';
+    case 'EXPIRED':
+      return 'Expired';
+    case 'NO_KEYS':
+      return 'No activation keys';
+    default:
+      return 'None';
+  }
+}
+
 export function SettingsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, tokens, clear, updateUser } = useAuthStore();
   const org = user?.primaryOrganization ?? null;
-  const orgSubscription = user?.subscription ?? null;
+  const orgLicense = user?.license ?? null;
   const showOrgCard = !!org && user?.role !== 'SUPER_ADMIN';
   const appVersion = __APP_VERSION__ ? `v${__APP_VERSION__}` : '';
   const [name, setName] = useState(user?.name ?? '');
@@ -458,12 +472,8 @@ export function SettingsPage() {
               <dl className="grid min-w-0 gap-4 sm:grid-cols-2">
                 <ReadOnlyField label="Branding" value={BRANDING_MODE_LABEL[org.brandingMode]} />
                 <ReadOnlyField
-                  label="Subscription"
-                  value={
-                    orgSubscription
-                      ? SUBSCRIPTION_STATUS_LABEL[orgSubscription.status]
-                      : 'None'
-                  }
+                  label="Licence"
+                  value={licenceStatusLabel(orgLicense?.status)}
                 />
                 <ReadOnlyField label="Support email" value={org.supportEmail || '—'} />
                 <ReadOnlyField label="Support phone" value={org.supportPhone || '—'} />

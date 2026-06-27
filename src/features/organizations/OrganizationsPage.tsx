@@ -272,7 +272,6 @@ export function OrganizationsPage() {
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['organizations'] });
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
       queryClient.invalidateQueries({ queryKey: ['license-details'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
       const archivedChildCount =
@@ -501,7 +500,7 @@ export function OrganizationsPage() {
                 <TableHead>Organization</TableHead>
                 <TableHead>Kind</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Plan</TableHead>
+                <TableHead>Licence</TableHead>
                 <TableHead>Members</TableHead>
                 <TableHead>AI</TableHead>
                 <TableHead className="w-[292px] px-1.5 text-right">Actions</TableHead>
@@ -580,9 +579,9 @@ export function OrganizationsPage() {
                   </TableCell>
                   <TableCell className="min-w-0">
                     <span className="block max-w-[140px] truncate text-sm text-ink-900">
-                      {org.subscriptions?.[0]?.planName ?? (
-                        <span className="text-ink-400">-</span>
-                      )}
+                      {org.capacitySummary
+                        ? `${org.capacitySummary.activationKeysUsable}/${org.capacitySummary.activationKeyCapacity} keys`
+                        : <span className="text-ink-400">-</span>}
                     </span>
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
@@ -780,7 +779,7 @@ export function OrganizationsPage() {
           <div className="space-y-3 leading-6">
             <p>
               {archiveAction?.name ?? 'This organization'} will be archived. Users lose access,
-              active/trial subscriptions are canceled, license usage is released, and
+              licence access and activation keys are disabled/released, and
               hardware/storage/AI access is disabled. Billing, whiteboards, sessions, exports, and
               audit history stay preserved.
             </p>

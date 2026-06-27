@@ -856,7 +856,7 @@ export function UsersPage() {
               </p>
               <p className="mt-1 text-sm leading-6 text-ink-500">
                 Super Admin user management starts from an organization so
-                school users, licenses, and policies stay scoped correctly.
+                school users, licences, and policies stay scoped correctly.
               </p>
             </div>
           </div>

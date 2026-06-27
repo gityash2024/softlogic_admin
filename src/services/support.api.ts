@@ -34,7 +34,6 @@ export interface ApplySupportActionPayload {
   kind:
     | 'seats_increase'
     | 'seats_decrease'
-    | 'subscription_extend'
     | 'reset_device'
     | 'disable_org'
     | 'enable_org'

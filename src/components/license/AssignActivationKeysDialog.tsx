@@ -237,7 +237,7 @@ export function AssignActivationKeysDialog({
                   <TableHead className="w-12">Send</TableHead>
                   <TableHead>Label</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Source subscription</TableHead>
+                  <TableHead>Source / pool</TableHead>
                   <TableHead>Expires</TableHead>
                   <TableHead>Created</TableHead>
                 </TableRow>
@@ -266,7 +266,7 @@ export function AssignActivationKeysDialog({
                     </TableCell>
                     <TableCell>
                       <p className="text-sm text-ink-900">
-                        {key.subscription?.planName ?? '-'}
+                        {key.organizationId === sourcePartnerOrganizationId ? 'Partner pool' : 'Direct licence'}
                       </p>
                       <p className="text-xs text-ink-500">
                         {key.subscription?.organization?.name ?? ''}

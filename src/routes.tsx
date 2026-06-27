@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
 import {
   AdminRoute,
@@ -17,10 +17,6 @@ import { UserFormPage } from '@/features/users/UserFormPage';
 import { OrganizationsPage } from '@/features/organizations/OrganizationsPage';
 import { OrganizationDetailPage } from '@/features/organizations/OrganizationDetailPage';
 import { OrganizationFormPage } from '@/features/organizations/OrganizationFormPage';
-import { SubscriptionsPage } from '@/features/subscriptions/SubscriptionsPage';
-import { SubscriptionFormPage } from '@/features/subscriptions/SubscriptionFormPage';
-import { SubscriptionDetailPage } from '@/features/subscriptions/SubscriptionDetailPage';
-import { PartnerSubscriptionOverviewPage } from '@/features/subscriptions/PartnerSubscriptionOverviewPage';
 import { HelpThreadsPage } from '@/features/support/HelpThreadsPage';
 import { NewSupportThreadPage } from '@/features/support/NewSupportThreadPage';
 import { ThreadDetailPage as SupportThreadDetailPage } from '@/features/support/ThreadDetailPage';
@@ -61,11 +57,7 @@ export const router = createBrowserRouter([
               { path: '/organizations/new', element: <OrganizationFormPage /> },
               { path: '/organizations/:id/edit', element: <OrganizationFormPage /> },
               { path: '/organizations/:id', element: <OrganizationDetailPage /> },
-              { path: '/subscriptions', element: <SubscriptionsPage /> },
-              { path: '/subscriptions/new', element: <SubscriptionFormPage /> },
-              { path: '/subscriptions/partners/:partnerId', element: <PartnerSubscriptionOverviewPage /> },
-              { path: '/subscriptions/:id/edit', element: <SubscriptionFormPage /> },
-              { path: '/subscriptions/:id/details', element: <SubscriptionDetailPage /> },
+              { path: '/subscriptions/*', element: <Navigate to="/license" replace /> },
               { path: '/activity', element: <ActivityPage /> },
               {
                 element: <AiModuleRoute />,

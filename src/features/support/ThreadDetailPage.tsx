@@ -285,10 +285,6 @@ export function ThreadDetailPage({ variant }: ThreadDetailPageProps) {
                 suggestedSeats={
                   (thread.requestedAction as { params?: { to?: number } } | null)?.params?.to
                 }
-                suggestedEndDate={
-                  (thread.requestedAction as { params?: { newEndDate?: string } } | null)?.params
-                    ?.newEndDate
-                }
               />
             </Card>
           )}
@@ -332,7 +328,6 @@ interface ActionPanelProps {
   category: import('@/types/api').SupportCategory;
   organizationId: string;
   suggestedSeats?: number;
-  suggestedEndDate?: string;
   disabled: boolean;
   onApply: (payload: ApplySupportActionPayload) => void;
 }
@@ -340,20 +335,16 @@ interface ActionPanelProps {
 function ActionPanel({
   category,
   suggestedSeats,
-  suggestedEndDate,
   disabled,
   onApply,
 }: ActionPanelProps) {
   const [seats, setSeats] = useState<number>(suggestedSeats ?? 0);
-  const [endDate, setEndDate] = useState<string>(
-    suggestedEndDate ? suggestedEndDate.slice(0, 10) : '',
-  );
 
   if (category === 'REQUEST_SEATS') {
     return (
       <div className="space-y-2">
         <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-          New seat limit
+          New teacher licence capacity
         </label>
         <Input
           type="number"
@@ -373,44 +364,24 @@ function ActionPanel({
             })
           }
         >
-          Apply seats = {seats || '—'} &amp; resolve
+          Apply capacity = {seats || '—'} &amp; resolve
         </Button>
       </div>
     );
   }
   if (category === 'EXTEND_SUBSCRIPTION') {
     return (
-      <div className="space-y-2">
-        <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-          New end date
-        </label>
-        <Input
-          type="date"
-          value={endDate}
-          onChange={(event) => setEndDate(event.target.value)}
-        />
-        <Button
-          variant="primary"
-          className="w-full sm:w-auto"
-          disabled={disabled || !endDate}
-          onClick={() =>
-            onApply({
-              kind: 'subscription_extend',
-              params: { newEndDate: endDate ? new Date(endDate).toISOString() : '' },
-              autoResolve: true,
-            })
-          }
-        >
-          Extend &amp; resolve
-        </Button>
-      </div>
+      <p className="text-xs text-ink-500">
+        Extend the selected activation key term from the Licence page, then mark this thread
+        resolved.
+      </p>
     );
   }
   if (category === 'RESET_DEVICE') {
     return (
       <p className="text-xs text-ink-500">
-        Reset is performed from the License / Subscription detail page where you can pick the exact
-        bound device. Once reset, mark this thread resolved.
+        Reset is performed from the Licence page where you can pick the exact bound device. Once
+        reset, mark this thread resolved.
       </p>
     );
   }

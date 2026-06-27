@@ -42,6 +42,7 @@ export interface HardwareActivationKeyPayload {
   assignedUserId?: string | null;
   label: string;
   maxDevices?: number;
+  startsAt: string;
   expiresAt?: string | null;
 }
 
@@ -53,13 +54,14 @@ export interface BulkHardwareActivationKeyItem {
   label: string;
   maxDevices?: number;
   assignedUserId?: string | null;
-  expiresAt?: string | null;
 }
 
 export interface BulkHardwareActivationKeyPayload {
   organizationId: string;
   subscriptionId?: string | null;
   sourcePartnerOrganizationId?: string | null;
+  startsAt: string;
+  expiresAt: string;
   keys: BulkHardwareActivationKeyItem[];
 }
 

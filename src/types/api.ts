@@ -107,6 +107,26 @@ export interface OrganizationAiSettings {
   deepgramApiKey?: string;
 }
 
+export type LicenseSummaryStatus = 'ACTIVE' | 'NOT_STARTED' | 'NO_KEYS' | 'EXPIRED';
+
+export interface LicenseSummaryRecord {
+  organizationId: string;
+  status: LicenseSummaryStatus;
+  seatLimit: number;
+  teacherUsage: number;
+  adminUsage: number;
+  activationUserUsage: number;
+  remainingCapacity: number;
+  totalKeyCount: number;
+  usableKeyCount: number;
+  availableKeyCount: number;
+  boundKeyCount: number;
+  disabledKeyCount: number;
+  expiredKeyCount: number;
+  startsAt: string | null;
+  expiresAt: string | null;
+}
+
 export interface SafeUserContext {
   id: string;
   email: string;
@@ -122,6 +142,8 @@ export interface SafeUserContext {
   lastLoginAt: string | null;
   primaryOrganization: OrganizationSummary | null;
   organizations: OrganizationSummary[];
+  license: LicenseSummaryRecord | null;
+  /** @deprecated Legacy audit compatibility. Use license for V2 access data. */
   subscription: SubscriptionRecord | null;
 }
 
@@ -162,6 +184,8 @@ export interface AdminUser {
   updatedAt: string;
   deletedAt: string | null;
   primaryOrganization: OrganizationSummary | null;
+  license?: LicenseSummaryRecord | null;
+  /** @deprecated Legacy audit compatibility. Use license for V2 access data. */
   subscription: SubscriptionRecord | null;
   linkedStudentIds?: string[];
   linkedStudents?: Array<{
@@ -565,6 +589,7 @@ export interface HardwareActivationKeyRecord {
     name: string | null;
     role?: UserRole;
   } | null;
+  startsAt: string;
   expiresAt: string | null;
   emailSentAt?: string | null;
   createdAt: string;
@@ -609,6 +634,8 @@ export interface OrganizationCapacitySummaryRecord {
 export interface LicenseKeySummaryRecord {
   seatLimit: number;
   teacherUsage: number;
+  adminUsage: number;
+  activationUserUsage: number;
   capacityUsed: number;
   remainingCapacity: number;
   totalKeyCount: number;
@@ -622,6 +649,8 @@ export interface LicenseKeySummaryRecord {
   assignedKeyCount: number;
   poolAvailableKeyCount: number;
   uncreatedKeySlots: number;
+  startsAt?: string | null;
+  expiresAt?: string | null;
 }
 
 export interface OrganizationLicenseDetailRecord {
@@ -1157,7 +1186,7 @@ export interface SupportThreadRecord {
 
 export const SUPPORT_CATEGORY_LABEL: Record<SupportCategory, string> = {
   REQUEST_SEATS: 'Request more seats',
-  EXTEND_SUBSCRIPTION: 'Extend subscription',
+  EXTEND_SUBSCRIPTION: 'Extend licence/key term',
   RESET_DEVICE: 'Reset activation device',
   BILLING: 'Billing question',
   ACTIVATION_ISSUE: 'Activation issue',

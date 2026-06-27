@@ -8,7 +8,6 @@ import {
   Building2,
   BookOpen,
   CalendarClock,
-  CreditCard,
   Files,
   Activity as ActivityIcon,
   HelpCircle,
@@ -65,12 +64,6 @@ const BASE_NAV_ITEMS = [
     label: 'Organizations',
     description: 'Partners and customers',
     icon: Building2,
-  },
-  {
-    to: '/subscriptions',
-    label: 'Subscriptions',
-    description: 'Plans and seats',
-    icon: CreditCard,
   },
   {
     to: '/activity',

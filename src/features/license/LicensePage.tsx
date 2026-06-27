@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle,
   Copy,
@@ -22,7 +22,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { subscriptionsApi } from '@/services/subscriptions.api';
 import { organizationsApi } from '@/services/organizations.api';
 import { licensingApi } from '@/services/licensing.api';
 import type { BulkHardwareActivationKeyResponse } from '@/services/licensing.api';
@@ -35,9 +34,8 @@ import {
 } from '@/lib/admin-hierarchy';
 import { cn, formatDate } from '@/lib/utils';
 import {
-  BRANDING_MODE_LABEL,
   STORAGE_STATUS_LABEL,
-  SUBSCRIPTION_STATUS_LABEL,
+  type HardwareActivationKeyRecord,
   type PartnerLicensePaymentRecord,
   type PaymentTransactionStatus,
 } from '@/types/api';
@@ -118,6 +116,45 @@ function dateInputToIso(value: string): string | null {
   return value ? new Date(`${value}T00:00:00.000Z`).toISOString() : null;
 }
 
+function dateTimeLocalValue(value: Date): string {
+  const offsetMs = value.getTimezoneOffset() * 60_000;
+  return new Date(value.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
+function addMonths(value: Date, months: number): Date {
+  const next = new Date(value);
+  next.setMonth(next.getMonth() + months);
+  return next;
+}
+
+function durationMonthsFor(value: DurationOptionValue): number | null {
+  return DURATION_OPTIONS.find((option) => option.value === value)?.months ?? null;
+}
+
+function keySourceLabel(key: HardwareActivationKeyRecord) {
+  if (key.subscription?.organization?.name) return key.subscription.organization.name;
+  if (key.subscription?.planName) return key.subscription.planName;
+  if (key.organization?.kind === 'PARTNER') return 'Partner pool';
+  return 'Direct licence';
+}
+
+function keySourceDetail(key: HardwareActivationKeyRecord) {
+  if (key.subscription?.planName && key.subscription.organization?.name) {
+    return key.subscription.planName;
+  }
+  return '';
+}
+
+const DURATION_OPTIONS = [
+  { value: '1', label: '1 month', months: 1 },
+  { value: '3', label: '3 months', months: 3 },
+  { value: '6', label: '6 months', months: 6 },
+  { value: '12', label: '12 months', months: 12 },
+  { value: 'custom', label: 'Custom dates', months: null },
+] as const;
+
+type DurationOptionValue = (typeof DURATION_OPTIONS)[number]['value'];
+
 interface PaymentEditState {
   id: string;
   amount: string;
@@ -149,8 +186,8 @@ function SeatsBanner({
       : 'border-amber-200 bg-amber-50 text-amber-700';
   const message =
     pct >= 1
-      ? 'All teacher licenses are in use'
-      : `Teacher licenses are at ${Math.round(pct * 100)}% capacity`;
+      ? 'All teacher licences are in use'
+      : `Teacher licences are at ${Math.round(pct * 100)}% capacity`;
   return (
     <div
       className={cn(
@@ -162,7 +199,7 @@ function SeatsBanner({
       <AlertTriangle className="h-4 w-4 shrink-0" />
       <span className="font-medium">{message}</span>
       <span className="text-xs opacity-80">
-        {seatUsage}/{seatLimit} licenses
+        {seatUsage}/{seatLimit} licences
       </span>
     </div>
   );
@@ -178,7 +215,6 @@ const NO_ORGANIZATION_VALUE = 'NO_ORGANIZATION';
 
 export function LicensePage() {
   const { user } = useAuthStore();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
@@ -197,6 +233,14 @@ export function LicensePage() {
   const [revealedKeyIds, setRevealedKeyIds] = useState<Record<string, boolean>>({});
   const [keyLabel, setKeyLabel] = useState('');
   const [keyLabelTouched, setKeyLabelTouched] = useState(false);
+  const [licenseStartInput, setLicenseStartInput] = useState(() =>
+    dateTimeLocalValue(new Date()),
+  );
+  const [licenseDuration, setLicenseDuration] =
+    useState<DurationOptionValue>('12');
+  const [licenseEndInput, setLicenseEndInput] = useState(() =>
+    dateTimeLocalValue(addMonths(new Date(), 12)),
+  );
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkRows, setBulkRows] = useState<Array<{ label: string; maxDevices: number }>>([
     { label: '', maxDevices: 1 },
@@ -213,10 +257,6 @@ export function LicensePage() {
   const [assignKeysOpen, setAssignKeysOpen] = useState(false);
   const [paymentEdit, setPaymentEdit] = useState<PaymentEditState | null>(null);
 
-  const subscriptionsQuery = useQuery({
-    queryKey: ['subscriptions', 'all'],
-    queryFn: subscriptionsApi.all,
-  });
   const organizationsQuery = useQuery({
     queryKey: ['organizations', 'all'],
     queryFn: organizationsApi.all,
@@ -240,6 +280,14 @@ export function LicensePage() {
     queryFn: () => licensingApi.getPartnerLicenseDetails(partnerScopeId!),
     enabled: Boolean(partnerScopeId && (superAdminPartnerScope || isPartnerAdmin)),
   });
+
+  useEffect(() => {
+    const option = DURATION_OPTIONS.find((item) => item.value === licenseDuration);
+    if (!option?.months) return;
+    const start = new Date(licenseStartInput);
+    if (Number.isNaN(start.getTime())) return;
+    setLicenseEndInput(dateTimeLocalValue(addMonths(start, option.months)));
+  }, [licenseDuration, licenseStartInput]);
 
   useEffect(() => {
     if (!isSuperAdmin && !isPartnerAdmin && !selectedOrgId && user?.primaryOrganization?.id) {
@@ -372,42 +420,12 @@ export function LicensePage() {
       organizationsQuery.data?.find((org) => org.id === selectedOrgId) ?? null,
     [organizationsQuery.data, selectedOrgId],
   );
-  const orgSubs = useMemo(
-    () =>
-      (subscriptionsQuery.data ?? []).filter(
-        (subscription) => subscription.organizationId === selectedOrganization?.id,
-      ),
-    [selectedOrganization?.id, subscriptionsQuery.data],
-  );
-  const primarySub =
-    orgSubs.find((subscription) =>
-      ['ACTIVE', 'TRIAL'].includes(subscription.status),
-    ) ?? orgSubs[0] ?? null;
-  const paymentsQuery = useQuery({
-    queryKey: ['subscription-payments', primarySub?.id],
-    queryFn: () => subscriptionsApi.listPayments(primarySub!.id),
-    enabled: Boolean(primarySub?.id),
-  });
-  const paymentRows = paymentsQuery.data ?? [];
-  const hasActiveSub = orgSubs.some((subscription) =>
-    ['ACTIVE', 'TRIAL'].includes(subscription.status),
-  );
-  const pendingSub =
-    orgSubs.find((subscription) => subscription.status === 'PENDING_APPROVAL') ?? null;
-  // Org/partner admins need a clear nudge when no active subscription backs the
-  // workspace. Super admins manage globally and never see this banner.
-  const showLicenseBanner =
-    !isSuperAdmin &&
-    !!selectedOrganization &&
-    !subscriptionsQuery.isLoading &&
-    !hasActiveSub;
+  const paymentRows: PartnerLicensePaymentRecord[] = [];
 
   const invalidateCommercialQueries = () => {
-    queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
     queryClient.invalidateQueries({ queryKey: ['organizations'] });
     queryClient.invalidateQueries({ queryKey: ['license-details'] });
     queryClient.invalidateQueries({ queryKey: ['partner-license-details'] });
-    queryClient.invalidateQueries({ queryKey: ['subscription-payments'] });
     queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
   };
 
@@ -500,33 +518,28 @@ export function LicensePage() {
     onError: (error) => toast.error(extractApiError(error)),
   });
 
-  const isLoading = subscriptionsQuery.isLoading || organizationsQuery.isLoading;
+  const isLoading = organizationsQuery.isLoading;
   const globalMode = isSuperAdmin && selectedPartnerId === GLOBAL_LICENSE_VALUE;
   const globalKeysQuery = useQuery({
     queryKey: ['activation-keys', 'global'],
     queryFn: () => licensingApi.listKeys({ perPage: 100 }),
     enabled: globalMode,
   });
-  const globalActiveSubscriptions = (subscriptionsQuery.data ?? []).filter(
-    (subscription) => subscription.status === 'ACTIVE' || subscription.status === 'TRIAL',
-  );
-  const globalCapacitySubscriptions = globalActiveSubscriptions.filter(
-    (subscription) => !subscription.organization?.parentOrganizationId,
-  );
   const globalActivationKeys = globalKeysQuery.data?.data ?? [];
+  const globalUsableKeys = globalActivationKeys.filter(
+    (key) => key.status === 'AVAILABLE' || key.status === 'BOUND',
+  );
   const aggregateDetails = aggregatePartnerMode ? partnerDetailsQuery.data : null;
-  const aggregateSubscriptions = aggregateDetails?.subscriptions ?? [];
   const aggregateSummary = aggregateDetails?.summary ?? null;
   const aggregateActivationKeys = aggregateDetails?.hardwareActivationKeys ?? [];
   const aggregatePaymentRows = aggregateDetails?.payments ?? [];
   const displayedPaymentRows = aggregatePartnerMode ? aggregatePaymentRows : paymentRows;
-  const displayedBillingSubscriptions = aggregatePartnerMode ? aggregateSubscriptions : orgSubs;
   const billingScopeLabel = aggregatePartnerMode
     ? `${partnerScopeName} and child organizations`
     : selectedOrganization?.name ?? 'this workspace';
   const billingIsLoading = aggregatePartnerMode
     ? partnerDetailsQuery.isLoading
-    : paymentsQuery.isLoading;
+    : orgDetailsQuery.isLoading;
   const selectedChildUnderPartner =
     isSuperAdmin &&
     superAdminPartnerScope &&
@@ -554,14 +567,11 @@ export function LicensePage() {
       (key.status === 'AVAILABLE' || key.status === 'BOUND') &&
       Boolean(key.emailSentAt),
   ).length;
-  const activePrimarySub =
-    primarySub && ['ACTIVE', 'TRIAL'].includes(primarySub.status) ? primarySub : null;
   const selectedSuperAdminPartnerOrg =
     isSuperAdmin &&
     superAdminPartnerScope &&
     selectedOrganization?.id === selectedPartnerId;
-  const activationPoolSubscriptionId = activePrimarySub?.id ?? null;
-  const activationPoolSeatLimit = activePrimarySub?.seatLimit ?? 0;
+  const activationPoolSeatLimit = orgLicenseSummary?.seatLimit ?? 0;
   const activationPoolUsableKeyCount = usableKeyCount;
   const organizationRemainingActivationKeys = Math.max(
     activationPoolSeatLimit - activationPoolUsableKeyCount,
@@ -576,12 +586,11 @@ export function LicensePage() {
     !!selectedOrganization &&
     isSuperAdmin &&
     !selectedChildUnderPartner &&
-    !!activationPoolSubscriptionId &&
     remainingActivationKeys > 0 &&
     !orgDetailsQuery.isLoading;
   const capacityText = activationPoolSeatLimit > 0
     ? `${activationPoolUsableKeyCount}/${activationPoolSeatLimit} usable keys`
-    : 'No active subscription';
+    : 'No licence capacity';
   const partnerPoolKeys = partnerDetailsQuery.data?.hardwareActivationKeys ?? [];
   const availablePartnerPoolKeys = partnerScopeId
     ? partnerPoolKeys.filter(
@@ -592,19 +601,42 @@ export function LicensePage() {
       )
     : [];
   const teacherCapacityLimit =
-    licenseSummary?.seatLimit ?? aggregateSummary?.seatLimit ?? primarySub?.seatLimit ?? 0;
+    licenseSummary?.seatLimit ?? aggregateSummary?.seatLimit ?? 0;
   const teacherCapacityUsed =
-    licenseSummary?.capacityUsed ?? aggregateSummary?.seatUsage ?? primarySub?.seatUsage ?? 0;
+    licenseSummary?.capacityUsed ?? aggregateSummary?.seatUsage ?? 0;
   const teacherUsage =
-    licenseSummary?.teacherUsage ?? aggregateSummary?.seatUsage ?? primarySub?.seatUsage ?? 0;
+    licenseSummary?.teacherUsage ?? aggregateSummary?.seatUsage ?? 0;
   const licenseProgress = Math.min(
     100,
     (teacherCapacityUsed / Math.max(teacherCapacityLimit, 1)) * 100,
   );
-  const activationKeysColSpan = 7 + (aggregatePartnerMode ? 1 : 0) + (isSuperAdmin ? 1 : 0);
+  const activationKeysColSpan = 8 + (aggregatePartnerMode ? 1 : 0) + (isSuperAdmin ? 1 : 0);
   const allDevices = displayedActivationKeys.flatMap((key) =>
     key.activations.map((activation) => ({ activation, key })),
   );
+  const licenseStartDate = new Date(licenseStartInput);
+  const licenseEndDate = new Date(licenseEndInput);
+  const licenseStartIso = Number.isNaN(licenseStartDate.getTime())
+    ? null
+    : licenseStartDate.toISOString();
+  const licenseEndIso = Number.isNaN(licenseEndDate.getTime())
+    ? null
+    : licenseEndDate.toISOString();
+  const isLicenseTermValid =
+    Boolean(licenseStartIso && licenseEndIso) && licenseEndDate > licenseStartDate;
+  const refreshLicenseTerm = () => {
+    const now = new Date();
+    const months = durationMonthsFor(licenseDuration);
+    const nextEnd =
+      months !== null
+        ? addMonths(now, months)
+        : isLicenseTermValid
+          ? new Date(now.getTime() + (licenseEndDate.getTime() - licenseStartDate.getTime()))
+          : addMonths(now, 12);
+    setLicenseStartInput(dateTimeLocalValue(now));
+    setLicenseEndInput(dateTimeLocalValue(nextEnd));
+    toast.success('Licence term refreshed to current time');
+  };
 
   const toggleReveal = (id: string) =>
     setRevealedKeyIds((current) => ({ ...current, [id]: !current[id] }));
@@ -696,6 +728,10 @@ export function LicensePage() {
 
   const submitBulk = () => {
     if (!selectedOrganization) return;
+    if (!licenseStartIso || !licenseEndIso || !isLicenseTermValid) {
+      toast.error('Choose a valid licence start and expiry');
+      return;
+    }
     if (validBulkRows.length === 0) {
       toast.error('Add at least one key with a label');
       return;
@@ -706,8 +742,9 @@ export function LicensePage() {
     }
     bulkMutation.mutate({
       organizationId: selectedOrganization.id,
-      subscriptionId: activationPoolSubscriptionId,
       sourcePartnerOrganizationId: null,
+      startsAt: licenseStartIso,
+      expiresAt: licenseEndIso,
       keys: validBulkRows.map((row) => ({
         label: row.label.trim(),
         maxDevices: 1,
@@ -717,6 +754,10 @@ export function LicensePage() {
 
   const submitAutoBulk = () => {
     if (!selectedOrganization) return;
+    if (!licenseStartIso || !licenseEndIso || !isLicenseTermValid) {
+      toast.error('Choose a valid licence start and expiry');
+      return;
+    }
     const count = Math.trunc(autoBulkCount);
     if (count < 1 || count > maxAutoBulkCount) {
       toast.error(`Enter a number from 1 to ${maxAutoBulkCount}`);
@@ -724,8 +765,9 @@ export function LicensePage() {
     }
     bulkMutation.mutate({
       organizationId: selectedOrganization.id,
-      subscriptionId: activationPoolSubscriptionId,
       sourcePartnerOrganizationId: null,
+      startsAt: licenseStartIso,
+      expiresAt: licenseEndIso,
       keys: Array.from({ length: count }, (_, index) => ({
         label: `Auto activation key ${index + 1}`,
         maxDevices: 1,
@@ -827,14 +869,14 @@ export function LicensePage() {
             Offline-only billing, activation keys, and device state for each workspace.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="grid w-full min-w-0 gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] xl:w-auto xl:min-w-[620px] 2xl:min-w-[760px]">
           {isSuperAdmin && (
             <>
               <Select
                 value={selectedPartnerId}
                 onValueChange={handleSuperAdminPartnerChange}
               >
-                <SelectTrigger className="w-72">
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent searchPlaceholder="Search partner...">
@@ -854,7 +896,7 @@ export function LicensePage() {
                   value={superAdminOrganizationValue}
                   onValueChange={handleSuperAdminOrganizationChange}
                 >
-                  <SelectTrigger className="w-72">
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent searchPlaceholder="Search organization...">
@@ -897,7 +939,7 @@ export function LicensePage() {
                 setSelectedOrgId(value === PARTNER_AGGREGATE_VALUE ? null : value)
               }
             >
-              <SelectTrigger className="w-72">
+              <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent searchPlaceholder="Search organization...">
@@ -914,6 +956,7 @@ export function LicensePage() {
           )}
           <Button
             variant="outline"
+            className="w-full justify-center whitespace-nowrap lg:w-auto"
             disabled={!selectedOrganization || recalcMutation.isPending}
             onClick={() => {
               if (selectedOrganization) {
@@ -931,33 +974,6 @@ export function LicensePage() {
         </div>
       </div>
 
-      {showLicenseBanner && (
-        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-800">
-          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
-          <div className="space-y-1">
-            <p className="text-sm font-bold">
-              {pendingSub ? 'Subscription pending approval' : 'No active subscription'}
-            </p>
-            <p className="text-sm leading-6">
-              {pendingSub
-                ? 'Your subscription request is awaiting SoftLogic Super Admin approval. Teacher licenses can be used once it is approved; students and parents keep their organization access rules.'
-                : 'This workspace needs an active subscription before teacher licenses can be used. Students and parents remain controlled by organization access settings.'}
-            </p>
-            {!pendingSub && (
-              <Button
-                variant="primary"
-                size="sm"
-                className="mt-1"
-                onClick={() => navigate('/subscriptions/new')}
-              >
-                <Plus className="h-4 w-4" />
-                Request subscription
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
-
       {globalMode && (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Card className="px-4 py-5 sm:px-6">
@@ -971,31 +987,24 @@ export function LicensePage() {
           </Card>
           <Card className="px-4 py-5 sm:px-6">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-              Active plans
+              Activation keys
             </p>
             <p className="mt-2 text-3xl font-black text-success">
-              {globalActiveSubscriptions.length}
+              {globalActivationKeys.length}
             </p>
-            <p className="mt-1 text-sm text-ink-500">Active or trial subscriptions</p>
+            <p className="mt-1 text-sm text-ink-500">Issued across all organizations</p>
           </Card>
           <Card className="px-4 py-5 sm:px-6">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-              Teacher licenses
+              Teacher licences
             </p>
             <p className="mt-2 text-3xl font-black text-ink-900">
-              {globalActiveSubscriptions.reduce(
-                (total, subscription) => total + subscription.seatUsage,
-                0,
-              )}
+              {globalUsableKeys.length}
               <span className="text-base font-semibold text-ink-500">
-                {' '}/{' '}
-                {globalCapacitySubscriptions.reduce(
-                  (total, subscription) => total + subscription.seatLimit,
-                  0,
-                )}
+                {' '}usable
               </span>
             </p>
-            <p className="mt-1 text-sm text-ink-500">Teacher capacity across all organizations</p>
+            <p className="mt-1 text-sm text-ink-500">Available or bound keys</p>
           </Card>
           <Card className="relative px-4 py-5 sm:px-6">
             <Badge variant="info" className="absolute right-4 top-4">Coming Soon</Badge>
@@ -1050,8 +1059,10 @@ export function LicensePage() {
                 <TableRow>
                   <TableHead>Label</TableHead>
                   <TableHead>Organization</TableHead>
-                  <TableHead>Source subscription</TableHead>
+                  <TableHead>Source / pool</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Starts</TableHead>
+                  <TableHead>Expires</TableHead>
                   <TableHead>Created by</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Bound device</TableHead>
@@ -1069,9 +1080,9 @@ export function LicensePage() {
                       <p className="text-xs text-ink-500">{key.organization?.kind ?? ''}</p>
                     </TableCell>
                     <TableCell className="min-w-0">
-                      <p className="truncate text-sm text-ink-900">{key.subscription?.planName ?? '-'}</p>
+                      <p className="truncate text-sm text-ink-900">{keySourceLabel(key)}</p>
                       <p className="text-xs text-ink-500">
-                        {key.subscription?.organization?.name ?? ''}
+                        {keySourceDetail(key)}
                       </p>
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
@@ -1104,6 +1115,10 @@ export function LicensePage() {
                           : ''}
                       </p>
                     </TableCell>
+                    <TableCell className="whitespace-nowrap">{formatDate(key.startsAt)}</TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {key.expiresAt ? formatDate(key.expiresAt) : '-'}
+                    </TableCell>
                     <TableCell className="min-w-0">
                       <p className="truncate text-sm text-ink-900">
                         {key.boundActivation?.deviceModel ?? '-'}
@@ -1117,7 +1132,7 @@ export function LicensePage() {
                 ))}
                 {globalActivationKeys.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="py-10 text-center text-sm text-ink-500">
+                    <TableCell colSpan={10} className="py-10 text-center text-sm text-ink-500">
                       No activation keys issued yet.
                     </TableCell>
                   </TableRow>
@@ -1171,10 +1186,10 @@ export function LicensePage() {
                   <div className="grid gap-3 pt-1 sm:grid-cols-2">
                     <div>
                       <p className="text-xs uppercase tracking-wide text-ink-500">
-                        Active plans
+                        Usable keys
                       </p>
                       <p className="text-sm font-semibold text-ink-900">
-                        {aggregateSummary?.activeSubscriptionCount ?? 0}
+                        {aggregateSummary?.usableKeyCount ?? 0}
                       </p>
                     </div>
                     <div>
@@ -1199,7 +1214,7 @@ export function LicensePage() {
             <div className="border-b border-line px-4 py-4 sm:px-6">
               <h3 className="flex items-center gap-2 text-base font-semibold text-ink-900">
                 <Sofa className="h-4 w-4 text-brand-primary" />
-                Teacher Licenses
+                Teacher Licences
               </h3>
               <p className="text-xs text-ink-500">
                 Used capacity is the higher of active teachers or usable activation keys.
@@ -1270,36 +1285,36 @@ export function LicensePage() {
               <div>
                 <h3 className="flex items-center gap-2 text-base font-semibold text-ink-900">
                   <KeyRound className="h-4 w-4 text-brand-primary" />
-                  Subscription
+                  Licence Capacity
                 </h3>
                 <p className="text-xs text-ink-500">
-                  {selectedOrganization?.name ?? '—'} · {primarySub?.planName ?? 'No plan'}
+                  {selectedOrganization?.name ?? '-'} direct activation-key capacity
                 </p>
               </div>
-              <Badge variant={primarySub?.status === 'ACTIVE' ? 'success' : 'warning'}>
-                {primarySub ? SUBSCRIPTION_STATUS_LABEL[primarySub.status] : 'No plan'}
+              <Badge variant={teacherCapacityLimit > 0 ? 'success' : 'warning'}>
+                {teacherCapacityLimit > 0 ? 'Ready' : 'No capacity'}
               </Badge>
             </div>
             <div className="space-y-3 px-4 py-5 sm:px-6">
-              <p className="text-xs uppercase tracking-wide text-ink-500">Branding</p>
+              <p className="text-xs uppercase tracking-wide text-ink-500">Eligible licence users</p>
               <p className="text-sm text-ink-700">
-                {primarySub ? BRANDING_MODE_LABEL[primarySub.brandingMode] : '—'}
+                Teachers and active admin users. Students and parents do not consume activation keys.
               </p>
               <div className="grid gap-3 pt-2 sm:grid-cols-2">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-ink-500">Term</p>
+                  <p className="text-xs uppercase tracking-wide text-ink-500">Licence term</p>
                   <p className="text-sm font-semibold text-ink-900">
-                    {primarySub
-                      ? `${formatDate(primarySub.startDate)} - ${
-                          primarySub.endDate ? formatDate(primarySub.endDate) : 'No end date'
+                    {licenseSummary?.startsAt || licenseSummary?.expiresAt
+                      ? `${licenseSummary.startsAt ? formatDate(licenseSummary.startsAt) : '-'} - ${
+                          licenseSummary.expiresAt ? formatDate(licenseSummary.expiresAt) : 'No end date'
                         }`
                       : '-'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-ink-500">Teacher seats</p>
+                  <p className="text-xs uppercase tracking-wide text-ink-500">Licence capacity</p>
                   <p className="text-sm font-semibold text-ink-900">
-                    {primarySub?.seatLimit ?? 0}
+                    {teacherCapacityLimit}
                   </p>
                 </div>
               </div>
@@ -1332,7 +1347,7 @@ export function LicensePage() {
             <div className="border-b border-line px-4 py-4 sm:px-6">
               <h3 className="flex items-center gap-2 text-base font-semibold text-ink-900">
                 <Sofa className="h-4 w-4 text-brand-primary" />
-                Teacher Licenses
+                Teacher Licences
               </h3>
               <p className="text-xs text-ink-500">
                 Used capacity is active teachers or usable activation keys, whichever is higher.
@@ -1418,12 +1433,11 @@ export function LicensePage() {
                 />
                 <Button
                   variant="primary"
-                  disabled={!selectedOrganization || !primarySub || offlineMutation.isPending}
+                  disabled={!selectedOrganization || offlineMutation.isPending}
                   onClick={() => {
-                    if (!selectedOrganization || !primarySub) return;
+                    if (!selectedOrganization) return;
                     offlineMutation.mutate({
                       organizationId: selectedOrganization.id,
-                      subscriptionId: primarySub.id,
                       amountMinor,
                       currency,
                       referenceNote: manualReference || null,
@@ -1458,8 +1472,74 @@ export function LicensePage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="grid gap-3 md:grid-cols-[1fr_140px]">
-                    <div className="space-y-1.5">
+                  <div className="grid min-w-0 gap-3 lg:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_150px_minmax(0,1fr)]">
+                    <div className="min-w-0 space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                          Starts
+                        </label>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-ink-500 hover:text-brand-primary"
+                          title="Refresh start and expiry to current IST time"
+                          aria-label="Refresh licence start and expiry to current IST time"
+                          onClick={refreshLicenseTerm}
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                      <Input
+                        type="datetime-local"
+                        value={licenseStartInput}
+                        onChange={(event) => setLicenseStartInput(event.target.value)}
+                      />
+                    </div>
+                    <div className="min-w-0 space-y-1.5">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                        Duration
+                      </label>
+                      <Select
+                        value={licenseDuration}
+                        onValueChange={(value) =>
+                          setLicenseDuration(value as DurationOptionValue)
+                        }
+                      >
+                        <SelectTrigger className="min-w-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {DURATION_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="min-w-0 space-y-1.5 lg:col-span-2 2xl:col-span-1">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                        Expires
+                      </label>
+                      <Input
+                        type="datetime-local"
+                        value={licenseEndInput}
+                        onChange={(event) => {
+                          setLicenseDuration('custom');
+                          setLicenseEndInput(event.target.value);
+                        }}
+                        aria-invalid={!isLicenseTermValid}
+                      />
+                      {!isLicenseTermValid && (
+                        <p className="text-xs font-medium text-danger">
+                          Expiry must be after start.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_140px]">
+                    <div className="min-w-0 space-y-1.5">
                       <Input
                         value={keyLabel}
                         onChange={(event) => setKeyLabel(event.target.value)}
@@ -1472,7 +1552,7 @@ export function LicensePage() {
                         <p className="text-xs font-medium text-danger">Label is required</p>
                       )}
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="min-w-0 space-y-1.5">
                       <Input
                         type="number"
                         min={1}
@@ -1490,6 +1570,7 @@ export function LicensePage() {
                       disabled={
                         !canCreateActivationKey ||
                         keyLabel.trim().length === 0 ||
+                        !isLicenseTermValid ||
                         hardwareMutation.isPending
                       }
                       onClick={() => {
@@ -1498,12 +1579,17 @@ export function LicensePage() {
                           setKeyLabelTouched(true);
                           return;
                         }
+                        if (!licenseStartIso || !licenseEndIso || !isLicenseTermValid) {
+                          toast.error('Choose a valid licence start and expiry');
+                          return;
+                        }
                         hardwareMutation.mutate({
                           organizationId: selectedOrganization.id,
-                          subscriptionId: activationPoolSubscriptionId,
                           sourcePartnerOrganizationId: null,
                           label: keyLabel.trim(),
                           maxDevices: 1,
+                          startsAt: licenseStartIso,
+                          expiresAt: licenseEndIso,
                         });
                       }}
                     >
@@ -1513,7 +1599,7 @@ export function LicensePage() {
                     <Button
                       variant="outline"
                       className="w-full sm:w-auto"
-                      disabled={!canCreateActivationKey}
+                      disabled={!canCreateActivationKey || !isLicenseTermValid}
                       onClick={openBulkDialog}
                     >
                       <Layers className="h-4 w-4" />
@@ -1664,9 +1750,10 @@ export function LicensePage() {
                   {aggregatePartnerMode && <TableHead>Organization</TableHead>}
                   <TableHead>Key</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Source</TableHead>
+                  <TableHead>Source / pool</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Bound device</TableHead>
+                  <TableHead>Starts</TableHead>
                   <TableHead>Expires</TableHead>
                   {isSuperAdmin && <TableHead className="text-right">Actions</TableHead>}
                 </TableRow>
@@ -1745,10 +1832,10 @@ export function LicensePage() {
                       </TableCell>
                       <TableCell className="min-w-0">
                         <p className="truncate text-sm text-ink-700">
-                          {key.subscription?.planName ?? '-'}
+                          {keySourceLabel(key)}
                         </p>
                         <p className="text-xs text-ink-500">
-                          {key.subscription?.organization?.name ?? ''}
+                          {keySourceDetail(key)}
                         </p>
                       </TableCell>
                       <TableCell className="min-w-0">
@@ -1774,7 +1861,12 @@ export function LicensePage() {
                       </TableCell>
                       <TableCell className="whitespace-nowrap">
                         <p className="text-sm text-ink-700">
-                          {key.expiresAt ? formatDate(key.expiresAt) : 'No expiry'}
+                          {formatDate(key.startsAt)}
+                        </p>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <p className="text-sm text-ink-700">
+                          {key.expiresAt ? formatDate(key.expiresAt) : '-'}
                         </p>
                       </TableCell>
                       {isSuperAdmin && (
@@ -1929,7 +2021,7 @@ export function LicensePage() {
             <div>
               <h3 className="text-base font-semibold text-ink-900">Billing History</h3>
               <p className="text-xs text-ink-500">
-                Subscription cycles for {billingScopeLabel}
+                Manual payment history for {billingScopeLabel}
               </p>
             </div>
           </div>
@@ -2009,56 +2101,7 @@ export function LicensePage() {
                   )}
                 </TableRow>
               ))}
-              {displayedPaymentRows.length === 0 &&
-                displayedBillingSubscriptions.map((subscription) => (
-                  <TableRow key={subscription.id}>
-                    <TableCell>
-                      <p className="font-mono text-sm font-medium text-ink-900">
-                        #SUB-{subscription.id.slice(0, 6).toUpperCase()}
-                      </p>
-                    </TableCell>
-                    {aggregatePartnerMode && (
-                      <TableCell>
-                        <p className="text-sm text-ink-700">
-                          {subscription.organization?.name ?? '-'}
-                        </p>
-                      </TableCell>
-                    )}
-                    <TableCell>
-                      <p className="text-sm text-ink-700">
-                        {formatDate(subscription.startDate)}
-                      </p>
-                    </TableCell>
-                    <TableCell>
-                      <p className="text-sm text-ink-700">—</p>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={subscription.status === 'ACTIVE' ? 'success' : 'warning'}>
-                        {subscription.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <p className="text-sm text-ink-700">{subscription.planName}</p>
-                    </TableCell>
-                    <TableCell>
-                      <p className="text-sm text-ink-700">—</p>
-                    </TableCell>
-                    {isSuperAdmin && (
-                      <TableCell className="text-right">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => navigate(`/subscriptions/${subscription.id}/edit`)}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                          Edit
-                        </Button>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))}
-              {displayedPaymentRows.length === 0 && displayedBillingSubscriptions.length === 0 && (
+              {displayedPaymentRows.length === 0 && (
                 <TableRow>
                   <TableCell
                     colSpan={6 + (aggregatePartnerMode ? 1 : 0) + (isSuperAdmin ? 1 : 0)}

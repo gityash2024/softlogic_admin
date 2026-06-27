@@ -21,7 +21,6 @@ export function NewSupportThreadPage() {
   const [subject, setSubject] = useState(SUPPORT_CATEGORY_PRESETS[0].subjectTemplate);
   const [body, setBody] = useState('');
   const [seatTarget, setSeatTarget] = useState<number>(0);
-  const [extendDate, setExtendDate] = useState<string>('');
 
   const createMutation = useMutation({
     mutationFn: supportApi.create,
@@ -50,11 +49,6 @@ export function NewSupportThreadPage() {
     if (preset?.actionable) {
       if (preset.actionKind === 'seats_increase' && seatTarget > 0) {
         requestedAction = { kind: 'seats_increase', params: { to: seatTarget } };
-      } else if (preset.actionKind === 'subscription_extend' && extendDate) {
-        requestedAction = {
-          kind: 'subscription_extend',
-          params: { newEndDate: new Date(extendDate).toISOString() },
-        };
       } else if (preset.actionKind === 'reset_device') {
         // Reset device requires the activation ID, which org admin doesn't know.
         // Super admin will pick it from the action panel on the thread.
@@ -148,7 +142,7 @@ export function NewSupportThreadPage() {
         {preset?.actionable && preset.actionKind === 'seats_increase' && (
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-              New seat limit you’d like (optional)
+              New teacher licence capacity you’d like (optional)
             </label>
             <Input
               type="number"
@@ -159,21 +153,8 @@ export function NewSupportThreadPage() {
             />
             <p className="text-xs text-ink-500">
               When the super admin opens this request they’ll see a one-click button to apply this
-              change.
+              teacher licence capacity change.
             </p>
-          </div>
-        )}
-
-        {preset?.actionable && preset.actionKind === 'subscription_extend' && (
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-              New subscription end date (optional)
-            </label>
-            <Input
-              type="date"
-              value={extendDate}
-              onChange={(event) => setExtendDate(event.target.value)}
-            />
           </div>
         )}
       </Card>

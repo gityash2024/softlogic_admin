@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   Users,
   Building2,
-  CreditCard,
   Files,
   Activity as ActivityIcon,
   HelpCircle,
@@ -28,14 +27,12 @@ import { useAuthStore } from '@/lib/auth-store';
 import { canAccessAiModule } from '@/lib/ai-access';
 import { usersApi } from '@/services/users.api';
 import { organizationsApi } from '@/services/organizations.api';
-import { subscriptionsApi } from '@/services/subscriptions.api';
 
 const BASE_NAV_ITEMS: NavCommand[] = [
   { kind: 'nav', to: '/dashboard', label: 'Dashboard', hint: 'Command center', icon: LayoutDashboard },
   { kind: 'nav', to: '/users', label: 'Users', hint: 'Access and roles', icon: Users },
   { kind: 'nav', to: '/content', label: 'Content', hint: 'Canvases and exports', icon: Files },
   { kind: 'nav', to: '/organizations', label: 'Organizations', hint: 'Partners and customers', icon: Building2 },
-  { kind: 'nav', to: '/subscriptions', label: 'Subscriptions', hint: 'Plans and seats', icon: CreditCard },
   { kind: 'nav', to: '/activity', label: 'Activity', hint: 'Audit trail', icon: ActivityIcon },
   { kind: 'nav', to: '/license', label: 'License', hint: 'Billing reference', icon: KeyRound },
   { kind: 'nav', to: '/ai', label: 'AI', hint: 'Credits and models', icon: BrainCircuit },
@@ -98,7 +95,7 @@ interface RecordCommand {
   to: string;
   label: string;
   hint: string;
-  group: 'Organizations' | 'Users' | 'Subscriptions';
+  group: 'Organizations' | 'Users';
   icon: LucideIcon;
 }
 
@@ -156,13 +153,6 @@ export function CommandPalette() {
     enabled: open && hasQuery && canSearchAdminRecords,
     staleTime: 60_000,
   });
-  const subscriptionsQuery = useQuery({
-    queryKey: ['command-palette', 'subscriptions'],
-    queryFn: subscriptionsApi.all,
-    enabled: open && hasQuery && canSearchAdminRecords,
-    staleTime: 60_000,
-  });
-
   const navCommands = useMemo(
     () =>
       getNavCommands(role, canAccessAiModule(user)).filter((item) =>
@@ -195,31 +185,8 @@ export function CommandPalette() {
         hint: user.email,
         icon: Users,
       }));
-    const subscriptions = (subscriptionsQuery.data ?? [])
-      .filter((sub) =>
-        matches(
-          query,
-          sub.planName,
-          sub.organization?.name,
-          sub.user?.name,
-          sub.user?.email,
-        ),
-      )
-      .slice(0, 5)
-      .map<RecordCommand>((sub) => ({
-        kind: 'record',
-        group: 'Subscriptions',
-        to: `/subscriptions/${sub.id}/details`,
-        label: sub.planName,
-        hint:
-          sub.organization?.name ??
-          sub.user?.name ??
-          sub.user?.email ??
-          'Subscription',
-        icon: CreditCard,
-      }));
-    return [...orgs, ...users, ...subscriptions];
-  }, [hasQuery, query, orgsQuery.data, usersQuery.data, subscriptionsQuery.data]);
+    return [...orgs, ...users];
+  }, [hasQuery, query, orgsQuery.data, usersQuery.data]);
 
   // Flat list drives keyboard selection; grouping is presentational only.
   const flatCommands = useMemo<Command[]>(
@@ -272,13 +239,12 @@ export function CommandPalette() {
 
   const recordsLoading =
     hasQuery &&
-    (usersQuery.isLoading || orgsQuery.isLoading || subscriptionsQuery.isLoading);
+    (usersQuery.isLoading || orgsQuery.isLoading);
 
   const groupedRecords = useMemo(() => {
     const groups: Record<RecordCommand['group'], RecordCommand[]> = {
       Organizations: [],
       Users: [],
-      Subscriptions: [],
     };
     for (const cmd of recordCommands) groups[cmd.group].push(cmd);
     return groups;
@@ -306,7 +272,7 @@ export function CommandPalette() {
             Command palette
           </DialogPrimitive.Title>
           <DialogPrimitive.Description className="sr-only">
-            Search navigation, organizations, users, and subscriptions.
+            Search navigation, organizations, and users.
           </DialogPrimitive.Description>
 
           <div className="flex items-center gap-3 border-b border-line px-4">
@@ -319,7 +285,7 @@ export function CommandPalette() {
                 setActiveIndex(0);
               }}
               onKeyDown={onInputKeyDown}
-              placeholder="Search pages, organizations, users, subscriptions..."
+              placeholder="Search pages, organizations, users..."
               className="h-12 w-full border-0 bg-transparent text-sm text-ink-900 outline-none placeholder:text-ink-400"
               autoComplete="off"
               spellCheck={false}
@@ -352,7 +318,7 @@ export function CommandPalette() {
 
             {hasQuery &&
               (
-                ['Organizations', 'Users', 'Subscriptions'] as RecordCommand['group'][]
+                ['Organizations', 'Users'] as RecordCommand['group'][]
               ).map((group) =>
                 groupedRecords[group].length > 0 ? (
                   <div key={group} className="mb-1">

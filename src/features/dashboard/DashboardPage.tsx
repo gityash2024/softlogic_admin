@@ -160,15 +160,15 @@ export function DashboardPage() {
   }
 
   const utilizationData = [
-    { name: 'Used teacher licenses', value: data.subscriptions.seatUsage },
+    { name: 'Used teacher licences', value: data.subscriptions.seatUsage },
     {
-      name: 'Available teacher licenses',
+      name: 'Available teacher licences',
       value: Math.max(data.subscriptions.seatLimit - data.subscriptions.seatUsage, 0),
     },
   ];
   const activityHasData = data.activity.trend.some((bucket) => bucket.value > 0);
   const roleData = data.users.byRole.filter((bucket) => bucket.value > 0);
-  const subscriptionData = data.subscriptions.byStatus.filter((bucket) => bucket.value > 0);
+  const licenceData = data.subscriptions.byStatus.filter((bucket) => bucket.value > 0);
   const orgKindData = data.organizations.byKind.filter((bucket) => bucket.value > 0);
 
   return (
@@ -186,7 +186,7 @@ export function DashboardPage() {
             <p className="mt-2 max-w-2xl text-sm leading-6 text-white/70">
               The workspace is tracking {data.users.active} active users across{' '}
               {data.organizations.active} active organizations with{' '}
-              {data.subscriptions.utilizationRate}% teacher license utilization.
+              {data.subscriptions.utilizationRate}% teacher licence utilization.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -209,7 +209,7 @@ export function DashboardPage() {
               </p>
             </div>
             <div className="rounded-lg border border-white/10 bg-white/10 px-4 py-3">
-              <p className="text-xs text-white/55">Expiring plans</p>
+              <p className="text-xs text-white/55">Expiring licences</p>
               <p className="mt-1 text-2xl font-black text-white">
                 {data.subscriptions.expiringSoon}
               </p>
@@ -234,7 +234,7 @@ export function DashboardPage() {
           accent="#0EA5E9"
         />
         <MetricCard
-          label="Teacher Licenses"
+          label="Teacher Licences"
           value={`${data.subscriptions.seatUsage}/${data.subscriptions.seatLimit}`}
           detail={`${data.subscriptions.utilizationRate}% allocated`}
           icon={CreditCard}
@@ -299,7 +299,7 @@ export function DashboardPage() {
           )}
         </ChartCard>
 
-        <ChartCard title="Teacher License Utilization" subtitle="Current allocation">
+        <ChartCard title="Teacher Licence Utilization" subtitle="Current allocation">
           <div className="grid h-full gap-3 sm:grid-cols-[1fr_130px] sm:items-center">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -322,7 +322,7 @@ export function DashboardPage() {
                 {data.subscriptions.utilizationRate}%
               </p>
               <p className="mt-2 text-sm text-ink-500">
-                {data.subscriptions.seatUsage} of {data.subscriptions.seatLimit} teacher licenses in use
+                {data.subscriptions.seatUsage} of {data.subscriptions.seatLimit} teacher licences in use
               </p>
             </div>
           </div>
@@ -375,15 +375,15 @@ export function DashboardPage() {
           <Card>
             <div className="border-b border-line px-5 py-4">
               <h3 className="text-base font-bold text-ink-900">Operational Mix</h3>
-              <p className="text-xs text-ink-500">Subscription and organization health</p>
+              <p className="text-xs text-ink-500">Licence capacity and organization health</p>
             </div>
             <div className="space-y-4 px-5 py-4">
               <div>
                 <p className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">
-                  Subscriptions
+                  Licence capacity
                 </p>
                 <div className="space-y-2">
-                  {subscriptionData.map((bucket, index) => (
+                  {licenceData.map((bucket, index) => (
                     <div key={bucket.key} className="flex items-center justify-between text-sm">
                       <span className="flex items-center gap-2 text-ink-600">
                         <span
@@ -395,8 +395,8 @@ export function DashboardPage() {
                       <span className="font-bold text-ink-900">{bucket.value}</span>
                     </div>
                   ))}
-                  {subscriptionData.length === 0 && (
-                    <p className="text-sm text-ink-400">No subscriptions found.</p>
+                  {licenceData.length === 0 && (
+                    <p className="text-sm text-ink-400">No licence capacity found.</p>
                   )}
                 </div>
               </div>

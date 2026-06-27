@@ -266,10 +266,6 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
     queryKey: ['ai-allocation-overview'],
     queryFn: aiApi.allocationOverview,
   });
-  const activeSubscription = selectedOrganization?.subscriptions?.find(
-    (subscription) =>
-      subscription.status === 'ACTIVE' || subscription.status === 'TRIAL',
-  );
   const roleUsageQuery = useQuery({
     queryKey: ['users', 'role-cap-usage', organizationId],
     queryFn: async () => {
@@ -726,8 +722,8 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
               {selectedOrganization?.name ?? 'No organization selected'}
             </p>
             <p>
-              Teacher licenses {activeSubscription?.seatUsage ?? 0}/
-              {activeSubscription?.seatLimit ?? 0}
+              Teacher users {roleUsage.TEACHER ?? selectedOrganization?.capacitySummary?.roleUsage.teacher ?? 0}/
+              {selectedOrganization?.teacherUserLimit ?? 'No limit'}
             </p>
             {!isSuperAdmin && selectedOrganization && (
               <div className="grid gap-2 border-t border-line pt-2">
@@ -754,7 +750,7 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
               </div>
             )}
             <p className="text-xs text-ink-500">
-              Only teachers consume subscription seats. Student login{' '}
+              Activation is required for teachers and admin roles. Student login{' '}
               {selectedOrganization?.studentLoginEnabled ? 'enabled' : 'disabled'} · Parent login{' '}
               {selectedOrganization?.parentLoginEnabled ? 'enabled' : 'disabled'}
             </p>

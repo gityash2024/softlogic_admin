@@ -10,7 +10,6 @@ export interface SupportCategoryPreset {
   actionKind?:
     | 'seats_increase'
     | 'seats_decrease'
-    | 'subscription_extend'
     | 'reset_device'
     | 'disable_org'
     | 'enable_org'
@@ -21,20 +20,19 @@ export const SUPPORT_CATEGORY_PRESETS: SupportCategoryPreset[] = [
   {
     category: 'REQUEST_SEATS',
     label: 'Request more seats',
-    helperText: 'Ask the super admin to raise your subscription seat limit.',
-    subjectTemplate: 'Request to raise seat limit',
+    helperText: 'Ask the super admin to raise teacher licence capacity.',
+    subjectTemplate: 'Request to raise teacher licence capacity',
     defaultPriority: 'NORMAL',
     actionable: true,
     actionKind: 'seats_increase',
   },
   {
     category: 'EXTEND_SUBSCRIPTION',
-    label: 'Extend subscription',
-    helperText: 'Push the subscription end date out.',
-    subjectTemplate: 'Extend subscription end date',
+    label: 'Extend licence/key term',
+    helperText: 'Ask the super admin to extend activation-key terms from Licence.',
+    subjectTemplate: 'Extend licence/key term',
     defaultPriority: 'NORMAL',
-    actionable: true,
-    actionKind: 'subscription_extend',
+    actionable: false,
   },
   {
     category: 'RESET_DEVICE',

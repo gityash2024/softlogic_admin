@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import type React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -10,9 +10,7 @@ import {
   Boxes,
   Building2,
   CalendarClock,
-  CheckCircle2,
   ClipboardList,
-  CreditCard,
   Database,
   ExternalLink,
   FileArchive,
@@ -40,7 +38,6 @@ import {
   type ArchiveOrganizationWithChildrenResult,
   type DeleteOrganizationResult,
 } from '@/services/organizations.api';
-import { subscriptionsApi } from '@/services/subscriptions.api';
 import { usersApi } from '@/services/users.api';
 import { extractApiError } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
@@ -347,36 +344,22 @@ function UserTable({
   );
 }
 
-function SubscriptionTable({
+function LegacySubscriptionTable({
   rows,
   loading,
-  canEdit,
-  canArchive,
-  canApprove,
-  onArchive,
-  onApprove,
-  onReject,
 }: {
   rows: SubscriptionRecord[];
   loading: boolean;
-  canEdit: boolean;
-  canArchive: boolean;
-  canApprove: boolean;
-  onArchive: (subscription: SubscriptionRecord) => void;
-  onApprove: (subscription: SubscriptionRecord) => void;
-  onReject: (subscription: SubscriptionRecord) => void;
 }) {
-  const navigate = useNavigate();
   if (loading) return <LoadingBlock />;
   return (
-    <Table className="min-w-[820px]">
+    <Table className="min-w-[640px]">
       <TableHeader>
         <TableRow>
           <TableHead>Plan</TableHead>
           <TableHead>Status</TableHead>
           <TableHead>Seats</TableHead>
           <TableHead>Term</TableHead>
-          <TableHead className="text-right">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -397,46 +380,9 @@ function SubscriptionTable({
             <TableCell className="whitespace-nowrap text-xs text-ink-500">
               {formatDate(subscription.startDate)} - {formatDate(subscription.endDate)}
             </TableCell>
-            <TableCell className="text-right whitespace-nowrap">
-              <div className="flex justify-end gap-1 whitespace-nowrap">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  title="View subscription details"
-                  onClick={() => navigate(`/subscriptions/${subscription.id}/details`)}
-                >
-                  <ExternalLink className="h-4 w-4 text-brand-primary" />
-                </Button>
-                {canEdit && (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    title="Edit subscription"
-                    onClick={() => navigate(`/subscriptions/${subscription.id}/edit`)}
-                  >
-                    <Pencil className="h-4 w-4 text-ink-500" />
-                  </Button>
-                )}
-                {canApprove && subscription.status === 'PENDING_APPROVAL' && (
-                  <>
-                    <Button size="icon" variant="ghost" title="Approve subscription" onClick={() => onApprove(subscription)}>
-                      <CheckCircle2 className="h-4 w-4 text-success" />
-                    </Button>
-                    <Button size="icon" variant="ghost" title="Reject subscription" onClick={() => onReject(subscription)}>
-                      <XCircle className="h-4 w-4 text-danger" />
-                    </Button>
-                  </>
-                )}
-                {canArchive && !subscription.deletedAt && (
-                  <Button size="icon" variant="ghost" title="Archive subscription" onClick={() => onArchive(subscription)}>
-                    <ArchiveX className="h-4 w-4 text-danger" />
-                  </Button>
-                )}
-              </div>
-            </TableCell>
           </TableRow>
         ))}
-        {rows.length === 0 && <EmptyRow colSpan={5} label="No subscriptions linked to this organization." />}
+        {rows.length === 0 && <EmptyRow colSpan={4} label="No legacy subscription records linked to this organization." />}
       </TableBody>
     </Table>
   );
@@ -762,10 +708,6 @@ export function OrganizationDetailPage() {
   const [userStatusAction, setUserStatusAction] = useState<AdminUser | null>(null);
   const [userLogoutAction, setUserLogoutAction] = useState<AdminUser | null>(null);
   const [userArchiveAction, setUserArchiveAction] = useState<AdminUser | null>(null);
-  const [subscriptionArchiveAction, setSubscriptionArchiveAction] =
-    useState<SubscriptionRecord | null>(null);
-  const [subscriptionRejectAction, setSubscriptionRejectAction] =
-    useState<SubscriptionRecord | null>(null);
   const [keyRevokeAction, setKeyRevokeAction] =
     useState<HardwareActivationKeyRecord | null>(null);
   const [keyReplaceAction, setKeyReplaceAction] =
@@ -797,18 +739,6 @@ export function OrganizationDetailPage() {
         organizationId: id,
         perPage: LINKED_PAGE_SIZE,
         sortBy: 'createdAt',
-        sortOrder: 'desc',
-      }),
-    enabled: !!id,
-  });
-
-  const subscriptionsQuery = useQuery({
-    queryKey: ['organization-detail', id, 'subscriptions'],
-    queryFn: () =>
-      subscriptionsApi.list({
-        organizationId: id,
-        perPage: LINKED_PAGE_SIZE,
-        sortBy: 'updatedAt',
         sortOrder: 'desc',
       }),
     enabled: !!id,
@@ -873,7 +803,6 @@ export function OrganizationDetailPage() {
     queryClient.invalidateQueries({ queryKey: ['organizations'] });
     queryClient.invalidateQueries({ queryKey: ['organization-detail', id] });
     queryClient.invalidateQueries({ queryKey: ['users'] });
-    queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
     queryClient.invalidateQueries({ queryKey: ['license-details'] });
     queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
   };
@@ -960,35 +889,6 @@ export function OrganizationDetailPage() {
     onError: (error) => toast.error(extractApiError(error)),
   });
 
-  const archiveSubscriptionMutation = useMutation({
-    mutationFn: (subscription: SubscriptionRecord) => subscriptionsApi.archive(subscription.id),
-    onSuccess: () => {
-      invalidateOrganizationDetail();
-      toast.success('Subscription archived');
-      setSubscriptionArchiveAction(null);
-    },
-    onError: (error) => toast.error(extractApiError(error)),
-  });
-
-  const approveSubscriptionMutation = useMutation({
-    mutationFn: (subscription: SubscriptionRecord) => subscriptionsApi.approve(subscription.id),
-    onSuccess: () => {
-      invalidateOrganizationDetail();
-      toast.success('Subscription approved');
-    },
-    onError: (error) => toast.error(extractApiError(error)),
-  });
-
-  const rejectSubscriptionMutation = useMutation({
-    mutationFn: (subscription: SubscriptionRecord) => subscriptionsApi.reject(subscription.id),
-    onSuccess: () => {
-      invalidateOrganizationDetail();
-      toast.success('Subscription rejected');
-      setSubscriptionRejectAction(null);
-    },
-    onError: (error) => toast.error(extractApiError(error)),
-  });
-
   const revokeKeyMutation = useMutation({
     mutationFn: (key: HardwareActivationKeyRecord) => licensingApi.revokeActivationKey(key.id),
     onSuccess: () => {
@@ -1011,8 +911,9 @@ export function OrganizationDetailPage() {
 
   const org = organizationQuery.data;
   const users = usersQuery.data?.data ?? [];
-  const subscriptions = subscriptionsQuery.data?.data ?? [];
+  const subscriptions = licenseQuery.data?.subscriptions ?? org?.subscriptions ?? [];
   const activationKeys = licenseQuery.data?.hardwareActivationKeys ?? [];
+  const licenseSummary = licenseQuery.data?.summary ?? null;
   const canvases = canvasesQuery.data?.data ?? [];
   const liveSessions = liveSessionsQuery.data?.data ?? [];
   const exports = exportsQuery.data?.data ?? [];
@@ -1025,24 +926,9 @@ export function OrganizationDetailPage() {
   const canManageOrganization = Boolean(org && !org.deletedAt);
   const canArchiveOrganization =
     Boolean(org) && isSuperAdmin && org!.kind !== 'INTERNAL' && !org!.deletedAt;
-  const canManageSubscriptions = isSuperAdmin;
-  const canApproveSubscriptions = isSuperAdmin || isPartnerAdmin;
   const canManageActivationKeys = isSuperAdmin || isPartnerAdmin;
 
-  const activePlan = useMemo(
-    () =>
-      subscriptions.find((item) => item.status === 'ACTIVE') ??
-      org?.subscriptions?.find((item) => item.status === 'ACTIVE') ??
-      subscriptions[0] ??
-      org?.subscriptions?.[0] ??
-      null,
-    [org?.subscriptions, subscriptions],
-  );
-
   const linkedUsersUrl = id ? linkedUrl('/users', { organizationId: id }) : '';
-  const linkedSubscriptionsUrl = id
-    ? linkedUrl('/subscriptions', { organizationId: id })
-    : '';
   const linkedContentUrl = id ? linkedUrl('/content', { organizationId: id }) : '';
   const linkedActivityUrl = id
     ? linkedUrl('/activity', { targetType: 'ORGANIZATION', targetId: id })
@@ -1128,10 +1014,6 @@ export function OrganizationDetailPage() {
             <UserPlus className="h-4 w-4" />
             Add user
           </Button>
-          <Button variant="outline" onClick={() => navigate(`/subscriptions/new?organizationId=${org.id}`)}>
-            <CreditCard className="h-4 w-4" />
-            Add subscription
-          </Button>
           <Button variant="outline" onClick={() => navigate(`/license?organizationId=${org.id}`)}>
             <Database className="h-4 w-4" />
             License
@@ -1177,10 +1059,14 @@ export function OrganizationDetailPage() {
           icon={UsersRound}
         />
         <StatTile
-          label="Subscriptions"
-          value={org._count?.subscriptions ?? subscriptionsQuery.data?.meta?.total ?? 0}
-          detail={activePlan?.planName ?? 'No active plan'}
-          icon={CreditCard}
+          label="Licence capacity"
+          value={
+            licenseSummary
+              ? `${licenseSummary.usableKeyCount}/${licenseSummary.seatLimit}`
+              : `${capacity?.activationKeysUsable ?? 0}/${capacity?.activationKeyCapacity ?? 0}`
+          }
+          detail="Usable keys / capacity"
+          icon={Database}
         />
         <StatTile
           label="Canvases"
@@ -1207,8 +1093,8 @@ export function OrganizationDetailPage() {
             People
           </TabsTrigger>
           <TabsTrigger value="billing">
-            <CreditCard className="h-4 w-4" />
-            Billing & License
+            <Database className="h-4 w-4" />
+            Licence
           </TabsTrigger>
           <TabsTrigger value="content">
             <Presentation className="h-4 w-4" />
@@ -1397,8 +1283,8 @@ export function OrganizationDetailPage() {
                             <Button size="icon" variant="ghost" title="Open users" onClick={() => navigate(`/users?organizationId=${child.id}`)}>
                               <UsersRound className="h-4 w-4 text-brand-primary" />
                             </Button>
-                            <Button size="icon" variant="ghost" title="Open subscriptions" onClick={() => navigate(`/subscriptions?organizationId=${child.id}`)}>
-                              <CreditCard className="h-4 w-4 text-brand-primary" />
+                            <Button size="icon" variant="ghost" title="Open licence" onClick={() => navigate(`/license?organizationId=${child.id}`)}>
+                              <Database className="h-4 w-4 text-brand-primary" />
                             </Button>
                             {isSuperAdmin && !child.deletedAt && child.kind !== 'INTERNAL' && (
                               <Button size="icon" variant="ghost" title="Archive organization" onClick={() => setArchiveOrgAction(child)}>
@@ -1493,28 +1379,20 @@ export function OrganizationDetailPage() {
               icon={Database}
             />
             <StatTile
-              label="Active plan"
-              value={activePlan?.planName ?? '-'}
-              detail={activePlan ? SUBSCRIPTION_STATUS_LABEL[activePlan.status] : 'No subscription'}
+              label="Eligible users"
+              value={`${licenseSummary?.activationUserUsage ?? 0}/${licenseSummary?.seatLimit ?? capacity?.activationKeyCapacity ?? 0}`}
+              detail="Activation-required roles / capacity"
               icon={CalendarClock}
             />
           </div>
           <Card>
             <SectionHeader
-              title="Subscriptions"
-              description="Recent subscriptions scoped to this organization."
-              href={linkedSubscriptionsUrl}
-              actionLabel="Open subscriptions"
+              title="Legacy subscription records"
+              description="Read-only historical terms kept for migration and audit compatibility."
             />
-            <SubscriptionTable
+            <LegacySubscriptionTable
               rows={subscriptions}
-              loading={subscriptionsQuery.isLoading}
-              canEdit={canManageSubscriptions}
-              canArchive={canManageSubscriptions}
-              canApprove={canApproveSubscriptions}
-              onArchive={setSubscriptionArchiveAction}
-              onApprove={(subscription) => approveSubscriptionMutation.mutate(subscription)}
-              onReject={setSubscriptionRejectAction}
+              loading={licenseQuery.isLoading}
             />
           </Card>
           <Card>
@@ -1647,8 +1525,8 @@ export function OrganizationDetailPage() {
         description={
           <div className="space-y-3 leading-6">
             <p>
-              {archiveOrgAction?.name ?? 'This organization'} will lose admin access, active/trial
-              subscriptions are canceled, and license, hardware, storage, and AI access are disabled.
+              {archiveOrgAction?.name ?? 'This organization'} will lose admin access, and licence,
+              hardware, storage, and AI access are disabled.
             </p>
             {archiveOrgAction?.id === org.id && activeChildren.length > 0 && (
               <div className="rounded-lg border border-line bg-surface-variant p-3">
@@ -1721,32 +1599,6 @@ export function OrganizationDetailPage() {
         loading={archiveUserMutation.isPending}
         onConfirm={() => {
           if (userArchiveAction) archiveUserMutation.mutate(userArchiveAction);
-        }}
-      />
-      <ConfirmationDialog
-        open={!!subscriptionArchiveAction}
-        onOpenChange={(open) => !open && setSubscriptionArchiveAction(null)}
-        title="Archive subscription?"
-        description={`${subscriptionArchiveAction?.planName ?? 'This subscription'} will be archived and license usage recalculated.`}
-        confirmLabel="Archive subscription"
-        tone="danger"
-        loading={archiveSubscriptionMutation.isPending}
-        onConfirm={() => {
-          if (subscriptionArchiveAction) {
-            archiveSubscriptionMutation.mutate(subscriptionArchiveAction);
-          }
-        }}
-      />
-      <ConfirmationDialog
-        open={!!subscriptionRejectAction}
-        onOpenChange={(open) => !open && setSubscriptionRejectAction(null)}
-        title="Reject subscription request?"
-        description={`${subscriptionRejectAction?.planName ?? 'This subscription request'} will be rejected.`}
-        confirmLabel="Reject request"
-        tone="danger"
-        loading={rejectSubscriptionMutation.isPending}
-        onConfirm={() => {
-          if (subscriptionRejectAction) rejectSubscriptionMutation.mutate(subscriptionRejectAction);
         }}
       />
       <ConfirmationDialog

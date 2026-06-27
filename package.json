@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:local": "node scripts/ensure-local-env.cjs && vite --host 0.0.0.0 --port 5173",
+    "local:env": "node scripts/ensure-local-env.cjs",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
