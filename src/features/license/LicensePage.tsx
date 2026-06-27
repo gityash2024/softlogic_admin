@@ -121,6 +121,13 @@ function dateTimeLocalValue(value: Date): string {
   return new Date(value.getTime() - offsetMs).toISOString().slice(0, 16);
 }
 
+function dateTimeInputToIso(value: string): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
+
 function addMonths(value: Date, months: number): Date {
   const next = new Date(value);
   next.setMonth(next.getMonth() + months);
@@ -164,6 +171,13 @@ interface PaymentEditState {
   invoiceNumber: string;
   periodStart: string;
   periodEnd: string;
+}
+
+interface ActivationKeyTermEditState {
+  id: string;
+  label: string;
+  startsAt: string;
+  expiresAt: string;
 }
 
 function SeatsBanner({
@@ -253,6 +267,7 @@ export function LicensePage() {
   const [revokeKeyId, setRevokeKeyId] = useState<string | null>(null);
   const [replaceKeyId, setReplaceKeyId] = useState<string | null>(null);
   const [labelEdit, setLabelEdit] = useState<{ id: string; label: string } | null>(null);
+  const [termEdit, setTermEdit] = useState<ActivationKeyTermEditState | null>(null);
   const [emailKeysOpen, setEmailKeysOpen] = useState(false);
   const [assignKeysOpen, setAssignKeysOpen] = useState(false);
   const [paymentEdit, setPaymentEdit] = useState<PaymentEditState | null>(null);
@@ -420,7 +435,7 @@ export function LicensePage() {
       organizationsQuery.data?.find((org) => org.id === selectedOrgId) ?? null,
     [organizationsQuery.data, selectedOrgId],
   );
-  const paymentRows: PartnerLicensePaymentRecord[] = [];
+  const paymentRows: PartnerLicensePaymentRecord[] = orgDetailsQuery.data?.payments ?? [];
 
   const invalidateCommercialQueries = () => {
     queryClient.invalidateQueries({ queryKey: ['organizations'] });
@@ -505,6 +520,22 @@ export function LicensePage() {
         }`,
       );
       setReplaceKeyId(null);
+    },
+    onError: (error) => toast.error(extractApiError(error)),
+  });
+
+  const updateKeyTermMutation = useMutation({
+    mutationFn: ({
+      keyId,
+      payload,
+    }: {
+      keyId: string;
+      payload: Parameters<typeof licensingApi.updateActivationKeyTerm>[1];
+    }) => licensingApi.updateActivationKeyTerm(keyId, payload),
+    onSuccess: () => {
+      invalidateCommercialQueries();
+      setTermEdit(null);
+      toast.success('Activation key dates updated');
     },
     onError: (error) => toast.error(extractApiError(error)),
   });
@@ -644,6 +675,36 @@ export function LicensePage() {
   const copyValue = async (value: string, success: string) => {
     await navigator.clipboard.writeText(value);
     toast.success(success);
+  };
+
+  const openTermEdit = (key: HardwareActivationKeyRecord) => {
+    const startDate = new Date(key.startsAt);
+    setTermEdit({
+      id: key.id,
+      label: key.label ?? 'Activation key',
+      startsAt: Number.isNaN(startDate.getTime())
+        ? dateTimeLocalValue(new Date())
+        : dateTimeLocalValue(startDate),
+      expiresAt: '',
+    });
+  };
+
+  const submitTermEdit = () => {
+    if (!termEdit) return;
+    const startsAt = dateTimeInputToIso(termEdit.startsAt);
+    const expiresAt = dateTimeInputToIso(termEdit.expiresAt);
+    if (!startsAt || !expiresAt) {
+      toast.error('Select both start and expiry date/time');
+      return;
+    }
+    if (new Date(expiresAt).getTime() <= new Date(startsAt).getTime()) {
+      toast.error('Expiry must be after start date');
+      return;
+    }
+    updateKeyTermMutation.mutate({
+      keyId: termEdit.id,
+      payload: { startsAt, expiresAt },
+    });
   };
 
   const openPaymentEdit = (payment: PartnerLicensePaymentRecord) => {
@@ -1763,6 +1824,10 @@ export function LicensePage() {
                   const revealed = revealedKeyIds[key.id];
                   const plain = key.activationKey ?? '';
                   const displayKey = formatActivationKeyForDisplay(plain);
+                  const canRepairLegacyTerm =
+                    !key.expiresAt &&
+                    key.status !== 'DISABLED' &&
+                    key.status !== 'EXPIRED';
                   return (
                     <TableRow key={key.id}>
                       <TableCell className="min-w-0">
@@ -1872,6 +1937,16 @@ export function LicensePage() {
                       {isSuperAdmin && (
                         <TableCell className="text-right whitespace-nowrap">
                           <div className="flex justify-end gap-1 whitespace-nowrap">
+                            {canRepairLegacyTerm && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openTermEdit(key)}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                                Edit dates
+                              </Button>
+                            )}
                             <Button
                               size="sm"
                               variant="outline"
@@ -2459,6 +2534,63 @@ export function LicensePage() {
           onSent={invalidateCommercialQueries}
         />
       )}
+
+      <Dialog open={Boolean(termEdit)} onOpenChange={(open) => !open && setTermEdit(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Repair legacy key dates</DialogTitle>
+            <DialogDescription>
+              Set the V2 start and expiry date for {termEdit?.label ?? 'this activation key'}.
+            </DialogDescription>
+          </DialogHeader>
+          {termEdit && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  Starts
+                </label>
+                <Input
+                  type="datetime-local"
+                  value={termEdit.startsAt}
+                  onChange={(event) =>
+                    setTermEdit((current) =>
+                      current ? { ...current, startsAt: event.target.value } : current,
+                    )
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  Expires
+                </label>
+                <Input
+                  type="datetime-local"
+                  value={termEdit.expiresAt}
+                  onChange={(event) =>
+                    setTermEdit((current) =>
+                      current ? { ...current, expiresAt: event.target.value } : current,
+                    )
+                  }
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setTermEdit(null)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              disabled={updateKeyTermMutation.isPending}
+              onClick={submitTermEdit}
+            >
+              {updateKeyTermMutation.isPending && <Spinner className="h-4 w-4" />}
+              Save dates
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {labelEdit && (
         <ActivationKeyLabelDialog

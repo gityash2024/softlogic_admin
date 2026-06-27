@@ -696,6 +696,7 @@ export interface OrganizationLicenseDetailRecord {
   capacitySummary?: OrganizationCapacitySummaryRecord;
   summary: LicenseKeySummaryRecord;
   subscriptions: SubscriptionRecord[];
+  payments: PartnerLicensePaymentRecord[];
   hardwareActivationKeys: HardwareActivationKeyRecord[];
 }
 

@@ -75,6 +75,11 @@ export interface UpdatePaymentTransactionPayload {
   periodEnd?: string | null;
 }
 
+export interface UpdateHardwareActivationKeyTermPayload {
+  startsAt: string;
+  expiresAt: string;
+}
+
 export interface BulkHardwareActivationKeyResponse {
   createdCount: number;
   keys: CreateHardwareActivationKeyResponse[];
@@ -181,6 +186,16 @@ export const licensingApi = {
     const res = await api.patch<ApiResponse<HardwareActivationKeyRecord>>(
       `/admin/hardware/activation-keys/${keyId}/label`,
       { label },
+    );
+    return res.data.data;
+  },
+  updateActivationKeyTerm: async (
+    keyId: string,
+    payload: UpdateHardwareActivationKeyTermPayload,
+  ) => {
+    const res = await api.patch<ApiResponse<HardwareActivationKeyRecord>>(
+      `/admin/hardware/activation-keys/${keyId}/term`,
+      payload,
     );
     return res.data.data;
   },
