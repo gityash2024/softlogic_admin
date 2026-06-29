@@ -87,6 +87,19 @@ export const downloadsApi = {
     return response.data.data;
   },
 
+  listFiltered: async (params: {
+    environment?: AppReleaseEnvironment;
+    brand?: AppReleaseBrand;
+    platform?: AppReleasePlatform;
+    currentOnly?: boolean;
+  }) => {
+    const response = await api.get<ApiResponse<AppRelease[]>>(
+      "/admin/app-releases",
+      { params },
+    );
+    return response.data.data;
+  },
+
   publishFullRelease: async (payload: PublishFullReleasePayload) => {
     const response = await api.post<ApiResponse<AppRelease[]>>(
       "/admin/app-releases/full-release",

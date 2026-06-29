@@ -108,15 +108,22 @@ const initialLinks = () =>
     ]),
   );
 
-const channelSelection = (predicate: (channel: ReleaseChannel) => boolean) =>
+const channelsForEnvironment = (environment: AppReleaseEnvironment) =>
+  CHANNELS.filter((channel) => channel.environment === environment);
+
+const channelSelectionFor = (
+  channels: ReleaseChannel[],
+  predicate: (channel: ReleaseChannel) => boolean,
+) =>
   Object.fromEntries(
-    CHANNELS.map((channel) => [
+    channels.map((channel) => [
       channelKey(channel.environment, channel.brand, channel.platform),
       predicate(channel),
     ]),
   );
 
-const allChannelSelection = () => channelSelection(() => true);
+const allChannelSelectionFor = (channels: ReleaseChannel[]) =>
+  channelSelectionFor(channels, () => true);
 
 const nextPatchVersion = (version: string) => {
   const parts = version.split(".").map(Number);
@@ -191,6 +198,13 @@ export function DownloadsPage() {
 
 function SuperAdminDownloadsPage() {
   const queryClient = useQueryClient();
+  const adminEnvironment = currentAdminEnvironment();
+  const visibleChannels = useMemo(
+    () => channelsForEnvironment(adminEnvironment),
+    [adminEnvironment],
+  );
+  const environmentLabel =
+    adminEnvironment === "production" ? "Production" : "Staging";
   const [publishOpen, setPublishOpen] = useState(false);
   const [editing, setEditing] = useState<AppRelease | null>(null);
   const [versionName, setVersionName] = useState("");
@@ -202,7 +216,9 @@ function SuperAdminDownloadsPage() {
   const [isForcedRelease, setIsForcedRelease] = useState<boolean | null>(null);
   const [links, setLinks] = useState<Record<string, string>>(initialLinks);
   const [selectedChannels, setSelectedChannels] =
-    useState<Record<string, boolean>>(allChannelSelection);
+    useState<Record<string, boolean>>(() =>
+      allChannelSelectionFor(visibleChannels),
+    );
   const [editDraft, setEditDraft] = useState<EditReleaseDraft | null>(null);
   const [historySearch, setHistorySearch] = useState("");
   const [environmentFilter, setEnvironmentFilter] =
@@ -215,8 +231,8 @@ function SuperAdminDownloadsPage() {
     useState<ConfirmationAction | null>(null);
 
   const releasesQuery = useQuery({
-    queryKey: ["app-releases"],
-    queryFn: downloadsApi.list,
+    queryKey: ["app-releases", adminEnvironment],
+    queryFn: () => downloadsApi.listFiltered({ environment: adminEnvironment }),
   });
 
   const currentByChannel = useMemo(
@@ -226,13 +242,13 @@ function SuperAdminDownloadsPage() {
 
   const selectedReleaseChannels = useMemo(
     () =>
-      CHANNELS.filter(
+      visibleChannels.filter(
         (channel) =>
           selectedChannels[
             channelKey(channel.environment, channel.brand, channel.platform)
           ],
       ),
-    [selectedChannels],
+    [selectedChannels, visibleChannels],
   );
 
   const filteredReleases = useMemo(() => {
@@ -301,7 +317,7 @@ function SuperAdminDownloadsPage() {
       setNotes("");
       setIsForcedRelease(null);
       setLinks(initialLinks());
-      setSelectedChannels(allChannelSelection());
+      setSelectedChannels(allChannelSelectionFor(visibleChannels));
       await queryClient.invalidateQueries({ queryKey: ["app-releases"] });
     },
     onError: (error) => toast.error(extractApiError(error)),
@@ -332,7 +348,7 @@ function SuperAdminDownloadsPage() {
     setNotes("");
     setIsForcedRelease(null);
     setLinks(initialLinks());
-    setSelectedChannels(allChannelSelection());
+    setSelectedChannels(allChannelSelectionFor(visibleChannels));
     setPublishOpen(true);
   };
 
@@ -465,9 +481,9 @@ function SuperAdminDownloadsPage() {
             App releases
           </h2>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-ink-500">
-            Publish one version and build number to all channels or only the
-            selected Android and Windows download links. Each installed app
-            checks only its matching channel.
+            Publish one version and build number to the {environmentLabel}
+            channels or only the selected Android and Windows download links.
+            Each installed app checks only its matching channel.
           </p>
         </div>
         <Button onClick={openPublish}>
@@ -479,12 +495,14 @@ function SuperAdminDownloadsPage() {
       <div className="grid gap-4 sm:grid-cols-3">
         <Card className="p-4">
           <p className="text-xs font-bold uppercase text-ink-400">Channels</p>
-          <p className="mt-1 text-2xl font-black text-ink-900">8</p>
+          <p className="mt-1 text-2xl font-black text-ink-900">
+            {visibleChannels.length}
+          </p>
         </Card>
         <Card className="p-4">
           <p className="text-xs font-bold uppercase text-ink-400">Current</p>
           <p className="mt-1 text-2xl font-black text-ink-900">
-            {currentByChannel.size}/8
+            {currentByChannel.size}/{visibleChannels.length}
           </p>
         </Card>
         <Card className="p-4">
@@ -496,7 +514,7 @@ function SuperAdminDownloadsPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        {CHANNELS.map((channel) => {
+        {visibleChannels.map((channel) => {
           const release = currentByChannel.get(
             channelKey(channel.environment, channel.brand, channel.platform),
           );
@@ -587,11 +605,12 @@ function SuperAdminDownloadsPage() {
               Full release history
             </Badge>
             <h3 className="mt-3 text-xl font-black text-ink-900">
-              All app releases
+              {environmentLabel} app releases
             </h3>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-ink-500">
-              Search every release by channel, version, build number, notes, or
-              URL, then manage current, active, and force-update status.
+              Search every {environmentLabel.toLowerCase()} release by channel,
+              version, build number, notes, or URL, then manage current, active,
+              and force-update status.
             </p>
           </div>
           <div className="flex items-center gap-2 rounded-lg border border-line bg-surface-variant px-3 py-2 text-sm font-semibold text-ink-700">
@@ -616,9 +635,8 @@ function SuperAdminDownloadsPage() {
               setEnvironmentFilter(value as EnvironmentFilter)
             }
             options={[
-              ["all", "All environments"],
-              ["staging", "Staging"],
-              ["production", "Production"],
+              ["all", `All ${environmentLabel}`],
+              [adminEnvironment, environmentLabel],
             ]}
           />
           <HistorySelect
@@ -793,8 +811,8 @@ function SuperAdminDownloadsPage() {
           <DialogHeader>
             <DialogTitle>Publish app release</DialogTitle>
             <DialogDescription>
-              Select the exact environments, brands, and platforms that should
-              receive this version.
+              Select the exact {environmentLabel} brands and platforms that
+              should receive this version.
             </DialogDescription>
           </DialogHeader>
           <form className="space-y-5" onSubmit={publish}>
@@ -863,7 +881,7 @@ function SuperAdminDownloadsPage() {
                     Release channels
                   </p>
                   <p className="text-xs text-ink-500">
-                    {selectedReleaseChannels.length} of {CHANNELS.length}{" "}
+                    {selectedReleaseChannels.length} of {visibleChannels.length}{" "}
                     selected
                   </p>
                 </div>
@@ -872,44 +890,20 @@ function SuperAdminDownloadsPage() {
                     type="button"
                     size="sm"
                     variant="outline"
-                    onClick={() => setSelectedChannels(allChannelSelection())}
-                  >
-                    All
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
                     onClick={() =>
-                      setSelectedChannels(
-                        channelSelection(
-                          (channel) => channel.environment === "staging",
-                        ),
-                      )
+                      setSelectedChannels(allChannelSelectionFor(visibleChannels))
                     }
                   >
-                    Staging
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() =>
-                      setSelectedChannels(
-                        channelSelection(
-                          (channel) => channel.environment === "production",
-                        ),
-                      )
-                    }
-                  >
-                    Production
+                    All {environmentLabel}
                   </Button>
                   <Button
                     type="button"
                     size="sm"
                     variant="ghost"
                     onClick={() =>
-                      setSelectedChannels(channelSelection(() => false))
+                      setSelectedChannels(
+                        channelSelectionFor(visibleChannels, () => false),
+                      )
                     }
                   >
                     Clear
@@ -917,7 +911,7 @@ function SuperAdminDownloadsPage() {
                 </div>
               </div>
               <div className="grid gap-2 md:grid-cols-2">
-                {CHANNELS.map((channel) => {
+                {visibleChannels.map((channel) => {
                   const key = channelKey(
                     channel.environment,
                     channel.brand,
