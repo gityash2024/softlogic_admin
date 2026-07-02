@@ -1,18 +1,18 @@
-import { api } from '@/lib/api';
+import { api } from "@/lib/api";
 import type {
   ApiResponse,
   OrganizationStorageProvider,
   StorageCredentialConfig,
   StorageCredentialScope,
   StorageCredentialSource,
-} from '@/types/api';
+} from "@/types/api";
 
 export interface IntegrationStatus {
   configured: boolean;
   credentialConfigured?: boolean;
   credentialSource?: StorageCredentialSource;
   connected: boolean;
-  action: 'connect' | 'configure' | 'refresh';
+  action: "connect" | "configure" | "refresh";
   message: string;
   updatedAt?: string | null;
   externalAccountEmail?: string | null;
@@ -36,15 +36,15 @@ interface OAuthUrlResult {
 }
 
 const pathFor = (provider: OrganizationStorageProvider) => {
-  if (provider === 'GOOGLE_DRIVE') return 'google-drive';
-  if (provider === 'ONEDRIVE') return 'onedrive';
-  return 'dropbox';
+  if (provider === "GOOGLE_DRIVE") return "google-drive";
+  if (provider === "ONEDRIVE") return "onedrive";
+  return "dropbox";
 };
 
 export const integrationsApi = {
   storageCredentials: async (query: StorageCredentialsQuery) => {
     const res = await api.get<ApiResponse<StorageCredentialConfig[]>>(
-      '/admin/storage-credentials',
+      "/admin/storage-credentials",
       { params: query },
     );
     return res.data.data;
@@ -69,21 +69,30 @@ export const integrationsApi = {
     );
     return res.data.data;
   },
-  status: async (provider: OrganizationStorageProvider, organizationId: string) => {
+  status: async (
+    provider: OrganizationStorageProvider,
+    organizationId: string,
+  ) => {
     const res = await api.get<ApiResponse<IntegrationStatus>>(
       `/integrations/${pathFor(provider)}/status`,
       { params: { organizationId } },
     );
     return res.data.data;
   },
-  oauthUrl: async (provider: OrganizationStorageProvider, organizationId: string) => {
+  oauthUrl: async (
+    provider: OrganizationStorageProvider,
+    organizationId: string,
+  ) => {
     const res = await api.get<ApiResponse<OAuthUrlResult>>(
       `/integrations/${pathFor(provider)}/oauth-url`,
-      { params: { organizationId } },
+      { params: { organizationId, _: Date.now() } },
     );
     return res.data.data;
   },
-  disconnect: async (provider: OrganizationStorageProvider, organizationId: string) => {
+  disconnect: async (
+    provider: OrganizationStorageProvider,
+    organizationId: string,
+  ) => {
     const res = await api.post<ApiResponse<{ connected: false }>>(
       `/integrations/${pathFor(provider)}/disconnect`,
       { organizationId },

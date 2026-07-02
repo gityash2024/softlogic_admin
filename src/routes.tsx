@@ -3,6 +3,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import {
   AdminRoute,
   AiModuleRoute,
+  MaintenanceRoute,
   ProtectedRoute,
   RoleRoute,
 } from '@/components/layout/ProtectedRoute';
@@ -23,12 +24,14 @@ import { ThreadDetailPage as SupportThreadDetailPage } from '@/features/support/
 import { SupportInboxPage } from '@/features/support/SupportInboxPage';
 import { ContentPage } from '@/features/content/ContentPage';
 import { LiveSessionDetailPage } from '@/features/content/LiveSessionDetailPage';
+import { StudyMaterialUploadPage } from '@/features/content/StudyMaterialUploadPage';
 import { ActivityPage } from '@/features/activity/ActivityPage';
 import { LicensePage } from '@/features/license/LicensePage';
 import { AiPage } from '@/features/ai/AiPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { RolePortalPage, RolePortalRedirect } from '@/features/portal/RolePortalPage';
 import { DownloadsPage } from '@/features/downloads/DownloadsPage';
+import { MaintenancePage } from '@/features/maintenance/MaintenancePage';
 
 export const router = createBrowserRouter([
   { path: '/', element: <SplashScreen /> },
@@ -63,6 +66,10 @@ export const router = createBrowserRouter([
                 element: <AiModuleRoute />,
                 children: [{ path: '/ai', element: <AiPage /> }],
               },
+              {
+                element: <MaintenanceRoute />,
+                children: [{ path: '/maintenance', element: <MaintenancePage /> }],
+              },
               { path: '/license', element: <LicensePage /> },
               { path: '/help', element: <HelpThreadsPage /> },
               { path: '/help/new', element: <NewSupportThreadPage /> },
@@ -82,17 +89,21 @@ export const router = createBrowserRouter([
                 element: <RoleRoute roles={['TEACHER']} />,
                 children: [
                   { path: '/teacher/sessions/:id', element: <LiveSessionDetailPage /> },
+                  { path: '/teacher/sessions/:id/materials', element: <StudyMaterialUploadPage /> },
                 ],
               },
               { path: '/teacher/materials', element: <RolePortalPage module="materials" /> },
               { path: '/student/dashboard', element: <RolePortalPage module="dashboard" /> },
               { path: '/student/join', element: <RolePortalPage module="join" /> },
               { path: '/student/previous', element: <RolePortalPage module="previous" /> },
+              { path: '/student/previous/:id', element: <LiveSessionDetailPage /> },
               { path: '/student/boards', element: <RolePortalPage module="boards" /> },
               { path: '/student/progress', element: <RolePortalPage module="progress" /> },
               { path: '/parent/dashboard', element: <RolePortalPage module="dashboard" /> },
+              { path: '/parent/join', element: <RolePortalPage module="join" /> },
               { path: '/parent/linked-students', element: <RolePortalPage module="linked-students" /> },
               { path: '/parent/sessions-boards', element: <RolePortalPage module="sessions-boards" /> },
+              { path: '/parent/sessions/:id', element: <LiveSessionDetailPage /> },
               { path: '/parent/reports', element: <RolePortalPage module="reports" /> },
             ],
           },

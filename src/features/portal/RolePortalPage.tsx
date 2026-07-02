@@ -73,6 +73,13 @@ function statusVariant(status: string) {
   return "warning" as const;
 }
 
+function sessionDetailsPath(role: UserRole, sessionId: string) {
+  if (role === "TEACHER") return `/teacher/sessions/${sessionId}`;
+  if (role === "STUDENT") return `/student/previous/${sessionId}`;
+  if (role === "PARENT") return `/parent/sessions/${sessionId}`;
+  return `/content/live-sessions/${sessionId}`;
+}
+
 function moduleTitle(role: UserRole, module: RolePortalModule) {
   if (role === "TEACHER") {
     if (module === "boards") return "Boards";
@@ -88,6 +95,7 @@ function moduleTitle(role: UserRole, module: RolePortalModule) {
     return "Student Dashboard";
   }
   if (module === "linked-students") return "Linked Students";
+  if (module === "join") return "Join Session";
   if (module === "sessions-boards") return "Sessions & Boards";
   if (module === "reports") return "Reports";
   return "Parent Dashboard";
@@ -114,6 +122,7 @@ function moduleSubtitle(role: UserRole, module: RolePortalModule) {
   }
   if (module === "linked-students")
     return "Parent visibility is limited to linked students only.";
+  if (module === "join") return "Enter a session code to join a linked live class.";
   if (module === "sessions-boards")
     return "Read-only sessions and boards for linked students.";
   if (module === "reports")
@@ -713,9 +722,13 @@ function BoardsModule({ summary }: { summary: ClassroomSummary }) {
             Loading boards...
           </Card>
         ) : boards.length === 0 ? (
+          canEdit ? (
           <Card className="px-5 py-4 text-sm text-ink-500">
             No whiteboards are available in your scope yet.
           </Card>
+          ) : (
+            <LearnerJoinPanel role={summary.role} context="boards" />
+          )
         ) : (
           boards.map((board) => (
             <Card key={board.id} className="px-4 py-4">
@@ -751,6 +764,39 @@ function BoardsModule({ summary }: { summary: ClassroomSummary }) {
         )}
       </div>
     </section>
+  );
+}
+
+function LearnerJoinPanel({
+  role,
+  context,
+}: {
+  role: UserRole;
+  context: "boards" | "sessions";
+}) {
+  const joinPath = role === "PARENT" ? "/parent/join" : "/student/join";
+  return (
+    <Card className="px-5 py-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <MonitorPlay className="h-5 w-5 text-brand-primary" />
+            <h3 className="font-bold text-ink-900">Join a live classroom</h3>
+          </div>
+          <p className="mt-1 text-sm text-ink-500">
+            {context === "boards"
+              ? "Boards will appear here after you join a teacher-led session."
+              : "Enter the class code from your teacher to join or review the session later."}
+          </p>
+        </div>
+        <Button asChild>
+          <Link to={joinPath}>
+            <ArrowRight className="h-4 w-4" />
+            Join Session
+          </Link>
+        </Button>
+      </div>
+    </Card>
   );
 }
 
@@ -804,6 +850,7 @@ function SessionsModule({
               key={session.id}
               session={session}
               canManage={summary.role === "TEACHER"}
+              role={summary.role}
             />
           ))
         )}
@@ -815,9 +862,11 @@ function SessionsModule({
 function SessionCard({
   session,
   canManage,
+  role,
 }: {
   session: AdminLiveSessionRecord;
   canManage: boolean;
+  role: UserRole;
 }) {
   const queryClient = useQueryClient();
   const actionMutation = useMutation({
@@ -889,11 +938,21 @@ function SessionCard({
         </div>
         <Badge variant={statusVariant(session.status)}>{session.status}</Badge>
       </div>
+      {!canManage && (
+        <div className="mt-4 border-t border-line pt-3">
+          <Button asChild type="button" size="sm" variant="outline">
+            <Link to={sessionDetailsPath(role, session.id)}>
+              <Eye className="h-4 w-4" />
+              Details
+            </Link>
+          </Button>
+        </div>
+      )}
       {canManage && (
         <div className="mt-4 space-y-3 border-t border-line pt-3">
           <div className="flex flex-wrap gap-2">
             <Button asChild type="button" size="sm" variant="outline">
-              <Link to={`/teacher/sessions/${session.id}`}>
+              <Link to={sessionDetailsPath(role, session.id)}>
                 <Eye className="h-4 w-4" />
                 Details
               </Link>
@@ -1242,7 +1301,7 @@ function JoinSessionModule({ summary }: { summary: ClassroomSummary }) {
       <Card className="px-4 py-5 sm:px-5">
         <h3 className="font-bold text-ink-900">Live Session</h3>
         {liveSession ? (
-          <SessionCard session={liveSession} canManage={false} />
+          <SessionCard session={liveSession} canManage={false} role={summary.role} />
         ) : (
           <p className="mt-4 text-sm text-ink-500">
             You do not have a live session in your scope right now.
@@ -1320,12 +1379,15 @@ function PreviousSessionsModule({ summary }: { summary: ClassroomSummary }) {
   return (
     <section className="grid gap-3 xl:grid-cols-2">
       {sessions.length === 0 ? (
-        <Card className="px-5 py-4 text-sm text-ink-500">
-          No previous sessions are available yet.
-        </Card>
+        <LearnerJoinPanel role={summary.role} context="sessions" />
       ) : (
         sessions.map((session) => (
-          <SessionCard key={session.id} session={session} canManage={false} />
+          <SessionCard
+            key={session.id}
+            session={session}
+            canManage={false}
+            role={summary.role}
+          />
         ))
       )}
     </section>
@@ -1384,6 +1446,7 @@ function isModuleAllowed(role: UserRole, module: RolePortalModule) {
   if (role === "PARENT") {
     return [
       "dashboard",
+      "join",
       "linked-students",
       "sessions-boards",
       "reports",

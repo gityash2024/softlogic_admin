@@ -31,6 +31,10 @@ const PATH_TO_TITLE: Record<string, { title: string; subtitle: string }> = {
     title: 'AI',
     subtitle: 'Master key, AI credits, and live usage',
   },
+  '/maintenance': {
+    title: 'Maintenance',
+    subtitle: 'Schedule service windows and platform access locks',
+  },
   '/portal': {
     title: 'Role Portal',
     subtitle: 'Boards, sessions, materials, and role-scoped controls',
@@ -108,6 +112,11 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           title: 'Live Session Details',
           subtitle: 'Participants, messages, media, events, and AI output',
         }
+      : location.pathname.startsWith('/teacher/sessions/') && location.pathname.endsWith('/materials')
+        ? {
+            title: 'Study Materials',
+            subtitle: 'Upload and preview session materials',
+          }
       : location.pathname.startsWith('/teacher/sessions/')
         ? {
             title: 'Live Session Details',

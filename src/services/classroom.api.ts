@@ -173,6 +173,12 @@ export const classroomApi = {
     );
     return res.data.data;
   },
+  liveSessionDetail: async (id: string) => {
+    const res = await api.get<ApiResponse<AdminLiveSessionRecord>>(
+      `/classroom/live-sessions/${id}/details`,
+    );
+    return res.data.data;
+  },
   contentActivity: async (params?: { limit?: number; canvasId?: string }) => {
     const res = await api.get<ApiResponse<ClassroomNotification[]>>(
       '/classroom/content/activity',

@@ -12,6 +12,7 @@ import {
   Inbox,
   KeyRound,
   BrainCircuit,
+  Wrench,
   Settings,
   Download,
   GraduationCap,
@@ -25,6 +26,7 @@ import { isAdminRole, type UserRole } from '@/types/api';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/lib/auth-store';
 import { canAccessAiModule } from '@/lib/ai-access';
+import { canManageMaintenance } from '@/lib/maintenance-access';
 import { usersApi } from '@/services/users.api';
 import { organizationsApi } from '@/services/organizations.api';
 
@@ -36,6 +38,7 @@ const BASE_NAV_ITEMS: NavCommand[] = [
   { kind: 'nav', to: '/activity', label: 'Activity', hint: 'Audit trail', icon: ActivityIcon },
   { kind: 'nav', to: '/license', label: 'License', hint: 'Billing reference', icon: KeyRound },
   { kind: 'nav', to: '/ai', label: 'AI', hint: 'Credits and models', icon: BrainCircuit },
+  { kind: 'nav', to: '/maintenance', label: 'Maintenance', hint: 'Service windows', icon: Wrench },
   { kind: 'nav', to: '/downloads', label: 'Downloads', hint: 'APK and EXE', icon: Download },
   { kind: 'nav', to: '/settings', label: 'Settings', hint: 'Profile and locale', icon: Settings },
 ];
@@ -58,7 +61,11 @@ const HELP_ITEM: NavCommand = {
 
 // Mirrors Sidebar.getNavItems so the palette surfaces the same destinations,
 // including role-specific Support/Help entries, without altering the sidebar.
-function getNavCommands(role: UserRole | undefined, showAiModule: boolean): NavCommand[] {
+function getNavCommands(
+  role: UserRole | undefined,
+  showAiModule: boolean,
+  showMaintenanceModule: boolean,
+): NavCommand[] {
   if (role === 'TEACHER' || role === 'STUDENT' || role === 'PARENT') {
     return [
       { kind: 'nav', to: '/portal', label: 'Portal', hint: 'Role workspace', icon: GraduationCap },
@@ -68,6 +75,9 @@ function getNavCommands(role: UserRole | undefined, showAiModule: boolean): NavC
   let items = [...BASE_NAV_ITEMS];
   if (!showAiModule) {
     items = items.filter((item) => item.to !== '/ai');
+  }
+  if (!showMaintenanceModule) {
+    items = items.filter((item) => item.to !== '/maintenance');
   }
   const insertAt = items.findIndex((item) => item.to === '/license');
   const supportEntry =
@@ -155,7 +165,7 @@ export function CommandPalette() {
   });
   const navCommands = useMemo(
     () =>
-      getNavCommands(role, canAccessAiModule(user)).filter((item) =>
+      getNavCommands(role, canAccessAiModule(user), canManageMaintenance(user)).filter((item) =>
         matches(query, item.label, item.hint),
       ),
     [role, user, query],

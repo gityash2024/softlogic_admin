@@ -1,20 +1,37 @@
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft,
   Bot,
   CalendarClock,
+  ClipboardList,
+  Download,
+  Eye,
+  ExternalLink,
+  FileText,
+  FileUp,
   FileVideo,
+  Image as ImageIcon,
   Link2,
+  Loader2,
   MessageSquareText,
   MonitorPlay,
   Radio,
   Users,
 } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
 import {
   Table,
@@ -24,15 +41,22 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { api, extractApiError } from '@/lib/api';
+import { api, apiObjectUrl, extractApiError } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
 import { formatDateTime } from '@/lib/utils';
+import { classroomApi } from '@/services/classroom.api';
 import { contentApi } from '@/services/content.api';
 import {
   LIVE_SESSION_STATUS_LABEL,
   type AdminLiveSessionRecord,
   type LiveSessionStatus,
+  type UserRole,
 } from '@/types/api';
+import { BoardPreviewTile, type WhiteboardPreviewSlide } from './WhiteboardPreview';
+
+type LiveSessionMediaAsset = NonNullable<AdminLiveSessionRecord['mediaAssets']>[number];
+type LiveSessionRecording = NonNullable<AdminLiveSessionRecord['recordings']>[number];
+type LiveSessionEvent = AdminLiveSessionRecord['events'][number];
 
 function statusVariant(status: LiveSessionStatus) {
   if (status === 'LIVE') return 'success' as const;
@@ -66,9 +90,117 @@ function personLabel(person?: {
   return `${person.name ?? person.email} (${person.role.replaceAll('_', ' ')})`;
 }
 
-function payloadPreview(payload: Record<string, unknown> | null | undefined) {
-  if (!payload || Object.keys(payload).length === 0) return 'No additional payload';
-  return JSON.stringify(payload, null, 2);
+function payloadText(payload: Record<string, unknown> | null | undefined, keys: string[]) {
+  if (!payload) return null;
+  for (const key of keys) {
+    const value = payload[key];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+function payloadList(payload: Record<string, unknown> | null | undefined, key: string) {
+  const value = payload?.[key];
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
+}
+
+function isStudyMaterial(asset: LiveSessionMediaAsset) {
+  return asset.metadata?.category === 'STUDY_MATERIAL';
+}
+
+function assetExtension(asset: LiveSessionMediaAsset) {
+  const parts = asset.fileName.toLowerCase().split('.');
+  return parts.length > 1 ? parts.pop() ?? '' : '';
+}
+
+function isPdfAsset(asset: LiveSessionMediaAsset) {
+  return asset.mimeType === 'application/pdf' || assetExtension(asset) === 'pdf';
+}
+
+function isTextAsset(asset: LiveSessionMediaAsset) {
+  return asset.mimeType.startsWith('text/') || ['txt', 'csv'].includes(assetExtension(asset));
+}
+
+function isOfficeAsset(asset: LiveSessionMediaAsset) {
+  return ['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'].includes(assetExtension(asset));
+}
+
+function officeViewerUrl(publicUrl: string) {
+  return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(publicUrl)}`;
+}
+
+function mediaAssetUrl(asset: LiveSessionMediaAsset | null | undefined) {
+  return apiObjectUrl(asset?.storageKey, asset?.publicUrl);
+}
+
+function useBlobPreviewUrl(sourceUrl: string | null, enabled: boolean) {
+  const [state, setState] = useState<{
+    url: string | null;
+    isLoading: boolean;
+    error: string | null;
+  }>({ url: null, isLoading: false, error: null });
+
+  useEffect(() => {
+    if (!sourceUrl || !enabled) {
+      setState({ url: null, isLoading: false, error: null });
+      return;
+    }
+
+    let isActive = true;
+    let objectUrl: string | null = null;
+    setState({ url: null, isLoading: true, error: null });
+
+    api
+      .get<Blob>(sourceUrl, { responseType: 'blob' })
+      .then((response) => {
+        if (!isActive) return;
+        objectUrl = URL.createObjectURL(response.data);
+        setState({ url: objectUrl, isLoading: false, error: null });
+      })
+      .catch((error) => {
+        if (!isActive) return;
+        setState({ url: null, isLoading: false, error: extractApiError(error) });
+      });
+
+    return () => {
+      isActive = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [enabled, sourceUrl]);
+
+  return state;
+}
+
+async function downloadMediaAsset(asset: LiveSessionMediaAsset) {
+  const assetUrl = mediaAssetUrl(asset);
+  if (!assetUrl) {
+    toast.error('Download link is unavailable for this material');
+    return;
+  }
+
+  try {
+    const response = await api.get<Blob>(assetUrl, { responseType: 'blob' });
+    const objectUrl = URL.createObjectURL(response.data);
+    const anchor = document.createElement('a');
+    anchor.href = objectUrl;
+    anchor.download = asset.fileName;
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  } catch (error) {
+    toast.error(extractApiError(error));
+  }
+}
+
+function backPathForRole(role: UserRole | undefined) {
+  if (role === 'TEACHER') return '/teacher/sessions';
+  if (role === 'STUDENT') return '/student/previous';
+  if (role === 'PARENT') return '/parent/sessions-boards';
+  return '/content?tab=live-sessions';
 }
 
 function DetailStat({
@@ -93,21 +225,340 @@ function DetailStat({
   );
 }
 
+function StudyMaterialUploader({ sessionId }: { sessionId: string }) {
+  return (
+    <Card className="border-brand-primary/20 bg-brand-primary/[0.025] px-5 py-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <FileUp className="h-5 w-5 text-brand-primary" />
+            <h3 className="text-base font-bold text-ink-900">Share study materials</h3>
+          </div>
+          <p className="mt-1 max-w-3xl text-sm text-ink-500">
+            Open the dedicated upload workspace for multi-file upload, same-page preview, and
+            upload tracking.
+          </p>
+        </div>
+        <Button asChild>
+          <Link to={`/teacher/sessions/${sessionId}/materials`}>
+            <FileUp className="h-4 w-4" />
+            Upload materials
+          </Link>
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+function MaterialCard({
+  asset,
+  onPreview,
+}: {
+  asset: LiveSessionMediaAsset;
+  onPreview: (asset: LiveSessionMediaAsset) => void;
+}) {
+  const Icon = asset.kind === 'VIDEO' ? FileVideo : asset.kind === 'IMAGE' ? ImageIcon : FileText;
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  async function handleDownload() {
+    setIsDownloading(true);
+    await downloadMediaAsset(asset);
+    setIsDownloading(false);
+  }
+
+  return (
+    <div className="min-w-0 overflow-hidden rounded-lg border border-line bg-white px-4 py-3">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-variant text-brand-primary">
+          <Icon className="h-5 w-5" />
+        </div>
+        <button
+          type="button"
+          className="min-w-0 flex-1 text-left"
+          onClick={() => onPreview(asset)}
+        >
+          <p className="truncate text-sm font-semibold text-ink-900">{asset.fileName}</p>
+          <p className="mt-1 truncate text-xs text-ink-500">
+            {asset.kind} - {asset.mimeType} - {formatBytes(asset.sizeBytes)}
+          </p>
+          <p className="mt-1 text-xs text-ink-400">{formatDateTime(asset.createdAt)}</p>
+        </button>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={() => onPreview(asset)}>
+            <Eye className="h-4 w-4" />
+            Preview
+          </Button>
+          <Button type="button" variant="ghost" size="sm" disabled={isDownloading} onClick={handleDownload}>
+            {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            Download
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MaterialPreviewDialog({
+  asset,
+  onClose,
+}: {
+  asset: LiveSessionMediaAsset | null;
+  onClose: () => void;
+}) {
+  const assetUrl = mediaAssetUrl(asset);
+  const shouldUseBlobPreview = Boolean(asset && assetUrl && (isPdfAsset(asset) || isTextAsset(asset)));
+  const blobPreview = useBlobPreviewUrl(assetUrl, shouldUseBlobPreview);
+  const previewUrl = blobPreview.url ?? assetUrl;
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  async function handleDownload() {
+    if (!asset) return;
+    setIsDownloading(true);
+    await downloadMediaAsset(asset);
+    setIsDownloading(false);
+  }
+
+  function renderPreview() {
+    if (!asset) return null;
+
+    if (!previewUrl && !blobPreview.isLoading) {
+      return (
+        <div className="flex min-h-[420px] flex-col items-center justify-center rounded-lg border border-dashed border-line bg-surface-variant px-5 text-center">
+          <FileText className="h-10 w-10 text-ink-300" />
+          <p className="mt-3 text-sm font-semibold text-ink-800">Preview link unavailable</p>
+        </div>
+      );
+    }
+
+    if (blobPreview.isLoading) {
+      return (
+        <div className="flex min-h-[420px] flex-col items-center justify-center rounded-lg border border-line bg-surface-variant px-5 text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
+          <p className="mt-3 text-sm font-semibold text-ink-800">Loading secure preview</p>
+        </div>
+      );
+    }
+
+    if (blobPreview.error) {
+      return (
+        <div className="flex min-h-[420px] flex-col items-center justify-center rounded-lg border border-line bg-surface-variant px-5 text-center">
+          <FileText className="h-10 w-10 text-danger" />
+          <p className="mt-3 text-sm font-semibold text-ink-800">Preview could not load</p>
+          <p className="mt-1 max-w-md text-sm text-ink-500">{blobPreview.error}</p>
+        </div>
+      );
+    }
+
+    if (asset.kind === 'IMAGE') {
+      return (
+        <img
+          src={previewUrl ?? undefined}
+          alt={asset.fileName}
+          className="h-[min(62dvh,680px)] w-full rounded-lg border border-line bg-surface-variant object-contain"
+        />
+      );
+    }
+
+    if (asset.kind === 'VIDEO') {
+      return (
+        <video
+          src={previewUrl ?? undefined}
+          className="h-[min(62dvh,680px)] w-full rounded-lg border border-line bg-ink-900"
+          controls
+        />
+      );
+    }
+
+    if (isPdfAsset(asset) || isTextAsset(asset)) {
+      return (
+        <iframe
+          title={asset.fileName}
+          src={previewUrl ?? undefined}
+          className="h-[min(62dvh,680px)] w-full rounded-lg border border-line bg-white"
+        />
+      );
+    }
+
+    if (isOfficeAsset(asset) && assetUrl) {
+      return (
+        <div className="space-y-3">
+          <iframe
+            title={asset.fileName}
+            src={officeViewerUrl(assetUrl)}
+            className="h-[min(62dvh,680px)] w-full rounded-lg border border-line bg-white"
+            allowFullScreen
+          />
+          <p className="text-xs text-ink-500">
+            Office previews are rendered by Microsoft Office viewer. Use Download if the preview
+            takes longer than expected.
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex min-h-[420px] flex-col items-center justify-center rounded-lg border border-line bg-surface-variant px-5 text-center">
+        <FileText className="h-10 w-10 text-brand-primary" />
+        <p className="mt-3 max-w-md break-words text-sm font-semibold text-ink-800">
+          {asset.fileName}
+        </p>
+        <p className="mt-1 text-sm text-ink-500">Download this material to open it on your device.</p>
+      </div>
+    );
+  }
+
+  return (
+    <Dialog open={Boolean(asset)} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-[min(1180px,calc(100vw-2rem))] gap-0 overflow-hidden p-0">
+        <DialogHeader className="border-b border-line px-5 py-4 pr-12">
+          <DialogTitle className="break-words pr-2">{asset?.fileName ?? 'Study material'}</DialogTitle>
+          <DialogDescription>
+            {asset
+              ? `${asset.kind} - ${asset.mimeType} - ${formatBytes(asset.sizeBytes)}`
+              : 'Preview shared study material'}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid min-h-0 gap-0 lg:grid-cols-[minmax(0,1fr)_240px]">
+          <div className="min-w-0 p-5">{renderPreview()}</div>
+          <aside className="border-t border-line bg-surface-variant/40 p-5 lg:border-l lg:border-t-0">
+            <div className="space-y-4 text-sm">
+              <div>
+                <p className="text-xs font-semibold uppercase text-ink-400">Shared</p>
+                <p className="mt-1 font-semibold text-ink-800">
+                  {asset ? formatDateTime(asset.createdAt) : '-'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase text-ink-400">Access</p>
+                <p className="mt-1 font-semibold text-ink-800">Students and parents</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase text-ink-400">File type</p>
+                <p className="mt-1 break-words font-semibold text-ink-800">{asset?.mimeType ?? '-'}</p>
+              </div>
+            </div>
+            <Button type="button" className="mt-6 w-full" disabled={!asset || isDownloading} onClick={handleDownload}>
+              {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              Download material
+            </Button>
+            {assetUrl && (
+              <Button asChild variant="outline" className="mt-2 w-full">
+                <a href={assetUrl} target="_blank" rel="noreferrer">
+                  <ExternalLink className="h-4 w-4" />
+                  Open in new tab
+                </a>
+              </Button>
+            )}
+          </aside>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RecordingCard({ recording }: { recording: LiveSessionRecording }) {
+  return (
+    <div className="rounded-lg border border-line px-3 py-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="truncate text-sm font-semibold text-ink-900">
+          {recording.createdBy?.name ?? recording.createdBy?.email ?? 'Recording'}
+        </p>
+        <Badge
+          variant={
+            recording.status === 'READY'
+              ? 'success'
+              : recording.status === 'FAILED'
+                ? 'danger'
+                : 'warning'
+          }
+        >
+          {recording.status}
+        </Badge>
+      </div>
+      <p className="mt-1 text-xs text-ink-500">
+        {recording.durationSeconds ? `${recording.durationSeconds}s` : 'Duration pending'}
+      </p>
+      <p className="mt-1 text-xs text-ink-400">{formatDateTime(recording.createdAt)}</p>
+      {recording.publicUrl && (
+        <Button asChild variant="ghost" size="sm" className="mt-2 px-0">
+          <a href={recording.publicUrl} target="_blank" rel="noreferrer">
+            <ExternalLink className="h-4 w-4" />
+            Open recording
+          </a>
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function BoardPreviewSection({ session }: { session: AdminLiveSessionRecord }) {
+  const boardPreview = session.boardPreview ?? {
+    id: session.canvas.id,
+    title: session.canvas.name,
+    thumbnail: session.canvas.thumbnail ?? null,
+    slides: session.canvas.slides ?? [],
+  };
+  const firstSlide = boardPreview.slides[0] as WhiteboardPreviewSlide | undefined;
+  const pageCount = boardPreview.slides.length;
+
+  return (
+    <Card className="px-5 py-5">
+      <div className="flex flex-col gap-4 lg:flex-row">
+        <div className="w-full lg:w-[420px]">
+          <BoardPreviewTile
+            title={boardPreview.title}
+            thumbnail={boardPreview.thumbnail}
+            slide={firstSlide}
+            pageCount={pageCount || undefined}
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <MonitorPlay className="h-5 w-5 text-brand-primary" />
+            <h3 className="text-base font-bold text-ink-900">Read-only board preview</h3>
+          </div>
+          <p className="mt-1 text-sm text-ink-500">
+            Pages from the session board are available here for review without editing tools.
+          </p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {boardPreview.slides.slice(0, 6).map((slide, index) => (
+              <div key={slide.id} className="rounded-lg border border-line bg-surface-variant p-2">
+                <BoardPreviewTile
+                  title={slide.title ?? slide.name ?? `Page ${index + 1}`}
+                  thumbnail={slide.thumbnail}
+                  slide={slide as WhiteboardPreviewSlide}
+                  compact
+                />
+                <p className="mt-2 truncate text-xs font-semibold text-ink-700">
+                  {slide.title ?? slide.name ?? `Page ${index + 1}`}
+                </p>
+              </div>
+            ))}
+            {pageCount === 0 && (
+              <p className="rounded-lg border border-dashed border-line px-3 py-3 text-sm text-ink-500">
+                No saved board pages are available yet.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export function LiveSessionDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const actor = useAuthStore((state) => state.user);
-  const isTeacher = actor?.role === 'TEACHER';
+  const [previewAsset, setPreviewAsset] = useState<LiveSessionMediaAsset | null>(null);
+  const portalRole =
+    actor?.role === 'TEACHER' || actor?.role === 'STUDENT' || actor?.role === 'PARENT';
+
   const query = useQuery({
     queryKey: ['live-session-detail', id, actor?.role],
-    queryFn: async () => {
-      if (isTeacher) {
-        const response = await api.get<{ data: AdminLiveSessionRecord }>(
-          `/live-sessions/${id}/details`,
-        );
-        return response.data.data;
-      }
-      return contentApi.liveSessions.get(id!);
+    queryFn: () => {
+      if (!id) throw new Error('Live session id is required');
+      return portalRole ? classroomApi.liveSessionDetail(id) : contentApi.liveSessions.get(id);
     },
     enabled: Boolean(id),
   });
@@ -136,8 +587,22 @@ export function LiveSessionDetailPage() {
   }
 
   const session = query.data;
-  const aiEvents = session.events.filter((event) => event.type === 'AI_SUMMARY_GENERATED');
-  const backPath = isTeacher ? '/teacher/sessions' : '/content?tab=live-sessions';
+  const isTeacher = actor?.role === 'TEACHER';
+  const backPath = backPathForRole(actor?.role);
+  const studyMaterials =
+    session.studyMaterials && session.studyMaterials.length > 0
+      ? session.studyMaterials
+      : (session.mediaAssets ?? []).filter(isStudyMaterial);
+  const sessionMedia = (session.mediaAssets ?? []).filter((asset) => !isStudyMaterial(asset));
+  const aiSummaryEvent =
+    session.aiSummary ?? session.events.find((event) => event.type === 'AI_SUMMARY_GENERATED');
+  const aiSummary = payloadText(aiSummaryEvent?.payload, ['summary', 'overview']);
+  const aiKeyPoints = payloadList(aiSummaryEvent?.payload, 'keyPoints');
+  const technicalRows = [
+    ['Session ID', session.id],
+    ['Organization ID', session.organizationId ?? 'None'],
+    ['Canvas ID', session.canvasId],
+  ];
 
   return (
     <div className="space-y-5">
@@ -155,22 +620,27 @@ export function LiveSessionDetailPage() {
                 {LIVE_SESSION_STATUS_LABEL[session.status]}
               </Badge>
             </div>
-            <p className="mt-1 break-all text-sm text-ink-500">Session ID: {session.id}</p>
+            <p className="mt-1 text-sm text-ink-500">
+              {session.canvas?.name ?? 'Session board'} -{' '}
+              {session.organization?.name ?? 'No organization'}
+            </p>
           </div>
         </div>
         <div className="rounded-lg border border-line bg-white px-4 py-3 text-sm shadow-sm">
           <p className="font-semibold text-ink-900">{session.organization?.name ?? 'No organization'}</p>
-          <p className="text-xs text-ink-500">{session.canvas?.name ?? session.canvasId}</p>
+          <p className="text-xs text-ink-500">{session.canvas?.name ?? 'Live Session board'}</p>
         </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <DetailStat icon={Users} label="Participants" value={session._count.participants} />
         <DetailStat icon={MessageSquareText} label="Messages" value={session._count.messages} />
-        <DetailStat icon={FileVideo} label="Media" value={session._count.mediaAssets} />
+        <DetailStat icon={FileText} label="Materials" value={studyMaterials.length} />
         <DetailStat icon={Radio} label="Events" value={session._count.events} />
         <DetailStat icon={CalendarClock} label="Duration" value={durationLabel(session)} />
       </div>
+
+      {isTeacher && id && <StudyMaterialUploader sessionId={id} />}
 
       <div className="grid gap-5 xl:grid-cols-2">
         <Card className="px-5 py-5">
@@ -179,7 +649,7 @@ export function LiveSessionDetailPage() {
             <div><dt className="text-xs font-semibold text-ink-400">Host</dt><dd className="mt-1 text-sm text-ink-800">{personLabel(session.host)}</dd></div>
             <div><dt className="text-xs font-semibold text-ink-400">Created by</dt><dd className="mt-1 text-sm text-ink-800">{personLabel(session.createdBy)}</dd></div>
             <div><dt className="text-xs font-semibold text-ink-400">Organization</dt><dd className="mt-1 text-sm text-ink-800">{session.organization?.name ?? 'None'}</dd></div>
-            <div><dt className="text-xs font-semibold text-ink-400">Canvas</dt><dd className="mt-1 text-sm text-ink-800">{session.canvas?.name ?? session.canvasId}</dd></div>
+            <div><dt className="text-xs font-semibold text-ink-400">Canvas</dt><dd className="mt-1 text-sm text-ink-800">{session.canvas?.name ?? 'Live Session'}</dd></div>
             <div><dt className="text-xs font-semibold text-ink-400">Created</dt><dd className="mt-1 text-sm text-ink-800">{formatDateTime(session.createdAt)}</dd></div>
             <div><dt className="text-xs font-semibold text-ink-400">Updated</dt><dd className="mt-1 text-sm text-ink-800">{formatDateTime(session.updatedAt)}</dd></div>
             <div><dt className="text-xs font-semibold text-ink-400">Started</dt><dd className="mt-1 text-sm text-ink-800">{formatDateTime(session.startedAt)}</dd></div>
@@ -201,14 +671,64 @@ export function LiveSessionDetailPage() {
               <p className="text-xs font-semibold text-ink-400">Join code expiry</p>
               <p className="mt-1 text-sm text-ink-800">{formatDateTime(session.joinCodeExpiresAt)}</p>
             </div>
-            <div>
-              <p className="text-xs font-semibold text-ink-400">Organization ID</p>
-              <p className="mt-1 break-all font-mono text-xs text-ink-600">{session.organizationId ?? 'None'}</p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-ink-400">Canvas ID</p>
-              <p className="mt-1 break-all font-mono text-xs text-ink-600">{session.canvasId}</p>
-            </div>
+            <details className="rounded-lg border border-line bg-white px-4 py-3 text-sm">
+              <summary className="cursor-pointer font-semibold text-ink-700">Technical identifiers</summary>
+              <dl className="mt-3 space-y-2">
+                {technicalRows.map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="text-xs font-semibold text-ink-400">{label}</dt>
+                    <dd className="mt-1 break-all font-mono text-xs text-ink-600">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </details>
+          </div>
+        </Card>
+      </div>
+
+      <BoardPreviewSection session={session} />
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <Card className="min-w-0 overflow-hidden px-5 py-5">
+          <div className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-brand-primary" />
+            <h3 className="text-base font-bold text-ink-900">Study materials</h3>
+          </div>
+          <div className="mt-4 grid gap-3">
+            {studyMaterials.map((asset) => (
+              <MaterialCard key={asset.id} asset={asset} onPreview={setPreviewAsset} />
+            ))}
+            {studyMaterials.length === 0 && (
+              <p className="rounded-lg border border-dashed border-line px-3 py-3 text-sm text-ink-500">
+                No study materials have been shared for this session yet.
+              </p>
+            )}
+          </div>
+        </Card>
+
+        <Card className="min-w-0 overflow-hidden px-5 py-5">
+          <div className="flex items-center gap-2">
+            <Bot className="h-5 w-5 text-brand-primary" />
+            <h3 className="text-base font-bold text-ink-900">AI summary</h3>
+          </div>
+          <div className="mt-4 rounded-lg border border-line bg-surface-variant px-4 py-4">
+            {aiSummary ? (
+              <>
+                <p className="whitespace-pre-wrap text-sm text-ink-700">{aiSummary}</p>
+                {aiKeyPoints.length > 0 && (
+                  <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-ink-600">
+                    {aiKeyPoints.map((point) => (
+                      <li key={point}>{point}</li>
+                    ))}
+                  </ul>
+                )}
+                <p className="mt-3 text-xs text-ink-400">{formatDateTime(aiSummaryEvent?.createdAt)}</p>
+              </>
+            ) : (
+              <p className="text-sm text-ink-500">
+                Summary is being prepared from the session events and messages.
+              </p>
+            )}
           </div>
         </Card>
       </div>
@@ -218,24 +738,39 @@ export function LiveSessionDetailPage() {
           <h3 className="text-base font-bold text-ink-900">Participants</h3>
           <p className="text-sm text-ink-500">Join history, role, and disconnect timing.</p>
         </div>
-        <Table className="min-w-[760px]">
-          <TableHeader><TableRow><TableHead>Participant</TableHead><TableHead>Role</TableHead><TableHead>Joined</TableHead><TableHead>Left</TableHead><TableHead>User ID</TableHead></TableRow></TableHeader>
+        <Table className="min-w-[680px]">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Participant</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead>Joined</TableHead>
+              <TableHead>Left</TableHead>
+            </TableRow>
+          </TableHeader>
           <TableBody>
             {(session.participants ?? []).map((participant) => (
               <TableRow key={participant.id}>
-                <TableCell><p className="font-semibold text-ink-900">{participant.user.name ?? participant.user.email}</p><p className="text-xs text-ink-500">{participant.user.email}</p></TableCell>
+                <TableCell>
+                  <p className="font-semibold text-ink-900">{participant.user.name ?? participant.user.email}</p>
+                  <p className="text-xs text-ink-500">{participant.user.email}</p>
+                </TableCell>
                 <TableCell><Badge variant="default">{participant.role}</Badge></TableCell>
                 <TableCell>{formatDateTime(participant.joinedAt)}</TableCell>
                 <TableCell>{formatDateTime(participant.leftAt)}</TableCell>
-                <TableCell className="font-mono text-xs text-ink-500">{participant.userId}</TableCell>
               </TableRow>
             ))}
-            {(session.participants ?? []).length === 0 && <TableRow><TableCell colSpan={5} className="py-8 text-center text-ink-500">No participant records.</TableCell></TableRow>}
+            {(session.participants ?? []).length === 0 && (
+              <TableRow>
+                <TableCell colSpan={4} className="py-8 text-center text-ink-500">
+                  No participant records.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </Card>
 
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <Card className="px-5 py-5">
           <div className="flex items-center gap-2"><MessageSquareText className="h-5 w-5 text-brand-primary" /><h3 className="text-base font-bold text-ink-900">Messages</h3></div>
           <div className="mt-4 max-h-[420px] space-y-3 overflow-y-auto">
@@ -254,62 +789,42 @@ export function LiveSessionDetailPage() {
         </Card>
 
         <Card className="px-5 py-5">
-          <div className="flex items-center gap-2"><Bot className="h-5 w-5 text-brand-primary" /><h3 className="text-base font-bold text-ink-900">AI output</h3></div>
-          <div className="mt-4 max-h-[420px] space-y-3 overflow-y-auto">
-            {aiEvents.map((event) => (
-              <div key={event.id} className="rounded-lg border border-brand-primary/15 bg-brand-primary/[0.035] px-4 py-3">
-                <p className="text-sm font-semibold text-ink-900">AI summary generated</p>
-                <p className="mt-1 text-xs text-ink-500">{formatDateTime(event.createdAt)}</p>
-                <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-xs text-ink-600">{payloadPreview(event.payload)}</pre>
-              </div>
-            ))}
-            {aiEvents.length === 0 && <p className="text-sm text-ink-500">No AI summary has been generated.</p>}
-          </div>
-        </Card>
-      </div>
-
-      <div className="grid gap-5 xl:grid-cols-3">
-        <Card className="px-5 py-5">
-          <div className="flex items-center gap-2"><MonitorPlay className="h-5 w-5 text-brand-primary" /><h3 className="text-base font-bold text-ink-900">Media</h3></div>
-          <div className="mt-4 space-y-3">
-            {(session.mediaAssets ?? []).map((asset) => (
-              <div key={asset.id} className="rounded-lg border border-line px-3 py-3">
-                <p className="truncate text-sm font-semibold text-ink-900">{asset.fileName}</p>
-                <p className="mt-1 text-xs text-ink-500">{asset.kind} · {asset.mimeType} · {formatBytes(asset.sizeBytes)}</p>
-                <p className="mt-1 text-xs text-ink-400">{formatDateTime(asset.createdAt)}</p>
-              </div>
-            ))}
-            {(session.mediaAssets ?? []).length === 0 && <p className="text-sm text-ink-500">No media assets.</p>}
-          </div>
-        </Card>
-
-        <Card className="px-5 py-5">
           <div className="flex items-center gap-2"><FileVideo className="h-5 w-5 text-brand-primary" /><h3 className="text-base font-bold text-ink-900">Recordings</h3></div>
           <div className="mt-4 space-y-3">
             {(session.recordings ?? []).map((recording) => (
-              <div key={recording.id} className="rounded-lg border border-line px-3 py-3">
-                <div className="flex items-center justify-between gap-2"><p className="text-sm font-semibold text-ink-900">{recording.createdBy?.name ?? recording.createdBy?.email ?? 'Recording'}</p><Badge variant={recording.status === 'READY' ? 'success' : recording.status === 'FAILED' ? 'danger' : 'warning'}>{recording.status}</Badge></div>
-                <p className="mt-1 text-xs text-ink-500">{recording.durationSeconds ? `${recording.durationSeconds}s` : 'Duration pending'}</p>
-                <p className="mt-1 text-xs text-ink-400">{formatDateTime(recording.createdAt)}</p>
-              </div>
+              <RecordingCard key={recording.id} recording={recording} />
             ))}
             {(session.recordings ?? []).length === 0 && <p className="text-sm text-ink-500">No recordings.</p>}
           </div>
         </Card>
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <Card className="min-w-0 overflow-hidden px-5 py-5">
+          <div className="flex items-center gap-2"><MonitorPlay className="h-5 w-5 text-brand-primary" /><h3 className="text-base font-bold text-ink-900">Session media</h3></div>
+          <div className="mt-4 space-y-3">
+            {sessionMedia.map((asset) => (
+              <MaterialCard key={asset.id} asset={asset} onPreview={setPreviewAsset} />
+            ))}
+            {sessionMedia.length === 0 && <p className="text-sm text-ink-500">No other media assets.</p>}
+          </div>
+        </Card>
 
         <Card className="px-5 py-5">
-          <div className="flex items-center gap-2"><Radio className="h-5 w-5 text-brand-primary" /><h3 className="text-base font-bold text-ink-900">Event timeline</h3></div>
+          <div className="flex items-center gap-2"><ClipboardList className="h-5 w-5 text-brand-primary" /><h3 className="text-base font-bold text-ink-900">Event timeline</h3></div>
           <div className="mt-4 max-h-[420px] space-y-3 overflow-y-auto">
-            {session.events.map((event) => (
+            {session.events.map((event: LiveSessionEvent) => (
               <div key={event.id} className="border-l-2 border-brand-primary/30 pl-3">
                 <p className="text-sm font-semibold text-ink-900">{event.type.replaceAll('_', ' ')}</p>
-                <p className="text-xs text-ink-500">{event.actor?.name ?? event.actor?.email ?? 'System'} · {formatDateTime(event.createdAt)}</p>
+                <p className="text-xs text-ink-500">{event.actor?.name ?? event.actor?.email ?? 'System'} - {formatDateTime(event.createdAt)}</p>
               </div>
             ))}
             {session.events.length === 0 && <p className="text-sm text-ink-500">No events recorded.</p>}
           </div>
         </Card>
       </div>
+
+      <MaterialPreviewDialog asset={previewAsset} onClose={() => setPreviewAsset(null)} />
     </div>
   );
 }

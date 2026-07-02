@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/lib/auth-store';
 import { canAccessAiModule } from '@/lib/ai-access';
+import { canManageMaintenance } from '@/lib/maintenance-access';
 import { isAdminRole, type UserRole } from '@/types/api';
 import { Spinner } from '@/components/ui/spinner';
 
@@ -43,6 +44,13 @@ export function AiModuleRoute() {
   const { user } = useAuthStore();
   if (!user) return <Navigate to="/login" replace />;
   if (!canAccessAiModule(user)) return <Navigate to="/forbidden" replace />;
+  return <Outlet />;
+}
+
+export function MaintenanceRoute() {
+  const { user } = useAuthStore();
+  if (!user) return <Navigate to="/login" replace />;
+  if (!canManageMaintenance(user)) return <Navigate to="/forbidden" replace />;
   return <Outlet />;
 }
 

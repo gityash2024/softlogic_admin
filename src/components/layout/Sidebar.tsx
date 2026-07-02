@@ -14,6 +14,7 @@ import {
   Inbox,
   KeyRound,
   BrainCircuit,
+  Wrench,
   Settings,
   Download,
   GraduationCap,
@@ -31,6 +32,7 @@ import { cn, initials } from '@/lib/utils';
 import { useAuthStore } from '@/lib/auth-store';
 import { runtimeBrandForOrganization } from '@/lib/branding';
 import { canAccessAiModule } from '@/lib/ai-access';
+import { canManageMaintenance } from '@/lib/maintenance-access';
 import { authApi } from '@/services/auth.api';
 import { ROLE_LABEL } from '@/types/api';
 import { Logo } from '@/components/brand/Logo';
@@ -84,6 +86,12 @@ const BASE_NAV_ITEMS = [
     icon: BrainCircuit,
   },
   {
+    to: '/maintenance',
+    label: 'Maintenance',
+    description: 'Service windows',
+    icon: Wrench,
+  },
+  {
     to: '/downloads',
     label: 'Downloads',
     description: 'APK and EXE',
@@ -111,7 +119,11 @@ const HELP_ITEM = {
   icon: HelpCircle,
 };
 
-const getNavItems = (role: UserRole | undefined, showAiModule: boolean) => {
+const getNavItems = (
+  role: UserRole | undefined,
+  showAiModule: boolean,
+  showMaintenanceModule: boolean,
+) => {
   if (role === 'TEACHER') {
     return [
       {
@@ -242,6 +254,9 @@ const getNavItems = (role: UserRole | undefined, showAiModule: boolean) => {
   if (!showAiModule) {
     items = items.filter((item) => item.to !== '/ai');
   }
+  if (!showMaintenanceModule) {
+    items = items.filter((item) => item.to !== '/maintenance');
+  }
   // Customer/Org admins manage a single workspace, so they don't get the
   // Organizations directory — their own org details are shown read-only in
   // Settings. Super admins and partner admins (who resell to customers) keep it.
@@ -280,7 +295,11 @@ export function Sidebar({
   const brand = runtimeBrandForOrganization(user?.primaryOrganization);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const navItems = getNavItems(user?.role, canAccessAiModule(user)).map((item) =>
+  const navItems = getNavItems(
+    user?.role,
+    canAccessAiModule(user),
+    canManageMaintenance(user),
+  ).map((item) =>
     brand.isWhiteLabel && item.to === '/help'
       ? { ...item, description: 'Ask support' }
       : item,

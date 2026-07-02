@@ -203,11 +203,19 @@ export function UsersPage() {
   const lastSeenTo = params.get('lastSeenTo') ?? '';
   const appVersionOp = params.get('appVersionOp') ?? 'ALL';
   const appVersionBuild = params.get('appVersionBuild') ?? '';
+  const hasDirectUserFilter =
+    Boolean(search.trim()) ||
+    role !== 'ALL' ||
+    status !== 'ALL' ||
+    pendingOnly ||
+    isEmailVerified !== 'ALL' ||
+    Boolean(createdFrom || createdTo || lastSeenFrom || lastSeenTo) ||
+    Boolean(appVersionOp !== 'ALL' && appVersionBuild);
   const superAdminNeedsOrganization =
     isSuperAdmin &&
     partnerOrganizationId === ALL_PARTNERS_VALUE &&
     organizationId === 'ALL' &&
-    status !== 'ARCHIVED';
+    !hasDirectUserFilter;
 
   const query = useMemo<AdminListQuery>(
     () => ({
@@ -257,6 +265,7 @@ export function UsersPage() {
   const usersQuery = useQuery({
     queryKey: ['users', query],
     queryFn: () => usersApi.list(query),
+    enabled: !superAdminNeedsOrganization,
   });
   const orgsQuery = useQuery({
     queryKey: ['organizations', 'all'],
@@ -702,7 +711,7 @@ export function UsersPage() {
                 <SelectItem value="ALL">
                   {isSuperAdmin
                     ? partnerOrganizationId === ALL_PARTNERS_VALUE
-                      ? 'Choose organization'
+                      ? 'All organizations'
                       : 'All under partner'
                     : 'All organizations'}
                 </SelectItem>
@@ -852,11 +861,11 @@ export function UsersPage() {
                 <UserRoundCheck className="h-5 w-5" />
               </div>
               <p className="mt-3 text-sm font-semibold text-ink-900">
-                Select an organization first
+                Select an organization or apply a filter
               </p>
               <p className="mt-1 text-sm leading-6 text-ink-500">
-                Super Admin user management starts from an organization so
-                school users, licences, and policies stay scoped correctly.
+                Search or filter globally, or choose an organization to keep
+                school users, licences, and policies scoped.
               </p>
             </div>
           </div>

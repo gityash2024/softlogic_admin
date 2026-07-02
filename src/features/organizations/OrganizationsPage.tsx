@@ -365,7 +365,7 @@ export function OrganizationsPage() {
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
               <Input
-                placeholder="Search name, slug, kind"
+                placeholder="Search name, slug, email"
                 value={search}
                 onChange={(e) =>
                   setSearchParam(params, setParams, 'search', e.target.value)

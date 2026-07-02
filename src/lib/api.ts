@@ -34,6 +34,14 @@ export const api = axios.create({
   },
 });
 
+export function apiObjectUrl(storageKey?: string | null, fallbackUrl?: string | null): string | null {
+  const normalizedKey = storageKey?.replace(/^\/+/, '');
+  if (normalizedKey) {
+    return `${baseURL.replace(/\/+$/, '')}/media/object/${encodeURIComponent(normalizedKey)}`;
+  }
+  return fallbackUrl ?? null;
+}
+
 api.interceptors.request.use((config) => {
   const state = useAuthStore.getState();
   // While impersonating, send the short-lived "view as" token; otherwise the

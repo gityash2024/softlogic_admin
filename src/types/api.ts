@@ -819,6 +819,15 @@ export interface AdminLiveSessionRecord {
     isPublic?: boolean;
     createdAt?: string;
     updatedAt?: string;
+    slides?: Array<{
+      id: string;
+      name?: string | null;
+      title?: string | null;
+      order: number;
+      thumbnail?: string | null;
+      elements?: unknown;
+      updatedAt?: string;
+    }>;
   };
   organization: OrganizationSummary | null;
   createdBy: {
@@ -883,6 +892,19 @@ export interface AdminLiveSessionRecord {
     metadata: Record<string, unknown> | null;
     createdAt: string;
   }>;
+  studyMaterials?: Array<{
+    id: string;
+    liveSessionId: string;
+    uploadedById: string;
+    kind: 'FILE' | 'IMAGE' | 'VIDEO' | 'VOICE_NOTE' | 'IMPORT';
+    fileName: string;
+    mimeType: string;
+    sizeBytes: number;
+    storageKey: string;
+    publicUrl: string | null;
+    metadata: Record<string, unknown> | null;
+    createdAt: string;
+  }>;
   recordings?: Array<{
     id: string;
     liveSessionId: string;
@@ -915,6 +937,34 @@ export interface AdminLiveSessionRecord {
       role: UserRole;
     } | null;
   }>;
+  aiSummary?: {
+    id: string;
+    liveSessionId?: string;
+    actorUserId?: string | null;
+    type: string;
+    payload?: Record<string, unknown> | null;
+    createdAt: string;
+    actor?: {
+      id: string;
+      email: string;
+      name: string | null;
+      role: UserRole;
+    } | null;
+  } | null;
+  boardPreview?: {
+    id: string;
+    title: string;
+    thumbnail?: string | null;
+    slides: Array<{
+      id: string;
+      name?: string | null;
+      title?: string | null;
+      order: number;
+      thumbnail?: string | null;
+      elements?: unknown;
+      updatedAt?: string;
+    }>;
+  } | null;
   _count: {
     participants: number;
     messages: number;
