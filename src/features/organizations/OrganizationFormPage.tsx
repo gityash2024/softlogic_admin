@@ -723,7 +723,6 @@ function OrganizationFormEditor({
           name: values.name,
           slug: values.slug,
           status: values.status as OrganizationStatus,
-          supportEmail: values.supportEmail || null,
           supportPhone: values.supportPhone || null,
           ...commercialPayload,
           ...storagePayload,
@@ -766,7 +765,10 @@ function OrganizationFormEditor({
       rows.push({ label: 'Partner workspace', value: parentName });
     }
     rows.push({ label: 'Status', value: v.status === 'INACTIVE' ? 'Inactive' : 'Active' });
-    rows.push({ label: 'Support email', value: v.supportEmail || '—' });
+    rows.push({
+      label: 'Support email',
+      value: (isEdit ? organization?.supportEmail : v.supportEmail) || '—',
+    });
     rows.push({ label: 'Support phone', value: v.supportPhone || '—' });
     if (isSuperAdmin) {
       rows.push({
@@ -966,7 +968,12 @@ function OrganizationFormEditor({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Support email</label>
-              <Input type="email" placeholder="support@school.edu" {...register('supportEmail')} />
+              <Input
+                type="email"
+                disabled={isEdit}
+                placeholder="support@school.edu"
+                {...register('supportEmail')}
+              />
               {errors.supportEmail && (
                 <p className="text-xs text-danger">{errors.supportEmail.message}</p>
               )}
