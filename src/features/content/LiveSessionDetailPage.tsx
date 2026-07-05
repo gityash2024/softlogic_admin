@@ -596,8 +596,21 @@ export function LiveSessionDetailPage() {
   const sessionMedia = (session.mediaAssets ?? []).filter((asset) => !isStudyMaterial(asset));
   const aiSummaryEvent =
     session.aiSummary ?? session.events.find((event) => event.type === 'AI_SUMMARY_GENERATED');
-  const aiSummary = payloadText(aiSummaryEvent?.payload, ['summary', 'overview']);
-  const aiKeyPoints = payloadList(aiSummaryEvent?.payload, 'keyPoints');
+  const rawSummaryText = payloadText(aiSummaryEvent?.payload, ['summary', 'overview']);
+  let parsedAiSummary: Record<string, any> | null = null;
+  if (rawSummaryText) {
+    try {
+      parsedAiSummary = JSON.parse(rawSummaryText);
+    } catch (e) {
+      // Ignore parse error
+    }
+  }
+  const finalSummary = parsedAiSummary?.summary || rawSummaryText;
+  const finalKeyPoints = Array.isArray(parsedAiSummary?.keyPoints) ? parsedAiSummary.keyPoints : payloadList(aiSummaryEvent?.payload, 'keyPoints');
+  const studentQuestions = Array.isArray(parsedAiSummary?.studentQuestions) ? parsedAiSummary.studentQuestions : [];
+  const participationInsights = Array.isArray(parsedAiSummary?.participationInsights) ? parsedAiSummary.participationInsights : [];
+  const homework = Array.isArray(parsedAiSummary?.homework) ? parsedAiSummary.homework : [];
+  const weakTopics = Array.isArray(parsedAiSummary?.weakTopics) ? parsedAiSummary.weakTopics : [];
   const technicalRows = [
     ['Session ID', session.id],
     ['Organization ID', session.organizationId ?? 'None'],
@@ -712,20 +725,80 @@ export function LiveSessionDetailPage() {
             <h3 className="text-base font-bold text-ink-900">AI summary</h3>
           </div>
           <div className="mt-4 rounded-lg border border-line bg-surface-variant px-4 py-4">
-            {aiSummary ? (
-              <>
-                <p className="whitespace-pre-wrap text-sm text-ink-700">{aiSummary}</p>
-                {aiKeyPoints.length > 0 && (
-                  <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-ink-600">
-                    {aiKeyPoints.map((point) => (
-                      <li key={point}>{point}</li>
-                    ))}
-                  </ul>
+            {finalSummary ? (
+              <div className="space-y-6">
+                <div>
+                  <p className="whitespace-pre-wrap text-sm text-ink-800 leading-relaxed">{finalSummary}</p>
+                </div>
+
+                {finalKeyPoints.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-bold text-ink-900 mb-2 flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-brand-primary"></span>
+                      Key Points
+                    </h4>
+                    <ul className="list-disc space-y-1.5 pl-5 text-sm text-ink-700">
+                      {finalKeyPoints.map((point: string, i: number) => <li key={i}>{point}</li>)}
+                    </ul>
+                  </div>
                 )}
-                <p className="mt-3 text-xs text-ink-400">{formatDateTime(aiSummaryEvent?.createdAt)}</p>
-              </>
+
+                {studentQuestions.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-bold text-ink-900 mb-2 flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-warning"></span>
+                      Student Questions
+                    </h4>
+                    <ul className="list-disc space-y-1.5 pl-5 text-sm text-ink-700">
+                      {studentQuestions.map((point: string, i: number) => <li key={i}>{point}</li>)}
+                    </ul>
+                  </div>
+                )}
+
+                {participationInsights.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-bold text-ink-900 mb-2 flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-success"></span>
+                      Participation Insights
+                    </h4>
+                    <ul className="list-disc space-y-1.5 pl-5 text-sm text-ink-700">
+                      {participationInsights.map((point: string, i: number) => <li key={i}>{point}</li>)}
+                    </ul>
+                  </div>
+                )}
+
+                {homework.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-bold text-ink-900 mb-2 flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-brand-primary"></span>
+                      Homework / Tasks
+                    </h4>
+                    <ul className="list-disc space-y-1.5 pl-5 text-sm text-ink-700">
+                      {homework.map((point: string, i: number) => <li key={i}>{point}</li>)}
+                    </ul>
+                  </div>
+                )}
+
+                {weakTopics.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-bold text-ink-900 mb-2 flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-danger"></span>
+                      Weak Topics
+                    </h4>
+                    <ul className="list-disc space-y-1.5 pl-5 text-sm text-ink-700">
+                      {weakTopics.map((point: string, i: number) => <li key={i}>{point}</li>)}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="pt-3 border-t border-line/60">
+                  <p className="text-xs font-medium text-ink-400">
+                    Generated on {formatDateTime(aiSummaryEvent?.createdAt)}
+                  </p>
+                </div>
+              </div>
             ) : (
-              <p className="text-sm text-ink-500">
+              <p className="text-sm font-medium text-ink-500">
                 Summary is being prepared from the session events and messages.
               </p>
             )}
