@@ -29,3 +29,6 @@ dist-ssr
 *.sw?
 
 .vercel
+
+CLAUDE.md
+.claude/settings.json
