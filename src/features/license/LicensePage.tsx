@@ -242,7 +242,9 @@ export function LicensePage() {
       (isSuperAdmin || isPartnerAdmin ? null : (user?.primaryOrganization?.id ?? null)),
   );
   const [manualReference, setManualReference] = useState('');
-  const [amountMinor, setAmountMinor] = useState(100000);
+  // Amount is entered in major units (e.g. rupees) and converted to minor units
+  // (paise) on submit — matching the edit-payment flow.
+  const [amountMajor, setAmountMajor] = useState(1000);
   const [currency, setCurrency] = useState('INR');
   const [revealedKeyIds, setRevealedKeyIds] = useState<Record<string, boolean>>({});
   const [keyLabel, setKeyLabel] = useState('');
@@ -573,6 +575,12 @@ export function LicensePage() {
   const globalUsableKeys = globalActivationKeys.filter(
     (key) => key.status === 'AVAILABLE' || key.status === 'BOUND',
   );
+  // Usable keys expiring within the next 30 days (renewal watch).
+  const globalExpiringSoonCount = globalUsableKeys.filter((key) => {
+    if (!key.expiresAt) return false;
+    const remainingMs = new Date(key.expiresAt).getTime() - Date.now();
+    return remainingMs >= 0 && remainingMs <= 30 * 24 * 60 * 60 * 1000;
+  }).length;
   const aggregateDetails = aggregatePartnerMode ? partnerDetailsQuery.data : null;
   const aggregateSummary = aggregateDetails?.summary ?? null;
   const aggregateActivationKeys = aggregateDetails?.hardwareActivationKeys ?? [];
@@ -1072,10 +1080,10 @@ export function LicensePage() {
       </div>
 
       {globalMode && (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <Card className="px-4 py-5 sm:px-6">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-              Organizations
+              Workspaces
             </p>
             <p className="mt-2 text-3xl font-black text-ink-900">
               {organizationsQuery.data?.length ?? 0}
@@ -1093,7 +1101,7 @@ export function LicensePage() {
           </Card>
           <Card className="px-4 py-5 sm:px-6">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-              Teacher licences
+              Licence seats
             </p>
             <p className="mt-2 text-3xl font-black text-ink-900">
               {globalUsableKeys.length}
@@ -1102,6 +1110,24 @@ export function LicensePage() {
               </span>
             </p>
             <p className="mt-1 text-sm text-ink-500">Available or bound keys</p>
+          </Card>
+          <Card className="px-4 py-5 sm:px-6">
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+              Bound devices
+            </p>
+            <p className="mt-2 text-3xl font-black text-ink-900">
+              {globalActivationKeys.filter((key) => key.status === 'BOUND').length}
+            </p>
+            <p className="mt-1 text-sm text-ink-500">Keys locked to a device</p>
+          </Card>
+          <Card className="px-4 py-5 sm:px-6">
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+              Expiring soon
+            </p>
+            <p className="mt-2 text-3xl font-black text-ink-900">
+              {globalExpiringSoonCount}
+            </p>
+            <p className="mt-1 text-sm text-ink-500">Usable keys expiring in 30 days</p>
           </Card>
           {/* AI Credits moved to the dedicated AI module — hidden here.
           <Card className="relative px-4 py-5 sm:px-6">
@@ -1511,9 +1537,10 @@ export function LicensePage() {
                   <Input
                     type="number"
                     min={1}
-                    value={amountMinor}
-                    onChange={(event) => setAmountMinor(Number(event.target.value))}
-                    placeholder="Amount in minor units"
+                    step="0.01"
+                    value={amountMajor}
+                    onChange={(event) => setAmountMajor(Number(event.target.value))}
+                    placeholder="Amount (e.g. 10000)"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -1535,9 +1562,13 @@ export function LicensePage() {
                   disabled={!selectedOrganization || offlineMutation.isPending}
                   onClick={() => {
                     if (!selectedOrganization) return;
+                    if (!Number.isFinite(amountMajor) || amountMajor <= 0) {
+                      toast.error('Enter a valid amount');
+                      return;
+                    }
                     offlineMutation.mutate({
                       organizationId: selectedOrganization.id,
-                      amountMinor,
+                      amountMinor: Math.round(amountMajor * 100),
                       currency,
                       referenceNote: manualReference || null,
                     });
