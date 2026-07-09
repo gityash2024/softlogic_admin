@@ -80,7 +80,9 @@ export interface OrganizationSummary {
   studentUserLimit: number | null;
   parentUserLimit: number | null;
   maxChildOrganizations?: number | null;
+  maxChildPartners?: number | null;
   maxChildUsers?: number | null;
+  licenseSeatMax?: number | null;
   createdById?: string | null;
   supportEmail: string | null;
   supportPhone: string | null;
@@ -215,7 +217,9 @@ export interface AdminOrganization {
   studentUserLimit: number | null;
   parentUserLimit: number | null;
   maxChildOrganizations: number | null;
+  maxChildPartners: number | null;
   maxChildUsers: number | null;
+  licenseSeatMax: number | null;
   createdById?: string | null;
   supportEmail: string | null;
   supportPhone: string | null;
@@ -548,7 +552,7 @@ export interface HardwareActivationKeyRecord {
   subscriptionId: string | null;
   activationKey: string | null;
   label: string | null;
-  status: 'AVAILABLE' | 'BOUND' | 'DISABLED' | 'EXPIRED';
+  status: 'AVAILABLE' | 'BOUND' | 'DISABLED' | 'EXPIRED' | 'ARCHIVED';
   maxDevices?: number;
   assignedUserId: string | null;
   createdById?: string | null;
@@ -664,7 +668,9 @@ export interface OrganizationLicenseDetailRecord {
     studentUserLimit?: number | null;
     parentUserLimit?: number | null;
     maxChildOrganizations?: number | null;
+    maxChildPartners?: number | null;
     maxChildUsers?: number | null;
+    licenseSeatMax?: number | null;
     primaryAdminUserId: string | null;
     primaryAdminUser: {
       id: string;

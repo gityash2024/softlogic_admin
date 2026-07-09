@@ -376,7 +376,7 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
     const currentOrganization = organizations.find((org) => org.id === organizationId);
     if (
       organizationId !== 'NONE' &&
-      !organizationBelongsToPartner(currentOrganization, value)
+      !organizationBelongsToPartner(currentOrganization, value, organizations)
     ) {
       setValue('organizationId', 'NONE', { shouldDirty: true });
     }

@@ -11,6 +11,7 @@ import { organizationsApi, type UpdateOrganizationPayload } from '@/services/org
 import { aiApi } from '@/services/ai.api';
 import { useAuthStore } from '@/lib/auth-store';
 import { canCreateOrganizationKind } from '@/lib/role-access';
+import { descendantOrganizationIds, organizationDepth } from '@/lib/admin-hierarchy';
 import { extractApiError } from '@/lib/api';
 import {
   BRANDING_MODE_LABEL,
@@ -61,7 +62,9 @@ const schema = z.object({
     studentUserLimit: z.number().int().min(0).optional().nullable(),
     parentUserLimit: z.number().int().min(0).optional().nullable(),
     maxChildOrganizations: optionalNonNegativeInt,
+    maxChildPartners: optionalNonNegativeInt,
     maxChildUsers: optionalNonNegativeInt,
+    licenseSeatMax: optionalNonNegativeInt,
     supportEmail: z.string().trim().email('Enter a valid support email').or(z.literal('')).optional(),
     supportPhone: z.string().optional(),
     storageProviders: z.array(z.string()).optional(),
@@ -175,7 +178,9 @@ function OrganizationFormEditor({
         studentUserLimit: organization.studentUserLimit ?? 0,
         parentUserLimit: organization.parentUserLimit ?? 0,
         maxChildOrganizations: organization.maxChildOrganizations ?? null,
+        maxChildPartners: organization.maxChildPartners ?? null,
         maxChildUsers: organization.maxChildUsers ?? null,
+        licenseSeatMax: organization.licenseSeatMax ?? null,
         supportEmail: organization.supportEmail ?? '',
         supportPhone: organization.supportPhone ?? '',
         storageProviders:
@@ -196,7 +201,10 @@ function OrganizationFormEditor({
       name: '',
       slug: '',
       kind: allowedKinds[0] ?? 'CUSTOMER',
-      parentOrganizationId: 'NONE',
+      parentOrganizationId:
+        actor?.role === 'PARTNER_ADMIN'
+          ? partnerWorkspace?.id ?? 'NONE'
+          : 'NONE',
       status: 'ACTIVE',
       brandingMode: 'SOFTLOGIC',
       brandName: '',
@@ -217,7 +225,9 @@ function OrganizationFormEditor({
       studentUserLimit: 0,
       parentUserLimit: 0,
       maxChildOrganizations: null,
+      maxChildPartners: null,
       maxChildUsers: null,
+      licenseSeatMax: null,
       supportEmail: '',
       supportPhone: '',
       storageProviders: [],
@@ -361,9 +371,23 @@ function OrganizationFormEditor({
   const studentUserLimit = Number(watch('studentUserLimit') ?? 0);
   const parentUserLimit = Number(watch('parentUserLimit') ?? 0);
   const maxChildOrganizations = watch('maxChildOrganizations');
+  const maxChildPartners = watch('maxChildPartners');
   const totalUserLimit = teacherUserLimit + studentUserLimit + parentUserLimit;
   const derivedMaxChildUsers = kind === 'PARTNER' ? totalUserLimit : null;
   const showPartnerGovernance = isSuperAdmin && kind === 'PARTNER';
+  // Parent picker options: all partners for superadmin; the actor's own subtree
+  // partners for a partner admin creating a nested customer/sub-partner.
+  const parentPartnerOptions = useMemo(() => {
+    const partners = partnerOrganizations.filter((org) => org.kind === 'PARTNER');
+    if (actor?.role === 'PARTNER_ADMIN' && partnerWorkspace) {
+      const scope = descendantOrganizationIds(partnerOrganizations, partnerWorkspace.id);
+      return partners.filter((org) => scope.has(org.id));
+    }
+    return partners;
+  }, [partnerOrganizations, actor?.role, partnerWorkspace]);
+  const canPickParent =
+    !isEdit && (isSuperAdmin || actor?.role === 'PARTNER_ADMIN');
+  const showParentPicker = kind === 'CUSTOMER' || kind === 'PARTNER';
   const submitting = createMutation.isPending || updateMutation.isPending;
   const isWhiteLabel = brandingMode === 'WHITE_LABEL';
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -684,9 +708,11 @@ function OrganizationFormEditor({
                 brandAccentColor: values.brandAccentColor?.trim()
                   ? values.brandAccentColor.trim()
                   : null,
+                licenseSeatMax: values.licenseSeatMax ?? null,
                 ...(values.kind === 'PARTNER'
                   ? {
                       maxChildOrganizations: values.maxChildOrganizations ?? null,
+                      maxChildPartners: values.maxChildPartners ?? null,
                       maxChildUsers: submittedTotalUserLimit,
                     }
                   : {}),
@@ -734,7 +760,6 @@ function OrganizationFormEditor({
         slug: values.slug || undefined,
         kind: values.kind as OrganizationKind,
         parentOrganizationId:
-          values.kind === 'CUSTOMER' &&
           values.parentOrganizationId &&
           values.parentOrganizationId !== 'NONE'
             ? values.parentOrganizationId
@@ -933,24 +958,33 @@ function OrganizationFormEditor({
                 </SelectContent>
               </Select>
             </div>
-            {kind === 'CUSTOMER' && (
+            {showParentPicker && (
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Partner workspace</label>
                 <Select
-                  disabled={isEdit || actor?.role !== 'SUPER_ADMIN'}
+                  disabled={!canPickParent}
                   value={parentOrganizationId}
                   onValueChange={(value) => setValue('parentOrganizationId', value)}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="NONE">No parent (direct customer)</SelectItem>
-                    {partnerOrganizations.filter((org) => org.kind === 'PARTNER').map((org) => (
-                      <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
-                    ))}
+                    {isSuperAdmin && (
+                      <SelectItem value="NONE">No parent (top-level)</SelectItem>
+                    )}
+                    {parentPartnerOptions.map((org) => {
+                      const depth = organizationDepth(partnerOrganizations, org.id);
+                      return (
+                        <SelectItem key={org.id} value={org.id}>
+                          {`${'  '.repeat(depth)}${org.name}`}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-ink-500">
-                  Optional - assign this customer workspace under a partner workspace.
+                  {kind === 'PARTNER'
+                    ? 'Assign this partner under a parent partner workspace (nested partner).'
+                    : 'Assign this customer workspace under a partner workspace.'}
                 </p>
               </div>
             )}
@@ -1031,6 +1065,28 @@ function OrganizationFormEditor({
               )}
             </div>
           </div>
+          {isSuperAdmin && (
+            <div className="grid gap-4 rounded-lg border border-line bg-surface-variant px-4 py-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  License seat max
+                </label>
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="Auto (teachers + 1 admin)"
+                  {...register('licenseSeatMax', { valueAsNumber: true })}
+                />
+                <p className="text-xs text-ink-500">
+                  Caps how many activation keys can exist for this organization. Leave blank
+                  to size the pool from teacher capacity + 1 admin.
+                </p>
+                {errors.licenseSeatMax && (
+                  <p className="text-xs text-danger">{errors.licenseSeatMax.message}</p>
+                )}
+              </div>
+            </div>
+          )}
           {showPartnerGovernance && (
             <div className="grid gap-4 rounded-lg border border-line bg-surface-variant px-4 py-4 sm:grid-cols-2">
               <div className="space-y-1.5">
@@ -1048,6 +1104,23 @@ function OrganizationFormEditor({
                 </p>
                 {errors.maxChildOrganizations && (
                   <p className="text-xs text-danger">{errors.maxChildOrganizations.message}</p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  Max partners
+                </label>
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="0 (no sub-partners)"
+                  {...register('maxChildPartners', { valueAsNumber: true })}
+                />
+                <p className="text-xs text-ink-500">
+                  {maxChildPartners ?? 0} sub-partner workspace(s) this partner may create.
+                </p>
+                {errors.maxChildPartners && (
+                  <p className="text-xs text-danger">{errors.maxChildPartners.message}</p>
                 )}
               </div>
               <div className="space-y-1.5">

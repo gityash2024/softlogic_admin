@@ -24,7 +24,9 @@ export interface CreateOrganizationPayload {
   studentUserLimit?: number | null;
   parentUserLimit?: number | null;
   maxChildOrganizations?: number | null;
+  maxChildPartners?: number | null;
   maxChildUsers?: number | null;
+  licenseSeatMax?: number | null;
   supportEmail?: string | null;
   supportPhone?: string | null;
   storageProviders?: OrganizationStorageProvider[];
@@ -50,7 +52,9 @@ export interface UpdateOrganizationPayload {
   studentUserLimit?: number | null;
   parentUserLimit?: number | null;
   maxChildOrganizations?: number | null;
+  maxChildPartners?: number | null;
   maxChildUsers?: number | null;
+  licenseSeatMax?: number | null;
   supportEmail?: string | null;
   supportPhone?: string | null;
   storageProviders?: OrganizationStorageProvider[];

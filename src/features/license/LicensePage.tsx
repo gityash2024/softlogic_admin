@@ -266,6 +266,8 @@ export function LicensePage() {
   const [isExporting, setIsExporting] = useState(false);
   const [revokeKeyId, setRevokeKeyId] = useState<string | null>(null);
   const [replaceKeyId, setReplaceKeyId] = useState<string | null>(null);
+  const [archiveKeyId, setArchiveKeyId] = useState<string | null>(null);
+  const [keyView, setKeyView] = useState<'live' | 'archived'>('live');
   const [labelEdit, setLabelEdit] = useState<{ id: string; label: string } | null>(null);
   const [termEdit, setTermEdit] = useState<ActivationKeyTermEditState | null>(null);
   const [emailKeysOpen, setEmailKeysOpen] = useState(false);
@@ -524,6 +526,17 @@ export function LicensePage() {
     onError: (error) => toast.error(extractApiError(error)),
   });
 
+  const archiveKeyMutation = useMutation({
+    mutationFn: licensingApi.archiveActivationKey,
+    onSuccess: () => {
+      invalidateCommercialQueries();
+      queryClient.invalidateQueries({ queryKey: ['activation-keys'] });
+      toast.success('Activation key archived');
+      setArchiveKeyId(null);
+    },
+    onError: (error) => toast.error(extractApiError(error)),
+  });
+
   const updateKeyTermMutation = useMutation({
     mutationFn: ({
       keyId,
@@ -577,9 +590,32 @@ export function LicensePage() {
     !!selectedOrganization?.parentOrganizationId &&
     selectedOrganization.parentOrganizationId === selectedPartnerId;
   const activationKeys = orgDetailsQuery.data?.hardwareActivationKeys ?? [];
-  const displayedActivationKeys = aggregatePartnerMode
+  const liveActivationKeys = aggregatePartnerMode
     ? aggregateActivationKeys
     : activationKeys;
+  // Archived keys are terminal; fetched on demand only when the Archived view is
+  // selected. Live view is unchanged from before.
+  const canViewArchived = isSuperAdmin && (!!selectedOrgId || !!partnerScopeId);
+  const archivedKeysQuery = useQuery({
+    queryKey: ['activation-keys', 'archived', selectedOrgId, partnerScopeId],
+    queryFn: () =>
+      licensingApi.listKeys({
+        perPage: 100,
+        view: 'archived',
+        ...(selectedOrgId
+          ? { organizationId: selectedOrgId }
+          : partnerScopeId
+            ? { partnerOrganizationId: partnerScopeId }
+            : {}),
+      }),
+    enabled: keyView === 'archived' && canViewArchived,
+  });
+  const archivedActivationKeys = archivedKeysQuery.data?.data ?? [];
+  const displayedActivationKeys =
+    keyView === 'archived' ? archivedActivationKeys : liveActivationKeys;
+  useEffect(() => {
+    setKeyView('live');
+  }, [selectedOrgId, selectedPartnerId]);
   const orgLicenseSummary = orgDetailsQuery.data?.summary ?? null;
   const licenseSummary = aggregatePartnerMode ? aggregateSummary : orgLicenseSummary;
   const partnerPool =
@@ -1067,6 +1103,7 @@ export function LicensePage() {
             </p>
             <p className="mt-1 text-sm text-ink-500">Available or bound keys</p>
           </Card>
+          {/* AI Credits moved to the dedicated AI module — hidden here.
           <Card className="relative px-4 py-5 sm:px-6">
             <Badge variant="info" className="absolute right-4 top-4">Coming Soon</Badge>
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
@@ -1075,6 +1112,7 @@ export function LicensePage() {
             <p className="mt-2 text-3xl font-black text-ink-300">--</p>
             <p className="mt-1 text-sm text-ink-500">Available in a future release</p>
           </Card>
+          */}
         </div>
       )}
 
@@ -1682,12 +1720,14 @@ export function LicensePage() {
                 </Button>
               </div>
 
+              {/* AI Credits moved to the dedicated AI module — hidden here.
               <div className="pointer-events-none absolute inset-x-6 bottom-3 rounded-lg border border-line bg-surface-variant px-3 py-2 text-xs text-ink-500">
                 <span className="mr-2 inline-flex items-center rounded bg-warning/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warning">
                   Coming Soon
                 </span>
                 AI Credits will return in a future release.
               </div>
+              */}
             </Card>
           </div>
         </div>
@@ -1772,6 +1812,24 @@ export function LicensePage() {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                {canViewArchived && (
+                  <div className="inline-flex rounded-md border border-line p-0.5">
+                    <Button
+                      size="sm"
+                      variant={keyView === 'live' ? 'primary' : 'ghost'}
+                      onClick={() => setKeyView('live')}
+                    >
+                      Live
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={keyView === 'archived' ? 'primary' : 'ghost'}
+                      onClick={() => setKeyView('archived')}
+                    >
+                      Archived
+                    </Button>
+                  </div>
+                )}
                 <Select
                   value={exportFormat}
                   onValueChange={(value) => setExportFormat(value as AdminExportFormat)}
@@ -1936,33 +1994,45 @@ export function LicensePage() {
                       </TableCell>
                       {isSuperAdmin && (
                         <TableCell className="text-right whitespace-nowrap">
-                          <div className="flex justify-end gap-1 whitespace-nowrap">
-                            {canRepairLegacyTerm && (
+                          {keyView === 'archived' ? (
+                            <span className="text-xs text-ink-400">Archived</span>
+                          ) : (
+                            <div className="flex justify-end gap-1 whitespace-nowrap">
+                              {canRepairLegacyTerm && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => openTermEdit(key)}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                  Edit dates
+                                </Button>
+                              )}
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => openTermEdit(key)}
+                                disabled={key.status === 'DISABLED'}
+                                onClick={() => setRevokeKeyId(key.id)}
                               >
-                                <Pencil className="h-3.5 w-3.5" />
-                                Edit dates
+                                Revoke
                               </Button>
-                            )}
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={key.status === 'DISABLED'}
-                              onClick={() => setRevokeKeyId(key.id)}
-                            >
-                              Revoke
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setReplaceKeyId(key.id)}
-                            >
-                              Replace
-                            </Button>
-                          </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setReplaceKeyId(key.id)}
+                              >
+                                Replace
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-danger"
+                                onClick={() => setArchiveKeyId(key.id)}
+                              >
+                                Archive
+                              </Button>
+                            </div>
+                          )}
                         </TableCell>
                       )}
                     </TableRow>
@@ -2638,6 +2708,19 @@ export function LicensePage() {
         loading={replaceKeyMutation.isPending}
         onConfirm={() => {
           if (replaceKeyId) replaceKeyMutation.mutate(replaceKeyId);
+        }}
+      />
+
+      <ConfirmationDialog
+        open={!!archiveKeyId}
+        onOpenChange={(open) => !open && setArchiveKeyId(null)}
+        title="Archive activation key?"
+        description="This permanently archives the key and frees its seat back into the pool so a new key can be created and emailed. This cannot be undone."
+        confirmLabel="Archive"
+        tone="danger"
+        loading={archiveKeyMutation.isPending}
+        onConfirm={() => {
+          if (archiveKeyId) archiveKeyMutation.mutate(archiveKeyId);
         }}
       />
     </div>

@@ -12,6 +12,7 @@ import {
   organizationBelongsToPartner,
   organizationsForPartner,
   partnerOrganizations,
+  organizationDepth,
 } from '@/lib/admin-hierarchy';
 import {
   SUPPORT_CATEGORY_LABEL,
@@ -85,7 +86,7 @@ export function SupportInboxPage() {
     );
     if (
       organizationId !== 'ALL' &&
-      !organizationBelongsToPartner(selectedOrganization, value)
+      !organizationBelongsToPartner(selectedOrganization, value, organizationsQuery.data ?? [])
     ) {
       setOrganizationId('ALL');
     }
@@ -196,6 +197,7 @@ export function SupportInboxPage() {
                   <SelectItem value={ALL_PARTNERS_VALUE}>All partners</SelectItem>
                   {partners.map((org) => (
                     <SelectItem key={org.id} value={org.id}>
+                      {'  '.repeat(organizationDepth(organizationsQuery.data ?? [], org.id))}
                       {org.name}
                     </SelectItem>
                   ))}

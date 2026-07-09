@@ -33,6 +33,7 @@ import { canCreateOrganizationKind } from '@/lib/role-access';
 import {
   ALL_PARTNERS_VALUE,
   partnerOrganizations,
+  organizationDepth,
 } from '@/lib/admin-hierarchy';
 import {
   ORG_KIND_LABEL,
@@ -416,6 +417,7 @@ export function OrganizationsPage() {
                 <SelectItem value={ALL_PARTNERS_VALUE}>All partners</SelectItem>
                 {partners.map((org) => (
                     <SelectItem key={org.id} value={org.id}>
+                      {'  '.repeat(organizationDepth(allOrgsQuery.data ?? [], org.id))}
                       {org.name}
                     </SelectItem>
                   ))}

@@ -16,7 +16,7 @@ export function manageableRoles(actorRole: UserRole | undefined): UserRole[] {
     case 'SUPER_ADMIN':
       return ['SUPER_ADMIN', 'PARTNER_ADMIN', 'CUSTOMER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT', 'PARENT'];
     case 'PARTNER_ADMIN':
-      return ['CUSTOMER_ADMIN', 'TEACHER', 'STUDENT', 'PARENT'];
+      return ['PARTNER_ADMIN', 'CUSTOMER_ADMIN', 'TEACHER', 'STUDENT', 'PARENT'];
     case 'CUSTOMER_ADMIN':
     case 'ADMIN':
       return ['TEACHER', 'STUDENT', 'PARENT'];
@@ -28,6 +28,9 @@ export function manageableRoles(actorRole: UserRole | undefined): UserRole[] {
 export function canManageUser(actor: UserRole | undefined, target: UserRole): boolean {
   if (!actor) return false;
   if (actor === 'SUPER_ADMIN') return true;
+  // A partner admin may also own a nested sub-partner's PARTNER_ADMIN bootstrap user.
+  // Subtree scoping is enforced server-side, so this equal-rank case is safe.
+  if (actor === 'PARTNER_ADMIN' && target === 'PARTNER_ADMIN') return true;
   return RANK[actor] > RANK[target];
 }
 
@@ -38,6 +41,6 @@ export function canCreateOrganizationKind(actor: UserRole | undefined): {
   if (actor === 'SUPER_ADMIN')
     return { canCreate: true, allowedKinds: ['CUSTOMER', 'PARTNER', 'INTERNAL'] };
   if (actor === 'PARTNER_ADMIN')
-    return { canCreate: true, allowedKinds: ['CUSTOMER'] };
+    return { canCreate: true, allowedKinds: ['CUSTOMER', 'PARTNER'] };
   return { canCreate: false, allowedKinds: [] };
 }

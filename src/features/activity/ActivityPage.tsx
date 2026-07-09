@@ -16,6 +16,7 @@ import {
   organizationBelongsToPartner,
   organizationsForPartner,
   partnerOrganizations,
+  organizationDepth,
 } from '@/lib/admin-hierarchy';
 import { Card } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
@@ -210,7 +211,7 @@ export function ActivityPage() {
     const selectedOrganization = orgsQuery.data?.find((org) => org.id === organizationId);
     if (
       organizationId !== 'ALL' &&
-      !organizationBelongsToPartner(selectedOrganization, value)
+      !organizationBelongsToPartner(selectedOrganization, value, allOrganizations)
     ) {
       next.delete('organizationId');
     }
@@ -337,6 +338,7 @@ export function ActivityPage() {
                   <SelectItem value={ALL_PARTNERS_VALUE}>All partners</SelectItem>
                   {partners.map((org) => (
                     <SelectItem key={org.id} value={org.id}>
+                      {'  '.repeat(organizationDepth(allOrganizations, org.id))}
                       {org.name}
                     </SelectItem>
                   ))}

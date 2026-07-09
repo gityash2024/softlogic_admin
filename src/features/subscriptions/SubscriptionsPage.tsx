@@ -377,7 +377,7 @@ export function SubscriptionsPage() {
     const selectedOrganization = orgsQuery.data?.find((org) => org.id === organizationId);
     if (
       organizationId !== 'ALL' &&
-      !organizationBelongsToPartner(selectedOrganization, value)
+      !organizationBelongsToPartner(selectedOrganization, value, allOrganizations)
     ) {
       next.delete('organizationId');
     }

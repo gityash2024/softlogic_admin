@@ -351,7 +351,7 @@ export function SubscriptionFormPage() {
     const currentOrganization = orgsQuery.data?.find((org) => org.id === organizationId);
     if (
       organizationId !== 'NONE' &&
-      !organizationBelongsToPartner(currentOrganization, value)
+      !organizationBelongsToPartner(currentOrganization, value, orgsQuery.data ?? [])
     ) {
       setValue('organizationId', 'NONE', { shouldDirty: true });
     }

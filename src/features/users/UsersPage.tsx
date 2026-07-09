@@ -36,6 +36,7 @@ import {
   organizationBelongsToPartner,
   organizationsForPartner,
   partnerOrganizations,
+  organizationDepth,
 } from '@/lib/admin-hierarchy';
 import {
   ROLE_LABEL,
@@ -548,7 +549,7 @@ export function UsersPage() {
     const selectedOrganization = orgsQuery.data?.find((org) => org.id === organizationId);
     if (
       organizationId !== 'ALL' &&
-      !organizationBelongsToPartner(selectedOrganization, value)
+      !organizationBelongsToPartner(selectedOrganization, value, allOrganizations)
     ) {
       next.delete('organizationId');
     }
@@ -692,6 +693,7 @@ export function UsersPage() {
                   <SelectItem value={ALL_PARTNERS_VALUE}>All partners</SelectItem>
                   {partners.map((org) => (
                     <SelectItem key={org.id} value={org.id}>
+                      {'  '.repeat(organizationDepth(allOrganizations, org.id))}
                       {org.name}
                     </SelectItem>
                   ))}

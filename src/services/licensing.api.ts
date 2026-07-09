@@ -182,6 +182,12 @@ export const licensingApi = {
     );
     return res.data.data;
   },
+  archiveActivationKey: async (keyId: string) => {
+    const res = await api.post<ApiResponse<unknown>>(
+      `/admin/hardware/activation-keys/${keyId}/archive`,
+    );
+    return res.data.data;
+  },
   updateActivationKeyLabel: async (keyId: string, label: string) => {
     const res = await api.patch<ApiResponse<HardwareActivationKeyRecord>>(
       `/admin/hardware/activation-keys/${keyId}/label`,
