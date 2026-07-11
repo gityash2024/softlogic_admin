@@ -180,7 +180,10 @@ function OrganizationFormEditor({
         maxChildOrganizations: organization.maxChildOrganizations ?? null,
         maxChildPartners: organization.maxChildPartners ?? null,
         maxChildUsers: organization.maxChildUsers ?? null,
-        licenseSeatMax: organization.licenseSeatMax ?? null,
+        licenseSeatMax:
+          organization.licenseSeatMax != null && organization.licenseSeatMax > 0
+            ? organization.licenseSeatMax
+            : null,
         supportEmail: organization.supportEmail ?? '',
         supportPhone: organization.supportPhone ?? '',
         storageProviders:
@@ -708,7 +711,12 @@ function OrganizationFormEditor({
                 brandAccentColor: values.brandAccentColor?.trim()
                   ? values.brandAccentColor.trim()
                   : null,
-                licenseSeatMax: values.licenseSeatMax ?? null,
+                licenseSeatMax:
+                  typeof values.licenseSeatMax === 'number' &&
+                  !Number.isNaN(values.licenseSeatMax) &&
+                  values.licenseSeatMax > 0
+                    ? values.licenseSeatMax
+                    : null,
                 ...(values.kind === 'PARTNER'
                   ? {
                       maxChildOrganizations: values.maxChildOrganizations ?? null,
