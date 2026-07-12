@@ -785,10 +785,12 @@ export function LicensePage() {
     : [];
   const teacherCapacityLimit =
     licenseSummary?.seatLimit ?? aggregateSummary?.seatLimit ?? 0;
-  const teacherCapacityUsed =
-    licenseSummary?.capacityUsed ?? aggregateSummary?.seatUsage ?? 0;
   const teacherUsage =
     licenseSummary?.teacherUsage ?? aggregateSummary?.seatUsage ?? 0;
+  const teacherCapacityUsed = Math.max(
+    teacherUsage,
+    licenseSummary?.usableKeyCount ?? usableKeyCount,
+  );
   const licenseProgress = Math.min(
     100,
     (teacherCapacityUsed / Math.max(teacherCapacityLimit, 1)) * 100,
@@ -1647,7 +1649,7 @@ export function LicensePage() {
                 <div>
                   <p className="text-xs uppercase tracking-wide text-ink-500">Remaining capacity</p>
                   <p className="text-sm font-semibold text-ink-900">
-                    {licenseSummary?.remainingCapacity ?? remainingActivationKeys}
+                    {Math.max((licenseSummary?.seatLimit ?? teacherCapacityLimit) - teacherCapacityUsed, 0)}
                   </p>
                 </div>
               </div>
