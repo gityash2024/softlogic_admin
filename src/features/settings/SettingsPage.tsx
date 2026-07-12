@@ -14,6 +14,14 @@ import {
   Save,
   ShieldCheck,
   Trash2,
+  User,
+  KeyRound,
+  Smartphone,
+  Cloud,
+  CheckCircle2,
+  Clock,
+  Globe,
+  SlidersHorizontal,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/lib/auth-store';
@@ -55,9 +63,9 @@ type PasswordFormValues = z.infer<typeof passwordSchema>;
 
 function ReadOnlyField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0">
-      <dt className="text-xs font-semibold uppercase tracking-wide text-ink-500">{label}</dt>
-      <dd className="mt-1 break-words text-sm font-medium text-ink-900">{value}</dd>
+    <div className="min-w-0 rounded-lg border border-line/70 bg-surface-variant/60 p-2.5">
+      <dt className="text-[10px] font-bold uppercase tracking-wider text-ink-400">{label}</dt>
+      <dd className="mt-1 break-words text-xs font-semibold text-ink-900">{value}</dd>
     </div>
   );
 }
@@ -119,6 +127,7 @@ export function SettingsPage() {
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'profile' | 'security' | 'sessions' | 'storage'>('all');
 
   const {
     register: registerPassword,
@@ -195,358 +204,388 @@ export function SettingsPage() {
     }
   };
 
-  return (
-    <div className="grid min-w-0 max-w-full gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="min-w-0 max-w-full space-y-5">
-        <Card className="max-w-full">
-        <div className="border-b border-line px-4 py-5 sm:px-6">
-          <h2 className="text-lg font-semibold text-ink-900">Personal profile</h2>
-          <p className="text-sm text-ink-500">
-            How your name and locale appear across the SoftLogic web panel
-          </p>
-        </div>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            mutation.mutate();
-          }}
-          className="min-w-0 space-y-5 px-4 py-5 sm:px-6"
-        >
-          <div className="min-w-0 space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-              Email
-            </label>
-            <Input value={user?.email ?? ''} readOnly disabled />
+  const activeSessionsCount = sessionsQuery.data?.length ?? 0;
+
+  const personalProfileSection = (
+    <Card className="overflow-hidden rounded-2xl border border-line/80 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line/80 bg-gradient-to-r from-brand-primary/10 via-brand-primary/5 to-white px-5 py-3.5">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-primary text-white shadow-sm">
+            <User className="h-4.5 w-4.5" />
           </div>
-          <div className="min-w-0 space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+          <div>
+            <h2 className="text-base font-bold text-ink-900">Personal profile</h2>
+            <p className="text-xs text-ink-500">
+              How your name and locale appear across the SoftLogic web panel
+            </p>
+          </div>
+        </div>
+        <span className="inline-flex items-center gap-1 rounded-full border border-brand-primary/20 bg-brand-primary/5 px-2.5 py-0.5 text-[11px] font-bold text-brand-primary">
+          <CheckCircle2 className="h-3 w-3" /> Profile Active
+        </span>
+      </div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          mutation.mutate();
+        }}
+        className="space-y-4 p-5"
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5 sm:col-span-2">
+            <label className="text-xs font-bold uppercase tracking-wider text-ink-500">
+              Email Address
+            </label>
+            <Input
+              value={user?.email ?? ''}
+              readOnly
+              disabled
+              className="bg-slate-50 font-mono text-xs text-ink-700"
+            />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <label className="text-xs font-bold uppercase tracking-wider text-ink-500">
               Display name
             </label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="text-sm font-semibold"
+            />
           </div>
-          <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-            <div className="min-w-0 space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-                Timezone
-              </label>
-              <Input
-                value={timezone}
-                onChange={(e) => setTimezone(e.target.value)}
-                placeholder="UTC"
-              />
-            </div>
-            <div className="min-w-0 space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-                Language
-              </label>
-              <Input
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-                placeholder="en"
-              />
-            </div>
+          <div className="space-y-1.5">
+            <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-ink-500">
+              <Clock className="h-3.5 w-3.5 text-ink-400" />
+              Timezone
+            </label>
+            <Input
+              value={timezone}
+              onChange={(e) => setTimezone(e.target.value)}
+              placeholder="UTC"
+              className="font-mono text-xs"
+            />
           </div>
-          <div className="flex justify-stretch sm:justify-end">
-            <Button
-              type="submit"
-              variant="primary"
-              className="w-full sm:w-auto"
-              disabled={mutation.isPending}
-            >
-              {mutation.isPending ? (
-                <Spinner className="h-4 w-4" />
-              ) : (
-                <>
-                  <Save className="h-4 w-4" />
-                  Save changes
-                </>
-              )}
-            </Button>
+          <div className="space-y-1.5">
+            <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-ink-500">
+              <Globe className="h-3.5 w-3.5 text-ink-400" />
+              Language
+            </label>
+            <Input
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              placeholder="en"
+              className="font-mono text-xs"
+            />
           </div>
-        </form>
-      </Card>
+        </div>
+        <div className="flex justify-end border-t border-line/60 pt-3">
+          <Button
+            type="submit"
+            variant="primary"
+            size="sm"
+            className="h-9 px-4 font-bold shadow-sm"
+            disabled={mutation.isPending}
+          >
+            {mutation.isPending ? (
+              <Spinner className="h-4 w-4" />
+            ) : (
+              <>
+                <Save className="h-4 w-4" />
+                Save profile changes
+              </>
+            )}
+          </Button>
+        </div>
+      </form>
+    </Card>
+  );
 
-        <Card className="max-w-full">
-          <div className="border-b border-line px-4 py-5 sm:px-6">
-            <h2 className="text-lg font-semibold text-ink-900">Security</h2>
-            <p className="text-sm text-ink-500">
+  const securitySection = (
+    <Card className="overflow-hidden rounded-2xl border border-line/80 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line/80 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-white px-5 py-3.5">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 text-white shadow-sm">
+            <KeyRound className="h-4.5 w-4.5" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-ink-900">Security</h2>
+            <p className="text-xs text-ink-500">
               Change the password you use to sign in to the SoftLogic web panel
             </p>
           </div>
-          <form
-            onSubmit={handlePasswordSubmit((values) => passwordMutation.mutate(values))}
-            className="min-w-0 space-y-5 px-4 py-5 sm:px-6"
-            noValidate
+        </div>
+        <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold text-amber-800">
+          Encrypted Authentication
+        </span>
+      </div>
+      <form
+        onSubmit={handlePasswordSubmit((values) => passwordMutation.mutate(values))}
+        className="space-y-4 p-5"
+        noValidate
+      >
+        <div className="space-y-1.5">
+          <label className="text-xs font-bold uppercase tracking-wider text-ink-500">
+            New password
+          </label>
+          <div className="relative">
+            <Input
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              className="pr-10 text-sm"
+              {...registerPassword('newPassword')}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((value) => !value)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-ink-400 transition hover:bg-surface-variant hover:text-ink-700"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+          {passwordErrors.newPassword && (
+            <p className="text-xs text-danger">
+              {passwordErrors.newPassword.message}
+            </p>
+          )}
+          <PasswordRequirements password={watchPassword('newPassword')} />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-xs font-bold uppercase tracking-wider text-ink-500">
+            Confirm new password
+          </label>
+          <Input
+            type={showPassword ? 'text' : 'password'}
+            autoComplete="new-password"
+            className="text-sm"
+            {...registerPassword('confirmNewPassword')}
+          />
+          {passwordErrors.confirmNewPassword && (
+            <p className="text-xs text-danger">
+              {passwordErrors.confirmNewPassword.message}
+            </p>
+          )}
+        </div>
+        <div className="flex justify-end border-t border-line/60 pt-3">
+          <Button
+            type="submit"
+            variant="primary"
+            size="sm"
+            className="h-9 px-4 font-bold shadow-sm"
+            disabled={passwordMutation.isPending}
           >
-            <div className="min-w-0 space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-                New password
-              </label>
-              <div className="relative">
-                <Input
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="new-password"
-                  className="pr-10"
-                  {...registerPassword('newPassword')}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((value) => !value)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-ink-400 transition hover:bg-surface-variant hover:text-ink-700"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-              {passwordErrors.newPassword && (
-                <p className="text-xs text-danger">
-                  {passwordErrors.newPassword.message}
-                </p>
-              )}
-              <PasswordRequirements password={watchPassword('newPassword')} />
-            </div>
-            <div className="min-w-0 space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-                Confirm new password
-              </label>
-              <Input
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="new-password"
-                {...registerPassword('confirmNewPassword')}
-              />
-              {passwordErrors.confirmNewPassword && (
-                <p className="text-xs text-danger">
-                  {passwordErrors.confirmNewPassword.message}
-                </p>
-              )}
-            </div>
-            <div className="flex justify-stretch sm:justify-end">
-              <Button
-                type="submit"
-                variant="primary"
-                className="w-full sm:w-auto"
-                disabled={passwordMutation.isPending}
-              >
-                {passwordMutation.isPending ? (
-                  <Spinner className="h-4 w-4" />
-                ) : (
-                  <>
-                    <ShieldCheck className="h-4 w-4" />
-                    Update password
-                  </>
-                )}
-              </Button>
-            </div>
-          </form>
-        </Card>
+            {passwordMutation.isPending ? (
+              <Spinner className="h-4 w-4" />
+            ) : (
+              <>
+                <ShieldCheck className="h-4 w-4" />
+                Update password
+              </>
+            )}
+          </Button>
+        </div>
+      </form>
+    </Card>
+  );
 
-        <QrLoginScannerCard />
-
-        <Card className="max-w-full">
-          <div className="border-b border-line px-4 py-5 sm:px-6">
-            <h2 className="text-lg font-semibold text-ink-900">
+  const sessionsSection = (
+    <Card className="overflow-hidden rounded-2xl border border-line/80 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line/80 bg-gradient-to-r from-blue-500/10 via-blue-500/5 to-white px-5 py-3.5">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-sm">
+            <Laptop className="h-4.5 w-4.5" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-ink-900">
               Login sessions / Devices
             </h2>
-            <p className="text-sm text-ink-500">
-              Review where your account is signed in across the SoftLogic web panel and whiteboard app.
+            <p className="text-xs text-ink-500">
+              Review where your account is signed in across the web panel and app
             </p>
           </div>
-          <div className="min-w-0 space-y-3 px-4 py-5 sm:px-6">
-            {sessionsQuery.isLoading ? (
-              <div className="flex items-center gap-2 text-sm text-ink-500">
-                <Spinner className="h-4 w-4 text-brand-primary" />
-                Loading login sessions...
-              </div>
-            ) : sessionsQuery.isError ? (
-              <p className="rounded-lg border border-dashed border-danger/40 bg-danger/5 px-3 py-3 text-sm text-danger">
-                Unable to load login sessions. Refresh this page or sign in again
-                to repair the current browser session.
-              </p>
-            ) : sessionsQuery.data?.length ? (
-              sessionsQuery.data.map((session) => {
-                const device = describeSessionDevice(session);
-                return (
-                  <div
-                    key={session.id}
-                    className="flex min-w-0 max-w-full flex-col gap-3 rounded-lg border border-line bg-surface-variant px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="flex min-w-0 max-w-full items-start gap-3">
-                      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
-                        <Laptop className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="min-w-0 max-w-full truncate text-sm font-semibold text-ink-900">
-                            {device.label}
-                          </p>
-                          {session.isCurrent && (
-                            <span className="rounded-full bg-brand-primary/10 px-2 py-0.5 text-[11px] font-semibold text-brand-primary">
-                              Current
-                            </span>
-                          )}
-                        </div>
-                        <p className="mt-1 break-words text-xs text-ink-500">
-                          {device.platform} - IP {session.ipAddress ?? 'Unknown'}
-                        </p>
-                        <p className="mt-1 break-words text-xs leading-5 text-ink-400">
-                          Signed in {formatDateTime(session.createdAt)}
-                          {session.lastSeenAt
-                            ? ` - Last seen ${formatDateTime(session.lastSeenAt)}`
-                            : ''}{' '}
-                          - Expires{' '}
-                          {formatDateTime(session.expiresAt)}
-                        </p>
-                      </div>
-                    </div>
-                    {session.isCurrent ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="w-full sm:w-auto"
-                        onClick={() => setConfirmLogout(true)}
-                      >
-                        <LogOut className="h-4 w-4" />
-                        Sign out
-                      </Button>
-                    ) : (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="w-full text-danger sm:w-auto"
-                        disabled={revokeSessionMutation.isPending}
-                        onClick={() => revokeSessionMutation.mutate(session.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Revoke
-                      </Button>
-                    )}
-                  </div>
-                );
-              })
-            ) : (
-              <p className="rounded-lg border border-dashed border-line px-3 py-3 text-sm text-ink-500">
-                No active login sessions were found.
-              </p>
-            )}
+        </div>
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-0.5 text-[11px] font-bold text-blue-800">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-600" />
+          {activeSessionsCount} active {activeSessionsCount === 1 ? 'session' : 'sessions'}
+        </span>
+      </div>
+      <div className="space-y-3 p-5">
+        {sessionsQuery.isLoading ? (
+          <div className="flex items-center gap-2 text-sm text-ink-500">
+            <Spinner className="h-4 w-4 text-brand-primary" />
+            Loading login sessions...
           </div>
-        </Card>
-
-        <StorageIntegrationsCard />
-
-        {showOrgCard && org && (
-          <Card className="max-w-full">
-            <div className="border-b border-line px-4 py-5 sm:px-6">
-              <h2 className="text-lg font-semibold text-ink-900">Organization</h2>
-              <p className="text-sm text-ink-500">
-                Your workspace details. These are managed by SoftLogic.
-              </p>
-            </div>
-            <div className="min-w-0 space-y-5 px-4 py-5 sm:px-6">
-              <div className="flex min-w-0 items-center gap-3">
-                {org.logoUrl ? (
-                  <img
-                    src={org.logoUrl}
-                    alt={org.name}
-                    className="h-12 w-12 rounded-lg object-contain"
-                  />
-                ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
-                    <Building2 className="h-6 w-6" />
+        ) : sessionsQuery.isError ? (
+          <p className="rounded-lg border border-dashed border-danger/40 bg-danger/5 px-3 py-3 text-sm text-danger">
+            Unable to load login sessions. Refresh this page or sign in again
+            to repair the current browser session.
+          </p>
+        ) : sessionsQuery.data?.length ? (
+          sessionsQuery.data.map((session) => {
+            const device = describeSessionDevice(session);
+            return (
+              <div
+                key={session.id}
+                className="flex flex-col gap-3 rounded-xl border border-line/80 bg-slate-50/70 p-3.5 transition-all hover:border-slate-300 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white border border-line text-brand-primary shadow-2xs">
+                    {device.platform === 'App' ? (
+                      <Smartphone className="h-4.5 w-4.5" />
+                    ) : (
+                      <Laptop className="h-4.5 w-4.5" />
+                    )}
                   </div>
-                )}
-                <div className="min-w-0">
-                  <p className="break-words text-base font-bold text-ink-900">
-                    {org.brandName?.trim() || org.name}
-                  </p>
-                  <p className="break-words text-xs text-ink-500">
-                    {ORG_KIND_LABEL[org.kind]} · {org.status === 'ACTIVE' ? 'Active' : 'Inactive'}
-                  </p>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate text-sm font-bold text-ink-900">
+                        {device.label}
+                      </p>
+                      {session.isCurrent && (
+                        <span className="rounded-full bg-emerald-500/10 border border-emerald-300 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                          Current Device
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-xs font-medium text-ink-600">
+                      {device.platform} · IP <span className="font-mono">{session.ipAddress ?? 'Unknown'}</span>
+                    </p>
+                    <p className="mt-1 text-[11px] leading-4 text-ink-400">
+                      Signed in {formatDateTime(session.createdAt)}
+                      {session.lastSeenAt
+                        ? ` · Last seen ${formatDateTime(session.lastSeenAt)}`
+                        : ''}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <dl className="grid min-w-0 gap-4 sm:grid-cols-2">
-                <ReadOnlyField label="Branding" value={BRANDING_MODE_LABEL[org.brandingMode]} />
-                <ReadOnlyField
-                  label="Licence"
-                  value={licenceStatusLabel(orgLicense?.status)}
-                />
-                <ReadOnlyField label="Support email" value={org.supportEmail || '—'} />
-                <ReadOnlyField label="Support phone" value={org.supportPhone || '—'} />
-                <ReadOnlyField label="Storage" value={STORAGE_STATUS_LABEL[org.storageStatus]} />
-                <ReadOnlyField
-                  label="Student / Parent login"
-                  value={`${org.studentLoginEnabled ? 'On' : 'Off'} / ${
-                    org.parentLoginEnabled ? 'On' : 'Off'
-                  }`}
-                />
-              </dl>
-              {org.brandingMode !== 'SOFTLOGIC' &&
-                (org.brandPrimaryColor || org.brandAccentColor) && (
-                  <div className="flex flex-wrap items-center gap-4">
-                    {org.brandPrimaryColor && (
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="h-6 w-6 rounded border border-line"
-                          style={{ backgroundColor: org.brandPrimaryColor }}
-                        />
-                        <span className="text-xs text-ink-600">Primary {org.brandPrimaryColor}</span>
-                      </div>
-                    )}
-                    {org.brandAccentColor && (
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="h-6 w-6 rounded border border-line"
-                          style={{ backgroundColor: org.brandAccentColor }}
-                        />
-                        <span className="text-xs text-ink-600">Accent {org.brandAccentColor}</span>
-                      </div>
-                    )}
-                  </div>
+                {session.isCurrent ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 shrink-0 gap-1.5 rounded-lg border-slate-300 text-xs font-bold"
+                    onClick={() => setConfirmLogout(true)}
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                    Sign out
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 shrink-0 gap-1.5 rounded-lg border-danger/30 text-xs font-bold text-danger hover:bg-danger/10"
+                    disabled={revokeSessionMutation.isPending}
+                    onClick={() => revokeSessionMutation.mutate(session.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Revoke
+                  </Button>
                 )}
-              <p className="text-xs text-ink-500">
-                Need a change? Contact your SoftLogic Super Admin or open a request from Help.
-              </p>
-            </div>
-          </Card>
+              </div>
+            );
+          })
+        ) : (
+          <p className="rounded-lg border border-dashed border-line px-3 py-3 text-sm text-ink-500">
+            No active login sessions were found.
+          </p>
         )}
       </div>
+    </Card>
+  );
 
-      <Card className="max-w-full">
-        <div className="px-4 py-6 sm:px-6">
-          <div className="flex flex-col items-center text-center">
-            <Avatar className="h-20 w-20">
+  const organizationSection = showOrgCard && org ? (
+    <Card className="overflow-hidden rounded-2xl border border-line/80 bg-white shadow-sm">
+      <div className="border-b border-line/80 bg-gradient-to-r from-slate-100/80 to-white px-5 py-3.5">
+        <h2 className="text-base font-bold text-ink-900">Organization details</h2>
+        <p className="text-xs text-ink-500">
+          Your workspace configuration. Managed by SoftLogic.
+        </p>
+      </div>
+      <div className="space-y-4 p-5">
+        <div className="flex items-center gap-3">
+          {org.logoUrl ? (
+            <img
+              src={org.logoUrl}
+              alt={org.name}
+              className="h-10 w-10 rounded-lg object-contain"
+            />
+          ) : (
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
+              <Building2 className="h-5 w-5" />
+            </div>
+          )}
+          <div>
+            <p className="text-sm font-bold text-ink-900">
+              {org.brandName?.trim() || org.name}
+            </p>
+            <p className="text-xs text-ink-500">
+              {ORG_KIND_LABEL[org.kind]} · {org.status === 'ACTIVE' ? 'Active' : 'Inactive'}
+            </p>
+          </div>
+        </div>
+        <dl className="grid gap-3 sm:grid-cols-2">
+          <ReadOnlyField label="Branding" value={BRANDING_MODE_LABEL[org.brandingMode]} />
+          <ReadOnlyField label="Licence" value={licenceStatusLabel(orgLicense?.status)} />
+          <ReadOnlyField label="Support email" value={org.supportEmail || '—'} />
+          <ReadOnlyField label="Support phone" value={org.supportPhone || '—'} />
+          <ReadOnlyField label="Storage" value={STORAGE_STATUS_LABEL[org.storageStatus]} />
+          <ReadOnlyField
+            label="Student / Parent login"
+            value={`${org.studentLoginEnabled ? 'On' : 'Off'} / ${
+              org.parentLoginEnabled ? 'On' : 'Off'
+            }`}
+          />
+        </dl>
+      </div>
+    </Card>
+  ) : null;
+
+  return (
+    <div className="space-y-6">
+      {/* Top Executive Settings Hub Hero Banner */}
+      <div className="relative overflow-hidden rounded-2xl border border-line/80 bg-gradient-to-r from-[#08357C] via-[#0E4BA8] to-[#1A63D4] p-5 text-white shadow-md">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <Avatar className="h-14 w-14 rounded-2xl border-2 border-white/30 shadow-md">
               <AvatarImage src={user?.avatar ?? undefined} />
-              <AvatarFallback className="text-xl">
+              <AvatarFallback className="bg-white/10 text-lg font-bold text-white">
                 {initials(user?.name ?? user?.email)}
               </AvatarFallback>
             </Avatar>
-            <p className="mt-3 max-w-full break-words text-base font-semibold text-ink-900">
-              {user?.name}
-            </p>
-            <p className="max-w-full break-all text-xs text-ink-500">{user?.email}</p>
-            <p className="mt-2 rounded-full bg-brand-primary/10 px-3 py-0.5 text-xs font-semibold text-brand-primary">
-              {user?.role ? ROLE_LABEL[user.role] : '-'}
-            </p>
-            {appVersion && (
-              <div className="mt-4 w-full rounded-lg border border-line bg-surface-variant px-3 py-2 text-left">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
-                  App version
-                </p>
-                <p className="mt-1 text-sm font-semibold text-ink-900">
-                  {appVersion}
-                </p>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-lg font-black tracking-tight text-white sm:text-xl">
+                  {user?.name || 'SoftLogic Administrator'}
+                </h1>
+                <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-bold text-white backdrop-blur-xs">
+                  {user?.role ? ROLE_LABEL[user.role] : 'Administrator'}
+                </span>
               </div>
-            )}
+              <p className="mt-0.5 font-mono text-xs text-blue-100">
+                {user?.email}
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-blue-100/90">
+                <span className="inline-flex items-center gap-1">
+                  <Globe className="h-3.5 w-3.5 opacity-80" /> {user?.timezone ?? 'UTC'} · {user?.language ?? 'en'}
+                </span>
+                {appVersion && (
+                  <span className="rounded bg-black/20 px-2 py-0.5 font-mono text-[10px] font-bold text-blue-100">
+                    {appVersion}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
-          <div className="mt-6 border-t border-line pt-5">
+          <div className="flex items-center gap-2">
             <Button
               variant="outline"
-              className="w-full text-danger"
+              size="sm"
+              className="h-9 gap-1.5 rounded-xl border-white/30 bg-white/10 font-bold text-white backdrop-blur-xs hover:bg-white/20 hover:text-white"
               onClick={() => setConfirmLogout(true)}
             >
               <LogOut className="h-4 w-4" />
@@ -554,7 +593,123 @@ export function SettingsPage() {
             </Button>
           </div>
         </div>
-      </Card>
+      </div>
+
+      {/* Settings Hub Category Navigation Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line/80 bg-white p-2 shadow-xs">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setActiveTab('all')}
+            className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition-all ${
+              activeTab === 'all'
+                ? 'bg-brand-primary text-white shadow-sm'
+                : 'text-ink-600 hover:bg-surface-variant hover:text-ink-900'
+            }`}
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            All Hub Overview
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('profile')}
+            className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition-all ${
+              activeTab === 'profile'
+                ? 'bg-brand-primary text-white shadow-sm'
+                : 'text-ink-600 hover:bg-surface-variant hover:text-ink-900'
+            }`}
+          >
+            <User className="h-3.5 w-3.5" />
+            Profile & Locale
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('security')}
+            className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition-all ${
+              activeTab === 'security'
+                ? 'bg-brand-primary text-white shadow-sm'
+                : 'text-ink-600 hover:bg-surface-variant hover:text-ink-900'
+            }`}
+          >
+            <KeyRound className="h-3.5 w-3.5" />
+            Security & Access
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('sessions')}
+            className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition-all ${
+              activeTab === 'sessions'
+                ? 'bg-brand-primary text-white shadow-sm'
+                : 'text-ink-600 hover:bg-surface-variant hover:text-ink-900'
+            }`}
+          >
+            <Laptop className="h-3.5 w-3.5" />
+            Sessions & QR Login
+            <span className="rounded-full bg-blue-100 px-1.5 py-0.2 font-mono text-[10px] font-black text-blue-800">
+              {activeSessionsCount}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('storage')}
+            className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition-all ${
+              activeTab === 'storage'
+                ? 'bg-brand-primary text-white shadow-sm'
+                : 'text-ink-600 hover:bg-surface-variant hover:text-ink-900'
+            }`}
+          >
+            <Cloud className="h-3.5 w-3.5" />
+            Storage & Workspace
+          </button>
+        </div>
+      </div>
+
+      {/* Main Settings Content Area - High Density Balanced Grid */}
+      {activeTab === 'all' && (
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+          {/* Left Column: Profile & Sessions */}
+          <div className="space-y-6 xl:col-span-7">
+            {personalProfileSection}
+            {sessionsSection}
+            {organizationSection}
+          </div>
+          {/* Right Column: Security, QR Login Scanner & Storage Integrations */}
+          <div className="space-y-6 xl:col-span-5">
+            {securitySection}
+            <QrLoginScannerCard />
+            <StorageIntegrationsCard />
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'profile' && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+          <div className="lg:col-span-7">{personalProfileSection}</div>
+          <div className="lg:col-span-5">{organizationSection}</div>
+        </div>
+      )}
+
+      {activeTab === 'security' && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+          <div className="lg:col-span-7">{securitySection}</div>
+          <div className="lg:col-span-5"><QrLoginScannerCard /></div>
+        </div>
+      )}
+
+      {activeTab === 'sessions' && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+          <div className="lg:col-span-7">{sessionsSection}</div>
+          <div className="lg:col-span-5"><QrLoginScannerCard /></div>
+        </div>
+      )}
+
+      {activeTab === 'storage' && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+          <div className="lg:col-span-8"><StorageIntegrationsCard /></div>
+          <div className="lg:col-span-4">{organizationSection}</div>
+        </div>
+      )}
+
       <ConfirmationDialog
         open={confirmLogout}
         onOpenChange={setConfirmLogout}

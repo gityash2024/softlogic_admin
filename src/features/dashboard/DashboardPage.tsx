@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Activity,
@@ -11,6 +11,9 @@ import {
   Presentation,
   ShieldCheck,
   Users,
+  HelpCircle,
+  KeyRound,
+  Sparkles,
 } from 'lucide-react';
 import {
   Area,
@@ -36,6 +39,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
+import { Progress } from '@/components/ui/progress';
 
 const chartColors = ['#1149B5', '#FF7A00', '#7C3AED', '#22C55E', '#0EA5E9', '#EF4444'];
 
@@ -50,6 +54,7 @@ function MetricCard({
   label,
   value,
   detail,
+  explanation,
   icon: Icon,
   accent,
   onClick,
@@ -57,6 +62,7 @@ function MetricCard({
   label: string;
   value: string | number;
   detail: string;
+  explanation?: string;
   icon: typeof Users;
   accent: string;
   onClick?: () => void;
@@ -64,8 +70,8 @@ function MetricCard({
   return (
     <Card
       className={cn(
-        'overflow-hidden',
-        onClick && 'cursor-pointer transition hover:-translate-y-0.5 hover:shadow-elevated',
+        'group overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-elevated',
+        onClick && 'cursor-pointer',
       )}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
@@ -76,21 +82,34 @@ function MetricCard({
       }}
     >
       <div className="flex items-start justify-between px-5 py-4">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-ink-400">
-            {label}
-          </p>
+        <div className="min-w-0 flex-1 pr-3">
+          <div className="flex items-center gap-1.5">
+            <p className="text-xs font-bold uppercase tracking-wide text-ink-400">
+              {label}
+            </p>
+            {explanation && (
+              <span
+                className="inline-flex cursor-help items-center text-ink-400 transition hover:text-ink-700"
+                title={explanation}
+              >
+                <HelpCircle className="h-3.5 w-3.5" />
+              </span>
+            )}
+          </div>
           <p className="mt-2 text-3xl font-black text-ink-900">{value}</p>
-          <p className="mt-1 text-xs text-ink-500">{detail}</p>
+          <p className="mt-1 text-xs font-semibold text-ink-600">{detail}</p>
+          {explanation && (
+            <p className="mt-1 text-[11px] text-ink-400">{explanation}</p>
+          )}
         </div>
         <div
-          className="flex h-11 w-11 items-center justify-center rounded-lg text-white shadow-sm"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-white shadow-sm transition-transform duration-300 group-hover:scale-110"
           style={{ backgroundColor: accent }}
         >
           <Icon className="h-5 w-5" />
         </div>
       </div>
-      <div className="h-1.5" style={{ backgroundColor: accent }} />
+      <div className="h-1.5 transition-all duration-300 group-hover:h-2" style={{ backgroundColor: accent }} />
     </Card>
   );
 }
@@ -126,6 +145,7 @@ function EmptyChart({ label }: { label: string }) {
 export function DashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const [showGuide, setShowGuide] = useState(false);
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['dashboard-overview'],
     queryFn: dashboardApi.overview,
@@ -176,9 +196,20 @@ export function DashboardPage() {
       <section className="overflow-hidden rounded-lg bg-brand-navy text-white shadow-elevated">
         <div className="grid gap-6 px-4 py-5 sm:px-6 lg:grid-cols-[1fr_360px] lg:px-7">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase text-white/70">
-              <ShieldCheck className="h-4 w-4 text-brand-orange" />
-              {data.scope.type === 'GLOBAL' ? 'Global command view' : 'Managed scope'}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase text-white/70">
+                <ShieldCheck className="h-4 w-4 text-brand-orange" />
+                {data.scope.type === 'GLOBAL' ? 'Global command view' : 'Managed scope'}
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowGuide(!showGuide)}
+                className="border border-white/20 bg-white/10 text-white hover:bg-white/20"
+              >
+                <HelpCircle className="mr-1.5 h-4 w-4 text-brand-orange" />
+                {showGuide ? 'Hide Metrics Guide' : 'Metrics Guide & FAQ'}
+              </Button>
             </div>
             <h2 className="mt-5 text-3xl font-black text-white">
               Welcome back, {user?.name?.split(' ')[0] ?? 'Admin'}.
@@ -195,34 +226,93 @@ export function DashboardPage() {
               <p className="mt-1 text-sm font-semibold text-white">
                 {formatDateTime(data.generatedAt)}
               </p>
+              <p className="mt-0.5 text-[11px] text-white/50">Real-time snapshot</p>
             </div>
             <div className="rounded-lg border border-white/10 bg-white/10 px-4 py-3">
               <p className="text-xs text-white/55">Role</p>
               <p className="mt-1 text-sm font-semibold text-white">
                 {user?.role ? ROLE_LABEL[user.role] : 'Admin'}
               </p>
+              <p className="mt-0.5 text-[11px] text-white/50">Access scope</p>
             </div>
-            <div className="rounded-lg border border-white/10 bg-white/10 px-4 py-3">
-              <p className="text-xs text-white/55">New users</p>
+            <div className="rounded-lg border border-white/10 bg-white/10 px-4 py-3" title="Accounts created within the last 30 days">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-white/55">New users</p>
+                <span className="rounded bg-brand-primary/40 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                  30 days
+                </span>
+              </div>
               <p className="mt-1 text-2xl font-black text-white">
                 {data.users.newThisPeriod}
               </p>
+              <p className="mt-0.5 text-[11px] text-white/70">Added in last 30 days</p>
             </div>
-            <div className="rounded-lg border border-white/10 bg-white/10 px-4 py-3">
-              <p className="text-xs text-white/55">Expiring licences</p>
+            <div className="rounded-lg border border-white/10 bg-white/10 px-4 py-3" title="Licence keys scheduled to expire within the next 30 days">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-white/55">Expiring licences</p>
+                <span className="rounded bg-brand-orange/40 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                  Action req.
+                </span>
+              </div>
               <p className="mt-1 text-2xl font-black text-white">
                 {data.subscriptions.expiringSoon}
               </p>
+              <p className="mt-0.5 text-[11px] text-white/70">Keys expiring within 30 days</p>
             </div>
           </div>
         </div>
       </section>
+
+      {showGuide && (
+        <Card className="border border-brand-primary/30 bg-brand-primary/5 p-5 transition-all">
+          <div className="flex items-center justify-between border-b border-line pb-3">
+            <h3 className="text-base font-bold text-ink-900">
+              Quick Metrics Guide & Portal FAQ
+            </h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowGuide(false)}
+              className="text-xs text-ink-500"
+            >
+              Close
+            </Button>
+          </div>
+          <div className="mt-4 grid gap-4 text-xs leading-5 text-ink-700 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-lg bg-white p-3.5 shadow-sm">
+              <p className="font-bold text-ink-900">1. Teacher Licences</p>
+              <p className="mt-1 text-ink-600">
+                Represents total activation seats allocated across classroom boards. Each active interactive panel uses one seat out of your total limit.
+              </p>
+            </div>
+            <div className="rounded-lg bg-white p-3.5 shadow-sm">
+              <p className="font-bold text-ink-900">2. Expiring Licences</p>
+              <p className="mt-1 text-ink-600">
+                Shows the number of activation keys that will reach their end date within the next 30 days. Renew them in the License module to avoid disruption.
+              </p>
+            </div>
+            <div className="rounded-lg bg-white p-3.5 shadow-sm">
+              <p className="font-bold text-ink-900">3. New Users</p>
+              <p className="mt-1 text-ink-600">
+                Shows user accounts created or added to your organization within the past 30 days across teachers, admins, or partner scopes.
+              </p>
+            </div>
+            <div className="rounded-lg bg-white p-3.5 shadow-sm">
+              <p className="font-bold text-ink-900">4. Licence Utilization</p>
+              <p className="mt-1 text-ink-600">
+                Shows the percentage of total teacher seats currently assigned and active. Keep an eye on this to know when to purchase additional capacity.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           label="Active Users"
           value={data.users.active}
           detail={`${data.users.disabled} suspended accounts`}
+          explanation="Workspace accounts active and logged in"
           icon={Users}
           accent="#1149B5"
         />
@@ -230,6 +320,7 @@ export function DashboardPage() {
           label="Organizations"
           value={data.organizations.total}
           detail={`${data.organizations.active} active, ${data.organizations.inactive} inactive`}
+          explanation="Customer and partner organizations managed"
           icon={Building2}
           accent="#0EA5E9"
         />
@@ -237,6 +328,7 @@ export function DashboardPage() {
           label="Teacher Licences"
           value={`${data.subscriptions.seatUsage}/${data.subscriptions.seatLimit}`}
           detail={`${data.subscriptions.utilizationRate}% allocated`}
+          explanation="Total classroom teacher seats assigned"
           icon={CreditCard}
           accent="#FF7A00"
         />
@@ -244,10 +336,73 @@ export function DashboardPage() {
           label="Content"
           value={data.content.canvases.total}
           detail={`${data.content.liveSessions.total} live sessions, ${data.content.exports.total} exports`}
+          explanation="Whiteboard canvases, live classes & exports"
           icon={Presentation}
           accent="#7C3AED"
           onClick={() => navigate('/content')}
         />
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-3">
+        <Card className="p-4 transition-all duration-300 hover:shadow-elevated">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-ink-400">
+                Activation Keys Overview
+              </p>
+              <p className="mt-1 text-sm font-semibold text-ink-900">
+                {data.subscriptions.seatUsage} active keys · {data.subscriptions.expiringSoon} expiring soon
+              </p>
+              <p className="mt-0.5 text-xs text-ink-500">
+                {Math.max(data.subscriptions.seatLimit - data.subscriptions.seatUsage, 0)} unallocated seats remaining
+              </p>
+            </div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
+              <KeyRound className="h-5 w-5" />
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4 transition-all duration-300 hover:shadow-elevated">
+          <div className="flex items-center justify-between">
+            <div className="w-full pr-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold uppercase tracking-wide text-ink-400">
+                  Licence Capacity Bar
+                </p>
+                <span className="text-xs font-bold text-brand-orange">
+                  {data.subscriptions.utilizationRate}% Used
+                </span>
+              </div>
+              <div className="mt-2.5">
+                <Progress value={data.subscriptions.utilizationRate} className="h-2.5" />
+              </div>
+              <p className="mt-1.5 text-xs text-ink-500">
+                {data.subscriptions.seatUsage} of {data.subscriptions.seatLimit} total capacity allocated
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4 transition-all duration-300 hover:shadow-elevated">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-ink-400">
+                System Sync & Health
+              </p>
+              <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-success">
+                <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
+                Live & Synchronized
+              </p>
+              <p className="mt-0.5 text-xs text-ink-500">
+                All cloud activations & fingerprints operating normally
+              </p>
+            </div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10 text-success">
+              <Sparkles className="h-5 w-5" />
+            </div>
+          </div>
+        </Card>
       </section>
 
       <section className="grid gap-5 xl:grid-cols-3">

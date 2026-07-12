@@ -920,12 +920,12 @@ function WhiteLabelOrgBranding({ org }: { org: AdminOrganization }) {
           <div className="flex items-center gap-2">
             <input
               type="color"
-              value={primaryColor || '#08357c'}
+              value={primaryColor || '#1149b5'}
               onChange={(event) => setPrimaryColor(event.target.value)}
               className="h-9 w-10 shrink-0 cursor-pointer rounded border border-line bg-white p-0.5"
               aria-label="Primary brand color"
             />
-            <Input placeholder="#08357C" value={primaryColor} onChange={(event) => setPrimaryColor(event.target.value)} />
+            <Input placeholder="#1149B5" value={primaryColor} onChange={(event) => setPrimaryColor(event.target.value)} />
           </div>
         </div>
         <div className="space-y-1.5">
@@ -933,12 +933,12 @@ function WhiteLabelOrgBranding({ org }: { org: AdminOrganization }) {
           <div className="flex items-center gap-2">
             <input
               type="color"
-              value={accentColor || '#f97316'}
+              value={accentColor || '#ff7a00'}
               onChange={(event) => setAccentColor(event.target.value)}
               className="h-9 w-10 shrink-0 cursor-pointer rounded border border-line bg-white p-0.5"
               aria-label="Accent brand color"
             />
-            <Input placeholder="#F97316" value={accentColor} onChange={(event) => setAccentColor(event.target.value)} />
+            <Input placeholder="#FF7A00" value={accentColor} onChange={(event) => setAccentColor(event.target.value)} />
           </div>
         </div>
       </div>

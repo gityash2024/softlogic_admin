@@ -164,6 +164,19 @@ function parseInviteCsv(text: string): ParsedInviteRow[] {
   return rows;
 }
 
+function roleAvatarStyle(role: UserRole): string {
+  switch (role) {
+    case 'SUPER_ADMIN':
+      return 'from-brand-primary via-[#1E40AF] to-[#2563EB] text-white shadow-sm ring-2 ring-brand-primary/20';
+    case 'PARTNER_ADMIN':
+      return 'from-indigo-600 to-blue-600 text-white shadow-sm ring-2 ring-indigo-500/20';
+    case 'CUSTOMER_ADMIN':
+      return 'from-emerald-600 to-teal-600 text-white shadow-sm ring-2 ring-emerald-500/20';
+    default:
+      return 'from-violet-600 to-indigo-600 text-white shadow-sm ring-2 ring-violet-500/20';
+  }
+}
+
 export function UsersPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -212,11 +225,7 @@ export function UsersPage() {
     isEmailVerified !== 'ALL' ||
     Boolean(createdFrom || createdTo || lastSeenFrom || lastSeenTo) ||
     Boolean(appVersionOp !== 'ALL' && appVersionBuild);
-  const superAdminNeedsOrganization =
-    isSuperAdmin &&
-    partnerOrganizationId === ALL_PARTNERS_VALUE &&
-    organizationId === 'ALL' &&
-    !hasDirectUserFilter;
+  const superAdminNeedsOrganization = false;
 
   const query = useMemo<AdminListQuery>(
     () => ({
@@ -227,6 +236,7 @@ export function UsersPage() {
       status: cleanFilterValue(status),
       partnerOrganizationId: cleanFilterValue(partnerOrganizationId),
       organizationId: cleanFilterValue(organizationId),
+      scope: isSuperAdmin ? 'ALL' : undefined,
       // Pending invitations are unverified accounts; the toggle forces the
       // server-side isEmailVerified=false filter.
       isEmailVerified: pendingOnly
@@ -250,6 +260,7 @@ export function UsersPage() {
       createdFrom,
       createdTo,
       isEmailVerified,
+      isSuperAdmin,
       lastSeenFrom,
       lastSeenTo,
       organizationId,
@@ -574,25 +585,25 @@ export function UsersPage() {
         <StatCard
           label="Matching users"
           value={meta?.total ?? 0}
-          detail="All filters applied server-side"
+          detail="Total accounts matching search & filters"
           tone="blue"
         />
         <StatCard
           label="Active on page"
           value={activeCount}
-          detail={`${disabledCount} suspended on this page`}
+          detail={disabledCount > 0 ? `${disabledCount} suspended accounts on page` : 'All displayed accounts are active'}
           tone="green"
         />
         <StatCard
           label="Admin roles"
           value={adminCount}
-          detail="Current result page"
+          detail="Administrators displayed on this page"
           tone="orange"
         />
         <StatCard
           label="Verified email"
           value={verifiedCount}
-          detail="Current result page"
+          detail="Verified addresses displayed on page"
           tone="purple"
         />
       </div>
@@ -608,13 +619,9 @@ export function UsersPage() {
           <div className="flex flex-wrap gap-2">
             <ExportButtons
               onExport={handleExport}
-              disabled={usersQuery.isLoading || superAdminNeedsOrganization}
+              disabled={usersQuery.isLoading}
               loading={Boolean(exporting)}
             />
-            <Button variant="outline" onClick={() => setBulkOpen(true)}>
-              <Upload className="h-4 w-4" />
-              Bulk invite
-            </Button>
             <Button
               variant="primary"
               onClick={() =>
@@ -872,17 +879,7 @@ export function UsersPage() {
             </div>
           </div>
         ) : (
-          <Table className="min-w-[1180px]">
-            <colgroup>
-              <col />
-              <col className="w-[144px]" />
-              <col className="w-[190px]" />
-              <col className="w-[112px]" />
-              <col className="w-[118px]" />
-              <col className="w-[150px]" />
-              <col className="w-[120px]" />
-              <col className="w-[216px]" />
-            </colgroup>
+          <Table className="w-full">
             <TableHeader>
               <TableRow>
                 <TableHead>User</TableHead>
@@ -906,18 +903,25 @@ export function UsersPage() {
                   resendInvite.isPending && resendInvite.variables === u.id;
                 return (
                   <TableRow key={u.id}>
-                    <TableCell className="min-w-0">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <Avatar className="h-9 w-9 shrink-0">
-                          <AvatarFallback>
-                            {initials(u.name ?? displayEmail)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-ink-900">
+                    <TableCell className="min-w-0 max-w-[200px]">
+                      <div
+                        className="flex min-w-0 items-center gap-2.5"
+                        title={`${u.name ?? 'No name'} (${displayEmail})`}
+                      >
+                        <div
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${roleAvatarStyle(
+                            u.role,
+                          )} text-[11px] font-bold tracking-wider`}
+                        >
+                          {initials(u.name ?? displayEmail)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-bold text-ink-900">
                             {u.name ?? 'No name'}
                           </p>
-                          <p className="truncate text-xs text-ink-500">{displayEmail}</p>
+                          <p className="truncate text-xs font-medium text-ink-500">
+                            {displayEmail}
+                          </p>
                         </div>
                       </div>
                     </TableCell>
@@ -926,8 +930,11 @@ export function UsersPage() {
                         {ROLE_LABEL[u.role]}
                       </Badge>
                     </TableCell>
-                    <TableCell className="min-w-0">
-                      <p className="max-w-[180px] truncate text-sm text-ink-900">
+                    <TableCell
+                      className="min-w-0 max-w-[130px]"
+                      title={u.primaryOrganization?.name ?? 'Unassigned'}
+                    >
+                      <p className="truncate text-sm text-ink-900">
                         {u.primaryOrganization?.name ?? (
                           <span className="text-ink-400">Unassigned</span>
                         )}
@@ -948,7 +955,10 @@ export function UsersPage() {
                         {u.isEmailVerified ? 'Verified' : 'Pending'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">
+                    <TableCell
+                      className="whitespace-nowrap max-w-[100px] truncate"
+                      title={u.appVersion ? `${u.appVersion}${u.appVersionCode ? `+${u.appVersionCode}` : ''}` : '—'}
+                    >
                       {u.appVersion ? (
                         <div className="flex items-center gap-1.5">
                           <span className="text-sm text-ink-900">
@@ -970,31 +980,36 @@ export function UsersPage() {
                         <span className="text-ink-400">—</span>
                       )}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">
+                    <TableCell
+                      className="whitespace-nowrap"
+                      title={formatDate(u.lastLoginAt)}
+                    >
                       <span className="text-sm text-ink-500">
                         {formatDate(u.lastLoginAt)}
                       </span>
                     </TableCell>
                     <TableCell className="text-right whitespace-nowrap">
-                      <div className="flex justify-end gap-1 whitespace-nowrap">
+                      <div className="flex justify-end gap-0.5 whitespace-nowrap">
                         {pending && (
                           <Button
                             size="icon"
                             variant="ghost"
+                            className="h-7 w-7 p-0 shrink-0"
                             disabled={!canManage || isResending}
                             onClick={() => resendInvite.mutate(u.id)}
                             title="Resend invitation email"
                           >
                             {isResending ? (
-                              <Spinner className="h-4 w-4 text-brand-primary" />
+                              <Spinner className="h-3.5 w-3.5 text-brand-primary" />
                             ) : (
-                              <MailCheck className="h-4 w-4 text-brand-primary" />
+                              <MailCheck className="h-3.5 w-3.5 text-brand-primary" />
                             )}
                           </Button>
                         )}
                         <Button
                           size="icon"
                           variant="ghost"
+                          className="h-7 w-7 p-0 shrink-0"
                           disabled={!canManage}
                           onClick={() =>
                             setStatusAction({
@@ -1009,19 +1024,20 @@ export function UsersPage() {
                           }
                         >
                           {u.status === 'ACTIVE' ? (
-                            <PauseCircle className="h-4 w-4 text-warning" />
+                            <PauseCircle className="h-3.5 w-3.5 text-warning" />
                           ) : (
-                            <PlayCircle className="h-4 w-4 text-success" />
+                            <PlayCircle className="h-3.5 w-3.5 text-success" />
                           )}
                         </Button>
                         <Button
                           size="icon"
                           variant="ghost"
+                          className="h-7 w-7 p-0 shrink-0"
                           disabled={!canManage}
                           onClick={() => navigate(`/users/${u.id}/edit`)}
                           title="Edit user"
                         >
-                          <Pencil className="h-4 w-4 text-ink-500" />
+                          <Pencil className="h-3.5 w-3.5 text-ink-500" />
                         </Button>
                         {actor?.role === 'SUPER_ADMIN' &&
                           u.id !== actor?.id &&
@@ -1029,17 +1045,19 @@ export function UsersPage() {
                             <Button
                               size="icon"
                               variant="ghost"
+                              className="h-7 w-7 p-0 shrink-0"
                               disabled={impersonate.isPending}
                               onClick={() => impersonate.mutate(u.id)}
                               title={`View as ${displayEmail}`}
                             >
-                              <Eye className="h-4 w-4 text-ink-500" />
+                              <Eye className="h-3.5 w-3.5 text-ink-500" />
                             </Button>
                           )}
                         {actor?.role === 'SUPER_ADMIN' && !isArchived && (
                           <Button
                             size="icon"
                             variant="ghost"
+                            className="h-7 w-7 p-0 shrink-0"
                             onClick={() =>
                               setVersionAction({
                                 user: u,
@@ -1049,21 +1067,23 @@ export function UsersPage() {
                             }
                             title="Force app version on next update check"
                           >
-                            <Smartphone className="h-4 w-4 text-ink-500" />
+                            <Smartphone className="h-3.5 w-3.5 text-ink-500" />
                           </Button>
                         )}
                         <Button
                           size="icon"
                           variant="ghost"
+                          className="h-7 w-7 p-0 shrink-0"
                           disabled={!canManage}
                           onClick={() => setLogoutAction(u)}
                           title="Force logout (revoke all sessions)"
                         >
-                          <LogOut className="h-4 w-4 text-ink-500" />
+                          <LogOut className="h-3.5 w-3.5 text-ink-500" />
                         </Button>
                         <Button
                           size="icon"
                           variant="ghost"
+                          className="h-7 w-7 p-0 shrink-0"
                           disabled={!canDelete}
                           onClick={() => setDeleteAction(u)}
                           title={
@@ -1072,7 +1092,7 @@ export function UsersPage() {
                               : 'Delete user'
                           }
                         >
-                          <Trash2 className="h-4 w-4 text-danger" />
+                          <Trash2 className="h-3.5 w-3.5 text-danger" />
                         </Button>
                       </div>
                     </TableCell>
@@ -1104,10 +1124,10 @@ export function UsersPage() {
                         <Button
                           variant="primary"
                           size="sm"
-                          onClick={() => setBulkOpen(true)}
+                          onClick={() => navigate('/users/new')}
                         >
-                          <Upload className="h-4 w-4" />
-                          Invite users
+                          <Plus className="h-4 w-4" />
+                          Create user
                         </Button>
                       </div>
                     </div>

@@ -218,25 +218,49 @@ export function ActivityPage() {
     setParams(next, { replace: true });
   };
 
+  const totalAdminUsers = usersQuery.data
+    ? usersQuery.data.filter((u) => u.role === 'SUPER_ADMIN' || u.role === 'ADMIN' || u.role === 'PARTNER_ADMIN' || u.role === 'CUSTOMER_ADMIN').length
+    : uniqueActors;
+  const isFiltering = Boolean(
+    search ||
+      actorUserId !== 'ALL' ||
+      action !== 'ALL' ||
+      targetType !== 'ALL' ||
+      organizationId !== 'ALL' ||
+      targetId ||
+      createdFrom ||
+      createdTo
+  );
+
   return (
     <div className="space-y-5">
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Matching actions"
-          value={meta?.total ?? 0}
-          detail="Server-side filtered audit logs"
+          label="Total audit events"
+          value={meta?.total ?? entries.length}
+          detail={
+            isFiltering
+              ? 'Events matching active filter criteria'
+              : 'Total administrative actions recorded'
+          }
           tone="blue"
         />
         <StatCard
-          label="Actors on page"
-          value={uniqueActors}
-          detail="Distinct administrators"
+          label="Authorized admins"
+          value={totalAdminUsers}
+          detail="Staff accounts authorized to perform actions"
+          tone="green"
+        />
+        <StatCard
+          label="Monitored entity types"
+          value={TARGET_TYPES.length}
+          detail="Users · Orgs · Subscriptions · Canvases · Exports"
           tone="orange"
         />
         <StatCard
-          label="Target types"
-          value={targetCount}
-          detail="Current result page"
+          label="Monitored workspaces"
+          value={allOrganizations.length}
+          detail="Partner and customer organizations under audit"
           tone="purple"
         />
       </div>

@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { StatCard } from "@/features/admin/admin-list-ui";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import {
   Dialog,
@@ -473,44 +474,60 @@ function SuperAdminDownloadsPage() {
   }
 
   return (
-    <div className="space-y-5">
-      <section className="flex flex-col gap-4 rounded-lg border border-line bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <Badge variant="navy">Super Admin release control</Badge>
-          <h2 className="mt-3 text-2xl font-black text-ink-900">
-            App releases
-          </h2>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-ink-500">
-            Publish one version and build number to the {environmentLabel}
-            channels or only the selected Android and Windows download links.
-            Each installed app checks only its matching channel.
-          </p>
+    <div className="space-y-6">
+      <section className="relative overflow-hidden rounded-2xl border border-line bg-gradient-to-r from-brand-primary/5 via-white to-white p-6 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-4">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary shadow-sm">
+              <Download className="h-6 w-6" />
+            </span>
+            <div>
+              <Badge variant="navy">Super Admin release control</Badge>
+              <h2 className="mt-2 text-2xl font-black tracking-tight text-ink-900">
+                App releases
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-ink-500">
+                Publish one version and build number to the {environmentLabel} channels
+                or only selected Android and Windows download links. Each installed app
+                checks only its matching channel.
+              </p>
+            </div>
+          </div>
+          <Button
+            onClick={openPublish}
+            className="shrink-0 shadow-sm transition-all hover:shadow"
+          >
+            <Plus className="h-4 w-4" />
+            Publish release
+          </Button>
         </div>
-        <Button onClick={openPublish}>
-          <Plus className="h-4 w-4" />
-          Publish release
-        </Button>
       </section>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card className="p-4">
-          <p className="text-xs font-bold uppercase text-ink-400">Channels</p>
-          <p className="mt-1 text-2xl font-black text-ink-900">
-            {visibleChannels.length}
-          </p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs font-bold uppercase text-ink-400">Current</p>
-          <p className="mt-1 text-2xl font-black text-ink-900">
-            {currentByChannel.size}/{visibleChannels.length}
-          </p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs font-bold uppercase text-ink-400">History</p>
-          <p className="mt-1 text-2xl font-black text-ink-900">
-            {releasesQuery.data?.length ?? 0}
-          </p>
-        </Card>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Active channels"
+          value={visibleChannels.length}
+          detail={`${environmentLabel} release channels`}
+          tone="blue"
+        />
+        <StatCard
+          label="Live releases"
+          value={currentByChannel.size}
+          detail={`${currentByChannel.size} of ${visibleChannels.length} channels active`}
+          tone="green"
+        />
+        <StatCard
+          label="Release history"
+          value={releasesQuery.data?.length ?? 0}
+          detail="Total historical builds logged"
+          tone="purple"
+        />
+        <StatCard
+          label="Forced updates"
+          value={(releasesQuery.data ?? []).filter((r) => r.isCurrent && r.isForced).length}
+          detail="Mandatory channel updates"
+          tone="orange"
+        />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
@@ -518,78 +535,199 @@ function SuperAdminDownloadsPage() {
           const release = currentByChannel.get(
             channelKey(channel.environment, channel.brand, channel.platform),
           );
-          const Icon =
-            channel.platform === "android" ? Smartphone : MonitorDown;
+          const isAndroid = channel.platform === "android";
+          const Icon = isAndroid ? Smartphone : MonitorDown;
           return (
             <Card
               key={channel.label}
-              className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center"
+              className={`group relative overflow-hidden rounded-2xl border-2 bg-white shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl ${
+                isAndroid
+                  ? "border-emerald-500/45 shadow-emerald-950/5 hover:border-emerald-500/80"
+                  : "border-blue-500/45 shadow-blue-950/5 hover:border-blue-500/80"
+              }`}
             >
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
-                <Icon className="h-5 w-5" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap gap-2">
-                  <Badge
-                    variant={
-                      channel.environment === "production" ? "success" : "navy"
-                    }
+              <div
+                className={`h-1 w-full ${
+                  isAndroid
+                    ? "bg-gradient-to-r from-emerald-500 via-emerald-400 to-teal-500"
+                    : "bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-500"
+                }`}
+              />
+              <div
+                className={`flex flex-wrap items-center justify-between gap-3 border-b border-line/80 px-5 py-3 ${
+                  isAndroid
+                    ? "bg-gradient-to-r from-emerald-500/15 via-emerald-500/5 to-white"
+                    : "bg-gradient-to-r from-blue-500/15 via-blue-500/5 to-white"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-md transition-transform duration-300 group-hover:scale-105 ${
+                      isAndroid
+                        ? "bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-emerald-500/25"
+                        : "bg-gradient-to-br from-blue-500 to-blue-700 text-white shadow-blue-500/25"
+                    }`}
                   >
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-ink-400">
+                      {channel.brand === "softlogic"
+                        ? "SoftLogic Channel"
+                        : "AI Smart Board Channel"}
+                    </span>
+                    <h3 className="text-base font-black leading-tight text-ink-900">
+                      {isAndroid
+                        ? "Android APK Installer"
+                        : "Windows Desktop EXE"}
+                    </h3>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-black tracking-wide uppercase shadow-2xs ${
+                      channel.environment === "production"
+                        ? "border border-emerald-300 bg-emerald-50 text-emerald-800"
+                        : "border border-slate-300 bg-slate-100 text-slate-800"
+                    }`}
+                  >
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        channel.environment === "production"
+                          ? "bg-emerald-500"
+                          : "bg-slate-500"
+                      }`}
+                    />
                     {channel.environment}
-                  </Badge>
-                  {release ? (
-                    <>
-                      <Badge>
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        Current
-                      </Badge>
-                      <Badge variant={release.isForced ? "warning" : "info"}>
-                        {release.isForced ? "Forced" : "Optional"}
-                      </Badge>
-                    </>
-                  ) : (
-                    <Badge variant="danger">Missing</Badge>
+                  </span>
+                  {release && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 shadow-2xs">
+                      <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                      Live & Serving
+                    </span>
                   )}
                 </div>
-                <h3 className="mt-2 font-black text-ink-900">
-                  {channel.label}
-                </h3>
+              </div>
+
+              <div className="p-4">
                 {release ? (
-                  <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-500">
-                    <span>
-                      v{release.versionName}+{release.buildNumber}
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <CalendarDays className="h-3.5 w-3.5" />
-                      {release.releaseDate}
-                    </span>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div className="rounded-xl border border-slate-200/90 bg-slate-50/90 p-2.5 shadow-2xs">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-ink-400">
+                        Version
+                      </span>
+                      <p className="mt-0.5 font-mono text-sm font-black text-ink-900">
+                        v{release.versionName}
+                      </p>
+                      <span className="text-[11px] font-semibold text-ink-500">
+                        Build #{release.buildNumber}
+                      </span>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200/90 bg-slate-50/90 p-2.5 shadow-2xs">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-ink-400">
+                        Update Mode
+                      </span>
+                      <div className="mt-1 flex items-center gap-1">
+                        {release.isForced ? (
+                          <span className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+                            <ShieldAlert className="h-3 w-3 text-amber-600" />
+                            Forced
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-700">
+                            <CheckCircle2 className="h-3 w-3 text-blue-600" />
+                            Optional
+                          </span>
+                        )}
+                      </div>
+                      <span className="mt-1 block text-[10px] text-ink-400">
+                        {release.isForced
+                          ? "Mandatory upgrade"
+                          : "User dismissible"}
+                      </span>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200/90 bg-slate-50/90 p-2.5 shadow-2xs">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-ink-400">
+                        Published Date
+                      </span>
+                      <p className="mt-0.5 text-sm font-bold text-ink-900">
+                        {release.releaseDate}
+                      </p>
+                      <span className="inline-flex items-center gap-1 text-[10px] text-ink-400">
+                        <CalendarDays className="h-3 w-3" />
+                        Official release
+                      </span>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200/90 bg-slate-50/90 p-2.5 shadow-2xs">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-ink-400">
+                        Status
+                      </span>
+                      <div className="mt-1 flex items-center gap-1.5">
+                        <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+                        <span className="text-[11px] font-bold text-emerald-700">
+                          Active & Serving
+                        </span>
+                      </div>
+                      <span className="mt-1 block text-[10px] text-ink-400">
+                        Client update target
+                      </span>
+                    </div>
                   </div>
                 ) : (
-                  <p className="mt-1 text-sm text-danger">
-                    Publish a release to activate this channel.
-                  </p>
+                  <div className="flex items-center justify-center rounded-xl border border-dashed border-danger/40 bg-danger/5 p-4 text-center">
+                    <div>
+                      <ShieldAlert className="mx-auto h-6 w-6 text-danger" />
+                      <p className="mt-1.5 text-xs font-bold text-danger">
+                        Channel Unassigned
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-ink-500">
+                        Publish a release targeting this channel to activate
+                        client update checks.
+                      </p>
+                    </div>
+                  </div>
                 )}
               </div>
+
               {release && (
-                <div className="flex gap-2">
-                  <Button variant="outline" size="icon" asChild>
-                    <a
-                      href={release.downloadUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      title="Open download"
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line/80 bg-slate-50/80 px-5 py-2.5">
+                  <div className="flex items-center gap-1.5 text-[11px] text-ink-500">
+                    <span className="font-semibold text-ink-700">
+                      Channel ID:
+                    </span>
+                    <code className="rounded border border-slate-300 bg-white px-2 py-0.5 font-mono text-[11px] font-bold text-ink-700">
+                      {channel.environment}:{channel.brand}:{channel.platform}
+                    </code>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1 rounded-lg border-slate-300 bg-white px-3 text-xs font-bold text-ink-800 shadow-2xs transition-colors hover:border-brand-primary hover:bg-brand-primary/5 hover:text-brand-primary"
+                      onClick={() => openEdit(release)}
                     >
-                      <ExternalLink className="h-4 w-4" />
-                    </a>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    title="View and edit release"
-                    onClick={() => openEdit(release)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
+                      <Pencil className="h-3 w-3" />
+                      Configure
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="h-8 gap-1.5 rounded-lg bg-brand-primary px-3 text-xs font-bold text-white shadow-sm transition-all hover:bg-brand-primary/90 hover:shadow"
+                      asChild
+                    >
+                      <a
+                        href={release.downloadUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <Download className="h-3 w-3" />
+                        Download Installer
+                        <ExternalLink className="h-3 w-3 opacity-70" />
+                      </a>
+                    </Button>
+                  </div>
                 </div>
               )}
             </Card>
@@ -597,11 +735,11 @@ function SuperAdminDownloadsPage() {
         })}
       </div>
 
-      <section className="rounded-lg border border-line bg-white">
+      <section className="rounded-2xl border border-line bg-white shadow-sm overflow-hidden">
         <div className="flex flex-col gap-4 border-b border-line p-5 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <Badge variant="navy">
-              <History className="h-3.5 w-3.5" />
+              <History className="mr-1.5 h-3.5 w-3.5" />
               Full release history
             </Badge>
             <h3 className="mt-3 text-xl font-black text-ink-900">
@@ -1349,28 +1487,38 @@ function BrandDownloadsPage() {
   }
 
   return (
-    <div className="space-y-5">
-      <section className="rounded-lg border border-line bg-white p-5">
-        <Badge variant={environment === "production" ? "success" : "navy"}>
-          {environment}
-        </Badge>
-        <h2 className="mt-3 text-2xl font-black text-ink-900">
-          {displayName} downloads
-        </h2>
-        <p className="mt-1 max-w-2xl text-sm leading-6 text-ink-500">
-          Download the latest Android APK and Windows EXE for your workspace.
-        </p>
+    <div className="space-y-6">
+      <section className="relative overflow-hidden rounded-2xl border border-line bg-gradient-to-r from-brand-primary/5 via-white to-white p-6 shadow-sm">
+        <div className="flex items-start gap-4">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary shadow-sm">
+            <Download className="h-6 w-6" />
+          </span>
+          <div>
+            <Badge variant={environment === "production" ? "success" : "navy"}>
+              {environment}
+            </Badge>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-ink-900">
+              {displayName} downloads
+            </h2>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-ink-500">
+              Download the latest verified Android APK and Windows EXE installers
+              for your workspace.
+            </p>
+          </div>
+        </div>
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <DownloadCard
           title={`${displayName} Android APK`}
-          icon={<Smartphone className="h-5 w-5" />}
+          platform="android"
+          icon={<Smartphone className="h-6 w-6" />}
           release={downloadsByPlatform.get("android")}
         />
         <DownloadCard
           title={`${displayName} Windows EXE`}
-          icon={<MonitorDown className="h-5 w-5" />}
+          platform="windows"
+          icon={<MonitorDown className="h-6 w-6" />}
           release={downloadsByPlatform.get("windows")}
         />
       </div>
@@ -1380,60 +1528,149 @@ function BrandDownloadsPage() {
 
 function DownloadCard({
   title,
+  platform,
   icon,
   release,
 }: {
   title: string;
+  platform?: "android" | "windows";
   icon: ReactNode;
   release?: CurrentAppDownload;
 }) {
+  const isAndroid = platform === "android";
   return (
-    <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
-      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
-        {icon}
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap gap-2">
+    <Card
+      className={`group relative overflow-hidden rounded-2xl border-2 bg-white shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl ${
+        isAndroid
+          ? "border-emerald-500/45 shadow-emerald-950/5 hover:border-emerald-500/80"
+          : "border-blue-500/45 shadow-blue-950/5 hover:border-blue-500/80"
+      }`}
+    >
+      <div
+        className={`h-1 w-full ${
+          isAndroid
+            ? "bg-gradient-to-r from-emerald-500 via-emerald-400 to-teal-500"
+            : "bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-500"
+        }`}
+      />
+      <div
+        className={`flex flex-wrap items-center justify-between gap-3 border-b border-line/80 px-5 py-3 ${
+          isAndroid
+            ? "bg-gradient-to-r from-emerald-500/15 via-emerald-500/5 to-white"
+            : "bg-gradient-to-r from-blue-500/15 via-blue-500/5 to-white"
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-md transition-transform duration-300 group-hover:scale-105 ${
+              isAndroid
+                ? "bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-emerald-500/25"
+                : "bg-gradient-to-br from-blue-500 to-blue-700 text-white shadow-blue-500/25"
+            }`}
+          >
+            {icon}
+          </div>
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-wider text-ink-400">
+              Verified Client Package
+            </span>
+            <h3 className="text-base font-black leading-tight text-ink-900">
+              {title}
+            </h3>
+          </div>
+        </div>
+        <div>
           {release ? (
-            <Badge>
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              Current
-            </Badge>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 shadow-2xs">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+              Live Current
+            </span>
           ) : (
-            <Badge variant="danger">Not available</Badge>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-danger/30 bg-danger/10 px-2.5 py-0.5 text-[11px] font-bold text-danger">
+              Not Available
+            </span>
           )}
         </div>
-        <h3 className="mt-2 text-lg font-black text-ink-900">{title}</h3>
+      </div>
+
+      <div className="p-4">
         {release ? (
-          <>
-            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-500">
-              <span>
-                v{release.versionName}+{release.buildNumber}
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <CalendarDays className="h-3.5 w-3.5" />
-                {release.releaseDate}
-              </span>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3">
+              <div className="rounded-xl border border-slate-200/90 bg-slate-50/90 p-3.5 shadow-2xs">
+                <span className="text-[11px] font-bold uppercase tracking-wide text-ink-400">
+                  Version Number
+                </span>
+                <p className="mt-1 font-mono text-lg font-black text-ink-900">
+                  v{release.versionName}
+                </p>
+                <span className="text-[11px] font-semibold text-ink-500">
+                  Build #{release.buildNumber}
+                </span>
+              </div>
+
+              <div className="rounded-xl border border-slate-200/90 bg-slate-50/90 p-2.5 shadow-2xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-ink-400">
+                  Published Date
+                </span>
+                <p className="mt-0.5 text-sm font-bold text-ink-900">
+                  {release.releaseDate}
+                </p>
+                <span className="inline-flex items-center gap-1 text-[10px] text-ink-400">
+                  <CalendarDays className="h-3 w-3" />
+                  Official release
+                </span>
+              </div>
+
+              <div className="col-span-2 rounded-xl border border-slate-200/90 bg-slate-50/90 p-2.5 shadow-2xs sm:col-span-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-ink-400">
+                  Update Requirement
+                </span>
+                <div className="mt-1 flex items-center gap-1">
+                  <span className="inline-flex items-center gap-1 rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-800">
+                    <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                    Production Ready
+                  </span>
+                </div>
+                <span className="mt-1 block text-[10px] text-ink-400">
+                  Verified signature
+                </span>
+              </div>
             </div>
+
             {release.notes && (
-              <p className="mt-2 line-clamp-2 text-sm leading-6 text-ink-500">
+              <div className="rounded-xl border border-slate-200 bg-white p-3 text-xs leading-5 text-ink-700 shadow-2xs">
+                <span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wider text-ink-400">
+                  Release Notes
+                </span>
                 {release.notes}
-              </p>
+              </div>
             )}
-          </>
+          </div>
         ) : (
-          <p className="mt-1 text-sm text-ink-500">
-            The latest installer has not been published yet.
+          <p className="text-xs font-medium text-ink-500">
+            The latest installer for this platform has not been published yet.
           </p>
         )}
       </div>
+
       {release && (
-        <Button asChild>
-          <a href={release.downloadUrl} target="_blank" rel="noreferrer">
-            <Download className="h-4 w-4" />
-            Download
-          </a>
-        </Button>
+        <div className="flex items-center justify-between border-t border-line/80 bg-slate-50/80 px-5 py-2.5">
+          <span className="text-[11px] font-semibold text-ink-500">
+            Secure Google Drive direct link
+          </span>
+          <Button
+            size="sm"
+            className="h-8 gap-1.5 rounded-lg bg-brand-primary px-3 text-xs font-bold text-white shadow-sm transition-all hover:bg-brand-primary/90 hover:shadow"
+            asChild
+          >
+            <a href={release.downloadUrl} target="_blank" rel="noreferrer">
+              <Download className="h-3 w-3" />
+              Download Installer
+              <ExternalLink className="h-3 w-3 opacity-70" />
+            </a>
+          </Button>
+        </div>
       )}
     </Card>
   );

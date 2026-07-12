@@ -25,6 +25,23 @@ const normalizeHex = (value: string): string => {
   return trimmed;
 };
 
+const deriveNavyColor = (primaryHex: string): string => {
+  if (
+    primaryHex.toUpperCase() === SOFTLOGIC_PRIMARY.toUpperCase() ||
+    primaryHex.toUpperCase() === SOFTLOGIC_NAVY.toUpperCase()
+  ) {
+    return SOFTLOGIC_NAVY;
+  }
+  const hex = primaryHex.replace(/^#/, '');
+  if (hex.length !== 6) return SOFTLOGIC_NAVY;
+  const num = parseInt(hex, 16);
+  if (isNaN(num)) return SOFTLOGIC_NAVY;
+  const r = Math.max(0, Math.floor(((num >> 16) & 255) * 0.45));
+  const g = Math.max(0, Math.floor(((num >> 8) & 255) * 0.45));
+  const b = Math.max(0, Math.floor((num & 255) * 0.45));
+  return `#${[r, g, b].map((x) => x.toString(16).padStart(2, '0')).join('').toUpperCase()}`;
+};
+
 export const runtimeBrandForOrganization = (
   organization?: OrganizationSummary | null,
 ): RuntimeBrand => {
@@ -40,19 +57,24 @@ export const runtimeBrandForOrganization = (
     };
   }
 
-  const primaryColor = isHexColor(organization.brandPrimaryColor)
+  const normalizedPrimary = isHexColor(organization.brandPrimaryColor)
     ? normalizeHex(organization.brandPrimaryColor)
     : SOFTLOGIC_PRIMARY;
-  const accentColor = isHexColor(organization.brandAccentColor)
+  const primaryColor =
+    normalizedPrimary.toUpperCase() === '#08357C' ? SOFTLOGIC_PRIMARY : normalizedPrimary;
+
+  const normalizedAccent = isHexColor(organization.brandAccentColor)
     ? normalizeHex(organization.brandAccentColor)
     : SOFTLOGIC_ACCENT;
+  const accentColor =
+    normalizedAccent.toUpperCase() === '#F97316' ? SOFTLOGIC_ACCENT : normalizedAccent;
 
   return {
     isWhiteLabel: true,
     name: organization.brandName?.trim() || organization.name,
     logoUrl: organization.logoUrl,
     primaryColor,
-    navyColor: primaryColor,
+    navyColor: deriveNavyColor(primaryColor),
     accentColor,
   };
 };

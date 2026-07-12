@@ -297,6 +297,22 @@ export function ContentPage() {
     queryFn: () => contentApi.imports.list(importsQueryObject),
     enabled: tab === 'imports',
   });
+  const canvasesCountQuery = useQuery({
+    queryKey: ['content', 'canvases-count', commonQuery],
+    queryFn: () => contentApi.canvases.list({ ...commonQuery, page: 1, perPage: 1 }),
+  });
+  const liveSessionsCountQuery = useQuery({
+    queryKey: ['content', 'live-sessions-count', commonQuery],
+    queryFn: () => contentApi.liveSessions.list({ ...commonQuery, page: 1, perPage: 1 }),
+  });
+  const exportsCountQuery = useQuery({
+    queryKey: ['content', 'exports-count', commonQuery],
+    queryFn: () => contentApi.exports.list({ ...commonQuery, page: 1, perPage: 1 }),
+  });
+  const importsCountQuery = useQuery({
+    queryKey: ['content', 'imports-count', commonQuery],
+    queryFn: () => contentApi.imports.list({ ...commonQuery, page: 1, perPage: 1 }),
+  });
   const orgsQuery = useQuery({
     queryKey: ['organizations', 'all'],
     queryFn: organizationsApi.all,
@@ -535,25 +551,25 @@ export function ContentPage() {
       <div className="grid gap-4 sm:grid-cols-4">
         <StatCard
           label="Canvases"
-          value={tab === 'canvases' ? (currentMeta?.total ?? 0) : 'Ready'}
+          value={canvasesCountQuery.data?.meta?.total ?? (tab === 'canvases' ? currentMeta?.total ?? 0 : 0)}
           detail="Whiteboard files and slide counts"
           tone="blue"
         />
         <StatCard
           label="Live sessions"
-          value={tab === 'live-sessions' ? (currentMeta?.total ?? 0) : 'Ready'}
+          value={liveSessionsCountQuery.data?.meta?.total ?? (tab === 'live-sessions' ? currentMeta?.total ?? 0 : 0)}
           detail="Hosts, participants, messages"
           tone="green"
         />
         <StatCard
           label="Export records"
-          value={tab === 'exports' ? (currentMeta?.total ?? 0) : 'Ready'}
+          value={exportsCountQuery.data?.meta?.total ?? (tab === 'exports' ? currentMeta?.total ?? 0 : 0)}
           detail="Files, formats, completion states"
           tone="orange"
         />
         <StatCard
           label="Import records"
-          value={tab === 'imports' ? (currentMeta?.total ?? 0) : 'Ready'}
+          value={importsCountQuery.data?.meta?.total ?? (tab === 'imports' ? currentMeta?.total ?? 0 : 0)}
           detail="Uploaded PDFs and PowerPoints"
           tone="blue"
         />
@@ -983,7 +999,7 @@ function CanvasTable({
 }) {
   if (loading) return <TableLoading />;
   return (
-    <Table className="min-w-[900px]">
+    <Table className="w-full">
       <TableHeader>
         <TableRow>
           <TableHead>Canvas</TableHead>
@@ -1237,7 +1253,7 @@ function LiveSessionsTable({
 }) {
   if (loading) return <TableLoading />;
   return (
-    <Table className="min-w-[900px]">
+    <Table className="w-full">
       <TableHeader>
         <TableRow>
           <TableHead>Session</TableHead>

@@ -451,8 +451,6 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
       { label: 'Role', value: ROLE_LABEL[v.role as UserRole] },
       { label: 'Status', value: v.status === 'DISABLED' ? 'Disabled' : 'Active' },
       { label: 'Organization', value: orgName },
-      { label: 'Timezone', value: v.timezone || 'UTC' },
-      { label: 'Language', value: v.language || 'en' },
     ];
     if (v.role === 'PARENT') {
       rows.push({
@@ -658,75 +656,28 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
               </div>
             </div>
           )}
-          {canAssignAiCredits && (
-            <div className="grid gap-3 rounded-lg border border-line bg-surface-variant px-4 py-4 text-sm text-ink-700">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-1">
-                    <p className="font-semibold text-ink-900">AI Credits</p>
-                    <AiCreditInfoButton />
-                  </div>
-                  <p className="text-xs text-ink-500">
-                    Leave zero for no personal limit; usage will draw from the organization pool.
-                  </p>
-                </div>
-                <div className="text-right text-xs font-semibold uppercase tracking-wide text-ink-500">
-                  <p>{currentAssignedAiTokens.toLocaleString('en-IN')} assigned</p>
-                  <p>{sourceAvailableAiTokens.toLocaleString('en-IN')} source available</p>
-                </div>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Assign user AI credits</label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={assignableAiTokens}
-                    {...register('aiCreditTokens', { valueAsNumber: true })}
-                  />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Change</p>
-                  <p className="mt-1 text-lg font-black text-ink-900">
-                    {aiAllocationDelta === 0 ? 'No change' : aiAllocationDelta.toLocaleString('en-IN')}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Pool after allocation</p>
-                  <p className="mt-1 text-lg font-black text-ink-900">
-                    {afterAiAllocation.toLocaleString('en-IN')}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-          {(role === 'STUDENT' || role === 'PARENT') && (
-            <p className="rounded-lg border border-line bg-surface-variant px-3 py-3 text-xs text-ink-500">
-              Students and parents cannot run AI tools on the whiteboard, so no AI credits are assigned.
-            </p>
-          )}
         </Card>
 
         <Card className="space-y-4 px-4 py-5 sm:px-6">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
-          <div>
-            <h3 className="font-bold text-ink-900">Access Context</h3>
-            <p className="mt-1 text-sm leading-6 text-ink-500">
-              Role controls admin capabilities. Organization assignment scopes dashboards, exports, and operational access.
-            </p>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-bold text-ink-900">Access Context</h3>
+              <p className="text-xs text-ink-500">Role controls & operational access.</p>
+            </div>
           </div>
           <div className="grid gap-2 rounded-lg border border-line bg-surface-variant px-3 py-3 text-sm text-ink-700">
             <p className="font-semibold text-ink-900">
               {selectedOrganization?.name ?? 'No organization selected'}
             </p>
-            <p>
+            <p className="text-xs">
               Teacher users {roleUsage.TEACHER ?? selectedOrganization?.capacitySummary?.roleUsage.teacher ?? 0}/
               {selectedOrganization?.teacherUserLimit ?? 'No limit'}
             </p>
             {!isSuperAdmin && selectedOrganization && (
-              <div className="grid gap-2 border-t border-line pt-2">
+              <div className="grid gap-1.5 border-t border-line pt-2">
                 {LICENSED_USER_ROLES.map((capacityRole) => {
                   const used = roleUsage[capacityRole] ?? 0;
                   const limit = roleLimitForOrganization(selectedOrganization, capacityRole);
@@ -755,16 +706,50 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
               {selectedOrganization?.parentLoginEnabled ? 'enabled' : 'disabled'}
             </p>
           </div>
-          <div className="grid gap-3">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Timezone</label>
-              <Input placeholder="UTC" {...register('timezone')} />
+
+          {canAssignAiCredits && (
+            <div className="rounded-xl border border-line bg-gradient-to-br from-brand-primary/5 via-white to-surface-variant p-4 shadow-sm space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <h4 className="text-sm font-bold text-ink-900">AI Credit Allocation</h4>
+                  <AiCreditInfoButton />
+                </div>
+                <div className="text-right text-[11px] font-semibold text-ink-500">
+                  <span>{currentAssignedAiTokens.toLocaleString('en-IN')} assigned</span>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-ink-700">Assign User AI Credits</label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={assignableAiTokens}
+                  placeholder="0"
+                  className="h-9 font-semibold text-ink-900"
+                  {...register('aiCreditTokens', { valueAsNumber: true })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-lg border border-line bg-white px-2.5 py-2">
+                  <span className="block text-[10px] font-medium text-ink-500">Allocation Change</span>
+                  <span className="mt-0.5 block text-sm font-bold text-ink-900">
+                    {aiAllocationDelta === 0 ? 'No change' : (aiAllocationDelta > 0 ? `+${aiAllocationDelta.toLocaleString('en-IN')}` : aiAllocationDelta.toLocaleString('en-IN'))}
+                  </span>
+                </div>
+                <div className="rounded-lg border border-line bg-white px-2.5 py-2">
+                  <span className="block text-[10px] font-medium text-ink-500">Source Available</span>
+                  <span className="mt-0.5 block text-sm font-bold text-brand-primary">
+                    {afterAiAllocation.toLocaleString('en-IN')}
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Language</label>
-              <Input placeholder="en" {...register('language')} />
-            </div>
-          </div>
+          )}
+          {(role === 'STUDENT' || role === 'PARENT') && (
+            <p className="rounded-lg border border-line bg-surface-variant px-3 py-2.5 text-xs text-ink-500">
+              Students and parents cannot run AI tools on the whiteboard, so no AI credits are assigned.
+            </p>
+          )}
         </Card>
       </div>
 

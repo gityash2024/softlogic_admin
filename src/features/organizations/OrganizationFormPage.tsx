@@ -168,8 +168,14 @@ function OrganizationFormEditor({
         brandingMode:
           organization.brandingMode === 'WHITE_LABEL' ? 'WHITE_LABEL' : 'SOFTLOGIC',
         brandName: organization.brandName ?? '',
-        brandPrimaryColor: organization.brandPrimaryColor ?? '',
-        brandAccentColor: organization.brandAccentColor ?? '',
+        brandPrimaryColor:
+          organization.brandPrimaryColor?.toUpperCase() === '#08357C'
+            ? '#1149B5'
+            : (organization.brandPrimaryColor ?? ''),
+        brandAccentColor:
+          organization.brandAccentColor?.toUpperCase() === '#F97316'
+            ? '#FF7A00'
+            : (organization.brandAccentColor ?? ''),
         studentLoginEnabled: organization.studentLoginEnabled,
         parentLoginEnabled: organization.parentLoginEnabled,
         sessionOnlyJoinEnabled: organization.sessionOnlyJoinEnabled,
@@ -1074,24 +1080,32 @@ function OrganizationFormEditor({
             </div>
           </div>
           {isSuperAdmin && (
-            <div className="grid gap-4 rounded-lg border border-line bg-surface-variant px-4 py-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-                  License seat max
-                </label>
-                <Input
-                  type="number"
-                  min={0}
-                  placeholder="Auto (teachers + 1 admin)"
-                  {...register('licenseSeatMax', { valueAsNumber: true })}
-                />
-                <p className="text-xs text-ink-500">
-                  Caps how many activation keys can exist for this organization. Leave blank
-                  to size the pool from teacher capacity + 1 admin.
-                </p>
-                {errors.licenseSeatMax && (
-                  <p className="text-xs text-danger">{errors.licenseSeatMax.message}</p>
-                )}
+            <div className="rounded-xl border border-line bg-gradient-to-r from-blue-50/60 via-white to-blue-50/30 p-5 shadow-2xs">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1 max-w-xl">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex h-2 w-2 rounded-full bg-brand-primary"></span>
+                    <h4 className="text-sm font-bold text-ink-900">Hardware & Activation Key Capacity</h4>
+                  </div>
+                  <p className="text-xs leading-5 text-ink-500">
+                    Defines the maximum number of interactive smart-board devices allowed (License Seat Max). Leave blank to automatically match teacher capacity + 1 admin seat.
+                  </p>
+                </div>
+                <div className="w-full sm:w-56 shrink-0">
+                  <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-ink-500">
+                    Seat Limit
+                  </label>
+                  <Input
+                    type="number"
+                    min={0}
+                    className="bg-white font-semibold text-ink-900"
+                    placeholder="Auto (Teacher seats + 1)"
+                    {...register('licenseSeatMax', { valueAsNumber: true })}
+                  />
+                  {errors.licenseSeatMax && (
+                    <p className="mt-1 text-xs text-danger">{errors.licenseSeatMax.message}</p>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -1150,41 +1164,50 @@ function OrganizationFormEditor({
               </div>
             </div>
           )}
-          <div className="grid gap-4 rounded-lg border border-line bg-surface-variant px-4 py-4 sm:grid-cols-[1fr_1fr_1fr_1fr]">
-            <div>
-              <div className="flex items-center gap-1">
-                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Assigned AI credits</p>
-                <AiCreditInfoButton />
+          <div className="rounded-xl border border-line bg-gradient-to-r from-purple-50/50 via-white to-purple-50/30 p-5 shadow-2xs">
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex h-2 w-2 rounded-full bg-purple-600"></span>
+                <h4 className="text-sm font-bold text-ink-900">AI Credit Allocation & Wallet Balance</h4>
               </div>
-              <p className="mt-1 text-lg font-black text-ink-900">
-                {currentAssignedAiTokens.toLocaleString('en-IN')}
-              </p>
-              <p className="text-xs text-ink-500">
-                {sourceAvailableAiTokens.toLocaleString('en-IN')} source available
-              </p>
+              <AiCreditInfoButton />
             </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Set AI credits</label>
-              <Input
-                type="number"
-                min={0}
-                max={assignableAiTokens}
-                disabled={!canAssignOrgAiCredits}
-                {...register('aiCreditTokens', { valueAsNumber: true })}
-              />
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Change</p>
-              <p className="mt-1 text-lg font-black text-ink-900">
-                {aiAllocationDelta === 0 ? 'No change' : aiAllocationDelta.toLocaleString('en-IN')}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Source after allocation</p>
-              <p className="mt-1 text-lg font-black text-ink-900">
-                {afterAiAllocation.toLocaleString('en-IN')}
-              </p>
-              <p className="text-xs text-ink-500">Central AI wallet preview</p>
+            <div className="mt-4 grid gap-5 lg:grid-cols-[1fr_320px] lg:items-center">
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-ink-500">
+                  Allocated AI Tokens
+                </label>
+                <div className="max-w-sm">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={assignableAiTokens}
+                    disabled={!canAssignOrgAiCredits}
+                    className="bg-white font-bold text-ink-900"
+                    placeholder="Enter token allocation"
+                    {...register('aiCreditTokens', { valueAsNumber: true })}
+                  />
+                </div>
+                <p className="text-xs text-ink-500">
+                  Total assignable pool: <span className="font-semibold text-ink-700">{assignableAiTokens.toLocaleString('en-IN')} tokens</span> ({sourceAvailableAiTokens.toLocaleString('en-IN')} available in source account).
+                </p>
+              </div>
+              <div className="rounded-lg border border-line bg-white p-3.5 shadow-2xs space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-ink-500">Current Assigned</span>
+                  <span className="font-bold text-ink-900">{currentAssignedAiTokens.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-ink-500">Net Change</span>
+                  <span className={`font-bold ${aiAllocationDelta > 0 ? 'text-success' : aiAllocationDelta < 0 ? 'text-warning' : 'text-ink-700'}`}>
+                    {aiAllocationDelta === 0 ? 'No change' : (aiAllocationDelta > 0 ? `+${aiAllocationDelta.toLocaleString('en-IN')}` : aiAllocationDelta.toLocaleString('en-IN'))}
+                  </span>
+                </div>
+                <div className="border-t border-line pt-2 flex items-center justify-between text-xs">
+                  <span className="font-semibold text-ink-700">Source After Save</span>
+                  <span className="font-extrabold text-brand-primary">{afterAiAllocation.toLocaleString('en-IN')} tokens</span>
+                </div>
+              </div>
             </div>
           </div>
         </Card>
@@ -1300,14 +1323,14 @@ function OrganizationFormEditor({
                       <input
                         type="color"
                         disabled={!isSuperAdmin}
-                        value={brandPrimaryColor || '#08357c'}
+                        value={brandPrimaryColor || '#1149b5'}
                         onChange={(event) =>
                           setValue('brandPrimaryColor', event.target.value, { shouldDirty: true })
                         }
                         className="h-9 w-10 shrink-0 cursor-pointer rounded border border-line bg-white p-0.5 disabled:cursor-not-allowed"
                         aria-label="Primary brand color"
                       />
-                      <Input placeholder="#08357C" disabled={!isSuperAdmin} {...register('brandPrimaryColor')} />
+                      <Input placeholder="#1149B5" disabled={!isSuperAdmin} {...register('brandPrimaryColor')} />
                     </div>
                   </div>
                   <div className="space-y-1.5">
@@ -1316,14 +1339,14 @@ function OrganizationFormEditor({
                       <input
                         type="color"
                         disabled={!isSuperAdmin}
-                        value={brandAccentColor || '#f97316'}
+                        value={brandAccentColor || '#ff7a00'}
                         onChange={(event) =>
                           setValue('brandAccentColor', event.target.value, { shouldDirty: true })
                         }
                         className="h-9 w-10 shrink-0 cursor-pointer rounded border border-line bg-white p-0.5 disabled:cursor-not-allowed"
                         aria-label="Accent brand color"
                       />
-                      <Input placeholder="#F97316" disabled={!isSuperAdmin} {...register('brandAccentColor')} />
+                      <Input placeholder="#FF7A00" disabled={!isSuperAdmin} {...register('brandAccentColor')} />
                     </div>
                   </div>
                 </div>

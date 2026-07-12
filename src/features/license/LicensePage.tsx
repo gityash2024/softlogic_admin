@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle,
+  ClipboardPaste,
   Copy,
   Cpu,
   CreditCard,
@@ -15,15 +16,20 @@ import {
   Pencil,
   Plus,
   RefreshCw,
+  Search,
   Sofa,
   Trash2,
   Undo2,
   WalletCards,
+  X,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { organizationsApi } from '@/services/organizations.api';
 import { licensingApi } from '@/services/licensing.api';
+import { dashboardApi } from '@/services/dashboard.api';
 import type { BulkHardwareActivationKeyResponse } from '@/services/licensing.api';
 import type { AdminExportFormat } from '@/services/admin-api';
 import { useAuthStore } from '@/lib/auth-store';
@@ -275,6 +281,27 @@ export function LicensePage() {
   const [emailKeysOpen, setEmailKeysOpen] = useState(false);
   const [assignKeysOpen, setAssignKeysOpen] = useState(false);
   const [paymentEdit, setPaymentEdit] = useState<PaymentEditState | null>(null);
+
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
+  const [debouncedGlobalSearch, setDebouncedGlobalSearch] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedGlobalSearch(globalSearchQuery.trim());
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [globalSearchQuery]);
+
+  const handlePasteSearch = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        setGlobalSearchQuery(text.trim());
+      }
+    } catch {
+      toast.error('Failed to paste from clipboard');
+    }
+  };
 
   const organizationsQuery = useQuery({
     queryKey: ['organizations', 'all'],
@@ -566,21 +593,89 @@ export function LicensePage() {
 
   const isLoading = organizationsQuery.isLoading;
   const globalMode = isSuperAdmin && selectedPartnerId === GLOBAL_LICENSE_VALUE;
+  const PER_PAGE = 50;
+  const [globalPage, setGlobalPage] = useState(1);
+  const [orgKeysPage, setOrgKeysPage] = useState(1);
+  const [devicesPage, setDevicesPage] = useState(1);
+
+  useEffect(() => {
+    setGlobalPage(1);
+  }, [debouncedGlobalSearch]);
+
+  useEffect(() => {
+    setOrgKeysPage(1);
+    setDevicesPage(1);
+  }, [selectedOrgId, selectedPartnerId, keyView]);
+
   const globalKeysQuery = useQuery({
-    queryKey: ['activation-keys', 'global'],
-    queryFn: () => licensingApi.listKeys({ perPage: 100 }),
+    queryKey: ['activation-keys', 'global', debouncedGlobalSearch, globalPage],
+    queryFn: () =>
+      licensingApi.listKeys({
+        page: globalPage,
+        perPage: PER_PAGE,
+        search: debouncedGlobalSearch || undefined,
+      }),
     enabled: globalMode,
   });
+
+  const globalTotalKeysCountQuery = useQuery({
+    queryKey: ['activation-keys', 'count-all', debouncedGlobalSearch],
+    queryFn: () =>
+      licensingApi.listKeys({
+        page: 1,
+        perPage: 1,
+        search: debouncedGlobalSearch || undefined,
+      }),
+    enabled: globalMode,
+  });
+
+  const globalUsableKeysCountQuery = useQuery({
+    queryKey: ['activation-keys', 'count-usable', debouncedGlobalSearch],
+    queryFn: () =>
+      licensingApi.listKeys({
+        page: 1,
+        perPage: 1,
+        status: 'AVAILABLE,BOUND',
+        search: debouncedGlobalSearch || undefined,
+      }),
+    enabled: globalMode,
+  });
+
+  const globalBoundKeysCountQuery = useQuery({
+    queryKey: ['activation-keys', 'count-bound', debouncedGlobalSearch],
+    queryFn: () =>
+      licensingApi.listKeys({
+        page: 1,
+        perPage: 1,
+        status: 'BOUND',
+        search: debouncedGlobalSearch || undefined,
+      }),
+    enabled: globalMode,
+  });
+
+  const dashboardOverviewQuery = useQuery({
+    queryKey: ['dashboard-overview'],
+    queryFn: dashboardApi.overview,
+    enabled: globalMode,
+  });
+
   const globalActivationKeys = globalKeysQuery.data?.data ?? [];
-  const globalUsableKeys = globalActivationKeys.filter(
-    (key) => key.status === 'AVAILABLE' || key.status === 'BOUND',
-  );
-  // Usable keys expiring within the next 30 days (renewal watch).
-  const globalExpiringSoonCount = globalUsableKeys.filter((key) => {
-    if (!key.expiresAt) return false;
-    const remainingMs = new Date(key.expiresAt).getTime() - Date.now();
-    return remainingMs >= 0 && remainingMs <= 30 * 24 * 60 * 60 * 1000;
-  }).length;
+  const filteredGlobalActivationKeys = globalActivationKeys;
+  const globalTotalKeysCount =
+    globalTotalKeysCountQuery.data?.meta?.total ??
+    globalKeysQuery.data?.meta?.total ??
+    globalActivationKeys.length;
+  const globalUsableKeysCount =
+    globalUsableKeysCountQuery.data?.meta?.total ??
+    globalActivationKeys.filter(
+      (key) => key.status === 'AVAILABLE' || key.status === 'BOUND',
+    ).length;
+  const globalBoundKeysCount =
+    globalBoundKeysCountQuery.data?.meta?.total ??
+    globalActivationKeys.filter((key) => key.status === 'BOUND').length;
+  const globalExpiringSoonCount =
+    dashboardOverviewQuery.data?.subscriptions?.expiringSoon ?? 0;
+
   const aggregateDetails = aggregatePartnerMode ? partnerDetailsQuery.data : null;
   const aggregateSummary = aggregateDetails?.summary ?? null;
   const aggregateActivationKeys = aggregateDetails?.hardwareActivationKeys ?? [];
@@ -601,14 +696,13 @@ export function LicensePage() {
   const liveActivationKeys = aggregatePartnerMode
     ? aggregateActivationKeys
     : activationKeys;
-  // Archived keys are terminal; fetched on demand only when the Archived view is
-  // selected. Live view is unchanged from before.
   const canViewArchived = isSuperAdmin && (!!selectedOrgId || !!partnerScopeId);
   const archivedKeysQuery = useQuery({
-    queryKey: ['activation-keys', 'archived', selectedOrgId, partnerScopeId],
+    queryKey: ['activation-keys', 'archived', selectedOrgId, partnerScopeId, orgKeysPage],
     queryFn: () =>
       licensingApi.listKeys({
-        perPage: 100,
+        page: orgKeysPage,
+        perPage: PER_PAGE,
         view: 'archived',
         ...(selectedOrgId
           ? { organizationId: selectedOrgId }
@@ -619,8 +713,22 @@ export function LicensePage() {
     enabled: keyView === 'archived' && canViewArchived,
   });
   const archivedActivationKeys = archivedKeysQuery.data?.data ?? [];
-  const displayedActivationKeys =
+  const rawDisplayedActivationKeys =
     keyView === 'archived' ? archivedActivationKeys : liveActivationKeys;
+  const totalOrgKeysCount =
+    keyView === 'archived'
+      ? archivedKeysQuery.data?.meta?.total ?? rawDisplayedActivationKeys.length
+      : rawDisplayedActivationKeys.length;
+  const totalOrgKeysPages = Math.max(1, Math.ceil(totalOrgKeysCount / PER_PAGE));
+
+  const displayedActivationKeys = useMemo(() => {
+    if (keyView === 'archived') {
+      return archivedActivationKeys;
+    }
+    const start = (orgKeysPage - 1) * PER_PAGE;
+    return liveActivationKeys.slice(start, start + PER_PAGE);
+  }, [keyView, archivedActivationKeys, liveActivationKeys, orgKeysPage]);
+
   useEffect(() => {
     setKeyView('live');
   }, [selectedOrgId, selectedPartnerId]);
@@ -686,9 +794,15 @@ export function LicensePage() {
     (teacherCapacityUsed / Math.max(teacherCapacityLimit, 1)) * 100,
   );
   const activationKeysColSpan = 8 + (aggregatePartnerMode ? 1 : 0) + (isSuperAdmin ? 1 : 0);
-  const allDevices = displayedActivationKeys.flatMap((key) =>
+  const allDevices = rawDisplayedActivationKeys.flatMap((key) =>
     key.activations.map((activation) => ({ activation, key })),
   );
+  const totalDevicesCount = allDevices.length;
+  const totalDevicesPages = Math.max(1, Math.ceil(totalDevicesCount / PER_PAGE));
+  const paginatedDevices = useMemo(() => {
+    const start = (devicesPage - 1) * PER_PAGE;
+    return allDevices.slice(start, start + PER_PAGE);
+  }, [allDevices, devicesPage]);
   const licenseStartDate = new Date(licenseStartInput);
   const licenseEndDate = new Date(licenseEndInput);
   const licenseStartIso = Number.isNaN(licenseStartDate.getTime())
@@ -896,7 +1010,10 @@ export function LicensePage() {
   const exportGlobalKeys = async () => {
     setIsExporting(true);
     try {
-      await licensingApi.exportKeyList({}, exportFormat);
+      await licensingApi.exportKeyList(
+        globalSearchQuery.trim() ? { search: globalSearchQuery.trim() } : {},
+        exportFormat,
+      );
       toast.success(`Activation keys exported (${exportFormat.toUpperCase()})`);
     } catch (error) {
       toast.error(extractApiError(error));
@@ -1095,7 +1212,7 @@ export function LicensePage() {
               Activation keys
             </p>
             <p className="mt-2 text-3xl font-black text-success">
-              {globalActivationKeys.length}
+              {globalTotalKeysCount}
             </p>
             <p className="mt-1 text-sm text-ink-500">Issued across all organizations</p>
           </Card>
@@ -1104,7 +1221,7 @@ export function LicensePage() {
               Licence seats
             </p>
             <p className="mt-2 text-3xl font-black text-ink-900">
-              {globalUsableKeys.length}
+              {globalUsableKeysCount}
               <span className="text-base font-semibold text-ink-500">
                 {' '}usable
               </span>
@@ -1116,7 +1233,7 @@ export function LicensePage() {
               Bound devices
             </p>
             <p className="mt-2 text-3xl font-black text-ink-900">
-              {globalActivationKeys.filter((key) => key.status === 'BOUND').length}
+              {globalBoundKeysCount}
             </p>
             <p className="mt-1 text-sm text-ink-500">Keys locked to a device</p>
           </Card>
@@ -1152,6 +1269,36 @@ export function LicensePage() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <div className="relative w-full sm:w-72">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
+                <Input
+                  type="text"
+                  placeholder="Search activation keys..."
+                  value={globalSearchQuery}
+                  onChange={(e) => setGlobalSearchQuery(e.target.value)}
+                  className="h-10 pl-9 pr-16 text-sm"
+                />
+                <div className="absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-1">
+                  {globalSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setGlobalSearchQuery('')}
+                      className="rounded p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+                      title="Clear search"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handlePasteSearch}
+                    className="rounded p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+                    title="Paste activation key"
+                  >
+                    <ClipboardPaste className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
               <Select
                 value={exportFormat}
                 onValueChange={(value) => setExportFormat(value as AdminExportFormat)}
@@ -1166,7 +1313,7 @@ export function LicensePage() {
               </Select>
               <Button
                 variant="outline"
-                disabled={isExporting || globalActivationKeys.length === 0}
+                disabled={isExporting || filteredGlobalActivationKeys.length === 0}
                 onClick={exportGlobalKeys}
               >
                 {isExporting ? <Spinner className="h-4 w-4" /> : <Download className="h-4 w-4" />}
@@ -1179,6 +1326,7 @@ export function LicensePage() {
               <Spinner className="h-6 w-6 text-brand-primary" />
             </div>
           ) : (
+            <>
             <Table className="min-w-[1100px]">
               <TableHeader>
                 <TableRow>
@@ -1195,10 +1343,15 @@ export function LicensePage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {globalActivationKeys.map((key) => (
+                {filteredGlobalActivationKeys.map((key) => (
                   <TableRow key={key.id}>
-                    <TableCell className="max-w-[180px] truncate font-semibold text-ink-900">
-                      {key.label ?? '-'}
+                    <TableCell className="max-w-[220px]">
+                      <p className="truncate font-semibold text-ink-900">{key.label ?? '-'}</p>
+                      {key.activationKey && (
+                        <p className="font-mono text-xs text-ink-500 truncate" title={key.activationKey}>
+                          {key.activationKey}
+                        </p>
+                      )}
                     </TableCell>
                     <TableCell className="min-w-0">
                       <p className="truncate text-sm text-ink-900">{key.organization?.name ?? '-'}</p>
@@ -1255,15 +1408,54 @@ export function LicensePage() {
                     <TableCell className="whitespace-nowrap">{formatDate(key.createdAt)}</TableCell>
                   </TableRow>
                 ))}
-                {globalActivationKeys.length === 0 && (
+                {filteredGlobalActivationKeys.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={10} className="py-10 text-center text-sm text-ink-500">
-                      No activation keys issued yet.
+                      {globalSearchQuery
+                        ? `No activation keys match "${globalSearchQuery}".`
+                        : 'No activation keys issued yet.'}
                     </TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
+            {globalTotalKeysCount > 0 && (
+              <div className="flex flex-col items-center justify-between gap-3 border-t border-line px-4 py-3 sm:flex-row sm:px-6">
+                <p className="text-xs font-medium text-ink-500">
+                  Showing <span className="font-semibold text-ink-900">{(globalPage - 1) * PER_PAGE + 1}</span>–
+                  <span className="font-semibold text-ink-900">
+                    {Math.min(globalPage * PER_PAGE, globalTotalKeysCount)}
+                  </span>{' '}
+                  of <span className="font-semibold text-ink-900">{globalTotalKeysCount}</span> keys
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={globalPage <= 1}
+                    onClick={() => setGlobalPage((p) => Math.max(1, p - 1))}
+                    className="h-8 gap-1 px-2.5 text-xs font-medium"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                    Prev
+                  </Button>
+                  <span className="text-xs font-semibold text-ink-700">
+                    Page {globalPage} of {Math.max(1, Math.ceil(globalTotalKeysCount / PER_PAGE))}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={globalPage >= Math.ceil(globalTotalKeysCount / PER_PAGE)}
+                    onClick={() => setGlobalPage((p) => p + 1)}
+                    className="h-8 gap-1 px-2.5 text-xs font-medium"
+                  >
+                    Next
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            )}
+            </>
           )}
         </Card>
       )}
@@ -2105,6 +2297,42 @@ export function LicensePage() {
                 )}
               </TableBody>
             </Table>
+            {totalOrgKeysCount > 0 && (
+              <div className="flex flex-col items-center justify-between gap-3 border-t border-line px-4 py-3 sm:flex-row sm:px-6">
+                <p className="text-xs font-medium text-ink-500">
+                  Showing <span className="font-semibold text-ink-900">{(orgKeysPage - 1) * PER_PAGE + 1}</span>–
+                  <span className="font-semibold text-ink-900">
+                    {Math.min(orgKeysPage * PER_PAGE, totalOrgKeysCount)}
+                  </span>{' '}
+                  of <span className="font-semibold text-ink-900">{totalOrgKeysCount}</span> keys
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={orgKeysPage <= 1}
+                    onClick={() => setOrgKeysPage((p) => Math.max(1, p - 1))}
+                    className="h-8 gap-1 px-2.5 text-xs font-medium"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                    Prev
+                  </Button>
+                  <span className="text-xs font-semibold text-ink-700">
+                    Page {orgKeysPage} of {totalOrgKeysPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={orgKeysPage >= totalOrgKeysPages}
+                    onClick={() => setOrgKeysPage((p) => p + 1)}
+                    className="h-8 gap-1 px-2.5 text-xs font-medium"
+                  >
+                    Next
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
 
           <Card>
@@ -2127,7 +2355,7 @@ export function LicensePage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {allDevices.map(({ activation, key }) => (
+                {paginatedDevices.map(({ activation, key }) => (
                   <TableRow key={activation.id}>
                     <TableCell className="min-w-0">
                       <p className="text-sm font-semibold text-ink-900">
@@ -2180,13 +2408,49 @@ export function LicensePage() {
                 ))}
                 {allDevices.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-10 text-center text-sm text-ink-500">
+                    <TableCell colSpan={7} className="py-8 text-center text-sm text-ink-500">
                       No devices bound yet.
                     </TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
+            {totalDevicesCount > 0 && (
+              <div className="flex flex-col items-center justify-between gap-3 border-t border-line px-4 py-3 sm:flex-row sm:px-6">
+                <p className="text-xs font-medium text-ink-500">
+                  Showing <span className="font-semibold text-ink-900">{(devicesPage - 1) * PER_PAGE + 1}</span>–
+                  <span className="font-semibold text-ink-900">
+                    {Math.min(devicesPage * PER_PAGE, totalDevicesCount)}
+                  </span>{' '}
+                  of <span className="font-semibold text-ink-900">{totalDevicesCount}</span> devices
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={devicesPage <= 1}
+                    onClick={() => setDevicesPage((p) => Math.max(1, p - 1))}
+                    className="h-8 gap-1 px-2.5 text-xs font-medium"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                    Prev
+                  </Button>
+                  <span className="text-xs font-semibold text-ink-700">
+                    Page {devicesPage} of {totalDevicesPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={devicesPage >= totalDevicesPages}
+                    onClick={() => setDevicesPage((p) => p + 1)}
+                    className="h-8 gap-1 px-2.5 text-xs font-medium"
+                  >
+                    Next
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
         </>
       )}

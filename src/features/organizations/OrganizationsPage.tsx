@@ -307,31 +307,54 @@ export function OrganizationsPage() {
     toast.success(isPartnerAccount ? 'Partner email copied' : 'Organization email copied');
   };
 
+  const allOrgs = allOrgsQuery.data ?? [];
+  const totalSystemOrgs = allOrgs.length > 0 ? allOrgs.length : (meta?.total ?? 0);
+  const totalActiveOrgs = allOrgs.length > 0
+    ? allOrgs.filter((o) => o.status === 'ACTIVE' && !o.deletedAt).length
+    : activeCount;
+  const totalBrandedOrgs = allOrgs.length > 0
+    ? allOrgs.filter((o) => Boolean(o.logoUrl) && !o.deletedAt).length
+    : logoCount;
+  const totalCustomerOrgs = allOrgs.length > 0
+    ? allOrgs.filter((o) => o.kind === 'CUSTOMER' && !o.deletedAt).length
+    : customerCount;
+  const totalPartnerOrgs = allOrgs.length > 0
+    ? allOrgs.filter((o) => o.kind === 'PARTNER' && !o.deletedAt).length
+    : partners.length;
+  const totalInternalOrgs = allOrgs.length > 0
+    ? allOrgs.filter((o) => o.kind === 'INTERNAL' && !o.deletedAt).length
+    : 0;
+  const totalMemberships = allOrgs.reduce((acc, o) => acc + (o._count?.memberships ?? 0), 0);
+
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Matching orgs"
-          value={meta?.total ?? 0}
-          detail="All filters applied server-side"
+          label="Total workspaces"
+          value={totalSystemOrgs}
+          detail={
+            totalInternalOrgs > 0
+              ? `${totalPartnerOrgs} partners · ${totalCustomerOrgs} customers · ${totalInternalOrgs} internal`
+              : `${totalPartnerOrgs} partners · ${totalCustomerOrgs} customers`
+          }
           tone="blue"
         />
         <StatCard
-          label="Active on page"
-          value={activeCount}
-          detail={`${customerCount} customer workspaces`}
+          label="Active workspaces"
+          value={totalActiveOrgs}
+          detail={`${totalActiveOrgs} active · ${Math.max(0, totalSystemOrgs - totalActiveOrgs)} inactive/archived`}
           tone="green"
         />
         <StatCard
-          label="Branded"
-          value={logoCount}
-          detail="Logo present on current page"
+          label="Custom branded"
+          value={totalBrandedOrgs}
+          detail="Workspaces with custom white-label logos"
           tone="orange"
         />
         <StatCard
           label="Centralized AI"
-          value={aiCount}
-          detail="Organizations use the master AI pool"
+          value={totalSystemOrgs}
+          detail="Workspaces using shared master AI pool"
           tone="purple"
         />
       </div>
