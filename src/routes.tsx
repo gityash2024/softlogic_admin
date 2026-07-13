@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
+import { TourProvider } from '@/components/tour/TourProvider';
 import {
   AdminRoute,
   AiModuleRoute,
@@ -43,7 +44,11 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       {
-        element: <AppShell />,
+        element: (
+          <TourProvider>
+            <AppShell />
+          </TourProvider>
+        ),
         children: [
           { path: '/settings', element: <SettingsPage /> },
           { path: '/downloads', element: <DownloadsPage /> },

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTour } from '@/components/tour/TourProvider';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -114,6 +115,7 @@ function licenceStatusLabel(status?: string | null) {
 }
 
 export function SettingsPage() {
+  const { startTour } = useTour();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, tokens, clear, updateUser } = useAuthStore();
@@ -582,6 +584,15 @@ export function SettingsPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 gap-1.5 rounded-xl border-white/30 bg-white/10 font-bold text-white backdrop-blur-xs hover:bg-white/20 hover:text-white"
+              onClick={() => startTour()}
+            >
+              <Eye className="h-4 w-4" />
+              Replay Tour
+            </Button>
             <Button
               variant="outline"
               size="sm"

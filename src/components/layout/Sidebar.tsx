@@ -420,6 +420,7 @@ export function Sidebar({
               <li key={item.to}>
                 <NavLink
                   to={item.to}
+                  data-tour={`tour-${item.to.replace(/^\//, '')}`}
                   onClick={() => onOpenChange(false)}
                   title={collapsed ? item.label : undefined}
                   className={({ isActive }) =>
