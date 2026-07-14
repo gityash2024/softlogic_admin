@@ -910,7 +910,7 @@ function OrganizationFormEditor({
             Configure workspace identity, hierarchy, status, and operating context.
           </p>
         </div>
-        <Button id="tour-org-submit" type="submit" variant="primary" disabled={submitting}>
+        <Button id="tour-org-submit" data-tour="tour-org-submit" type="submit" variant="primary" disabled={submitting}>
           {submitting ? <Spinner className="h-4 w-4" /> : <Save className="h-4 w-4" />}
           {isEdit ? 'Save changes' : 'Create organization'}
         </Button>
@@ -952,7 +952,7 @@ function OrganizationFormEditor({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Name</label>
-              <Input id="tour-org-name" placeholder="Acme Corp" {...register('name')} />
+              <Input id="tour-org-name" data-tour="tour-org-name-input" placeholder="Acme Corp" {...register('name')} />
               {errors.name && <p className="text-xs text-danger">{errors.name.message}</p>}
             </div>
             <div className="space-y-1.5">

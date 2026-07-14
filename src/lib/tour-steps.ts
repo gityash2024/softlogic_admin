@@ -110,7 +110,7 @@ export function getTourStepsForProfile(profile: TourProfile, role: UserRole): Ap
     // --- ORGANIZATIONS DEEP DIVE ---
     steps.push({
       id: 'org-create-btn',
-      target: 'button:has(svg.lucide-plus)',
+      target: '[data-tour="tour-org-create-btn"]',
       title: 'Create an Organisation',
       content: 'Click here to provision a new customer or partner workspace.',
       route: '/organizations',
@@ -118,11 +118,12 @@ export function getTourStepsForProfile(profile: TourProfile, role: UserRole): Ap
     });
     steps.push({
       id: 'org-name',
-      target: 'input[name="name"]',
+      target: '[data-tour="tour-org-name-input"]',
       title: 'Organisation Name',
       content: 'Enter the official name of the partner or customer.',
       route: '/organizations/new',
       placement: 'bottom',
+      preActionSelector: '[data-tour="tour-org-create-btn"]',
     });
     steps.push({
       id: 'org-branding',
@@ -134,7 +135,7 @@ export function getTourStepsForProfile(profile: TourProfile, role: UserRole): Ap
     });
     steps.push({
       id: 'org-submit',
-      target: '#tour-org-submit',
+      target: '[data-tour="tour-org-submit"]',
       title: 'Save Organisation',
       content: 'Click here to provision the organisation workspace instantly.',
       route: '/organizations/new',
@@ -144,7 +145,7 @@ export function getTourStepsForProfile(profile: TourProfile, role: UserRole): Ap
     // --- USERS DEEP DIVE ---
     steps.push({
       id: 'user-create-btn',
-      target: 'button:has(svg.lucide-plus)',
+      target: '[data-tour="tour-user-create-btn"]',
       title: 'Invite a User',
       content: 'Click here to invite a new teacher, admin, or student.',
       route: '/users',
@@ -152,15 +153,16 @@ export function getTourStepsForProfile(profile: TourProfile, role: UserRole): Ap
     });
     steps.push({
       id: 'user-email',
-      target: 'input[name="email"]',
+      target: '[data-tour="tour-user-email-input"]',
       title: 'Email Invitation',
       content: 'Enter the user\'s email. They will receive a secure setup link via Brevo to create their password.',
       route: '/users/new',
       placement: 'bottom',
+      preActionSelector: '[data-tour="tour-user-create-btn"]',
     });
     steps.push({
       id: 'user-role',
-      target: '#tour-user-role',
+      target: '[data-tour="tour-user-role-select"]',
       title: 'Assign a Role',
       content: 'The role defines their permissions. Teachers can create content; Admins manage the workspace.',
       route: '/users/new',
@@ -168,7 +170,7 @@ export function getTourStepsForProfile(profile: TourProfile, role: UserRole): Ap
     });
     steps.push({
       id: 'user-submit',
-      target: 'button[type="submit"]',
+      target: '[data-tour="tour-user-submit"]',
       title: 'Send Invite',
       content: 'Click save to securely dispatch the invitation email.',
       route: '/users/new',
@@ -196,12 +198,22 @@ export function getTourStepsForProfile(profile: TourProfile, role: UserRole): Ap
       });
     }
     steps.push({
+      id: 'license-select-partner',
+      target: '[data-tour="tour-license-org-select"]',
+      title: 'Select Partner',
+      content: 'Select a partner to manage their keys.',
+      route: '/license',
+      placement: 'bottom',
+      preActionEvent: 'tour-action-select-org',
+    });
+    steps.push({
       id: 'license-generate',
-      target: '[data-tour="tour-license-bulk-create"], [data-tour="tour-license-bulk-create-secondary"]',
+      target: '[data-tour="tour-license-generate-btn"]',
       title: 'Generate Hardware Keys',
       content: 'Click here to generate a batch of secure hardware activation keys for interactive panels.',
       route: '/license',
       placement: 'bottom',
+      preActionEvent: 'tour-action-select-org',
     });
     steps.push({
       id: 'license-generate-type',
@@ -210,7 +222,7 @@ export function getTourStepsForProfile(profile: TourProfile, role: UserRole): Ap
       content: 'Select the automatic mode to let the system instantly generate random, secure keys.',
       route: '/license',
       placement: 'bottom',
-      preActionSelectors: ['[data-tour="tour-license-bulk-create"], [data-tour="tour-license-bulk-create-secondary"]', '[data-tour="tour-license-bulk-auto"]']
+      preActionSelector: '[data-tour="tour-license-generate-btn"]',
     });
     steps.push({
       id: 'license-generate-qty',

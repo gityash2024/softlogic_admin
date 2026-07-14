@@ -624,6 +624,7 @@ export function UsersPage() {
             />
             <Button
               variant="primary"
+              data-tour="tour-user-create-btn"
               onClick={() =>
                 navigate(
                   organizationId !== 'ALL'

@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, ReactNode, useState, useCallback, useEffect, useRef } from 'react';
+import React, { createContext, useContext, ReactNode, useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/lib/auth-store';
@@ -46,7 +46,7 @@ export function TourProvider({ children }: TourProviderProps) {
 
   useEffect(() => {
     if (user) {
-      const hasSeen = localStorage.getItem(hasSeenTour_ + user.id);
+      const hasSeen = localStorage.getItem(`hasSeenTour_${user.id}`);
       if (!hasSeen) {
         const initialSteps = getTourStepsForProfile('initial', user.role);
         setSteps(initialSteps);
@@ -221,7 +221,7 @@ export function TourProvider({ children }: TourProviderProps) {
     setStepIndex(0);
     setTargetRect(null);
     if (user) {
-      localStorage.setItem(hasSeenTour_ + user.id, 'true');
+      localStorage.setItem(`hasSeenTour_${user.id}`, 'true');
     }
   };
 
