@@ -550,7 +550,7 @@ export function SettingsPage() {
   return (
     <div className="space-y-6">
       {/* Top Executive Settings Hub Hero Banner */}
-      <div className="relative overflow-hidden rounded-2xl border border-line/80 bg-gradient-to-r from-[#08357C] via-[#0E4BA8] to-[#1A63D4] p-5 text-white shadow-md">
+      <div data-tour="tour-settings" className="relative overflow-hidden rounded-2xl border border-line/80 bg-gradient-to-r from-[#08357C] via-[#0E4BA8] to-[#1A63D4] p-5 text-white shadow-md">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             <Avatar className="h-14 w-14 rounded-2xl border-2 border-white/30 shadow-md">

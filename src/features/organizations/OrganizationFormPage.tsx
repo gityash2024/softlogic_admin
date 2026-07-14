@@ -910,7 +910,7 @@ function OrganizationFormEditor({
             Configure workspace identity, hierarchy, status, and operating context.
           </p>
         </div>
-        <Button type="submit" variant="primary" disabled={submitting}>
+        <Button id="tour-org-submit" type="submit" variant="primary" disabled={submitting}>
           {submitting ? <Spinner className="h-4 w-4" /> : <Save className="h-4 w-4" />}
           {isEdit ? 'Save changes' : 'Create organization'}
         </Button>
@@ -952,7 +952,7 @@ function OrganizationFormEditor({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Name</label>
-              <Input placeholder="Acme Corp" {...register('name')} />
+              <Input id="tour-org-name" placeholder="Acme Corp" {...register('name')} />
               {errors.name && <p className="text-xs text-danger">{errors.name.message}</p>}
             </div>
             <div className="space-y-1.5">
@@ -963,6 +963,7 @@ function OrganizationFormEditor({
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Kind</label>
+              <div id="tour-org-kind">
               <Select disabled={isEdit} value={kind} onValueChange={(value) => setValue('kind', value)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -971,6 +972,7 @@ function OrganizationFormEditor({
                   ))}
                 </SelectContent>
               </Select>
+              </div>
             </div>
             {showParentPicker && (
               <div className="space-y-1.5">
@@ -1035,6 +1037,7 @@ function OrganizationFormEditor({
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Teacher users</label>
               <Input
+                id="tour-org-teacher-limit"
                 type="number"
                 min={0}
                 disabled={!canConfigureLaunchPolicies}
@@ -1048,6 +1051,7 @@ function OrganizationFormEditor({
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Student users</label>
               <Input
+                id="tour-org-student-limit"
                 type="number"
                 min={0}
                 disabled={!canConfigureLaunchPolicies || teacherOnlyMode || !studentLoginEnabled}
@@ -1223,7 +1227,7 @@ function OrganizationFormEditor({
           </div>
           <div className="grid gap-4">
             {isSuperAdmin && (
-              <div className="space-y-1.5">
+              <div className="space-y-1.5" id="tour-org-branding-mode">
                 <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Branding mode</label>
                 <Select
                   value={brandingMode}
@@ -1316,7 +1320,7 @@ function OrganizationFormEditor({
                   />
                   <p className="text-xs text-ink-500">Shown in place of “SoftLogic” for white-label workspaces.</p>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 sm:grid-cols-2" id="tour-org-colors">
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Primary color</label>
                     <div className="flex items-center gap-2">

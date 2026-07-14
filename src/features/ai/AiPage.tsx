@@ -562,7 +562,7 @@ export function AiPage() {
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-        <Card className="space-y-4 px-4 py-5 sm:px-6">
+        <Card data-tour="tour-ai-credits" className="space-y-4 px-4 py-5 sm:px-6">
           <div>
             <h3 className="text-base font-bold text-ink-900">Master AI Configuration</h3>
             <p className="text-sm text-ink-500">Stored centrally and encrypted in the backend.</p>
@@ -733,19 +733,20 @@ export function AiPage() {
                 Add credits from your available pool to a child account.
               </p>
             </div>
-            <form onSubmit={submitAllocation} className="grid gap-3">
+            <form data-tour="tour-ai-allocate-form" onSubmit={submitAllocation} className="grid gap-3">
             <div className="grid gap-3 sm:grid-cols-2">
               <Select
                 value={allocation.targetType}
                 onValueChange={(value) => setAllocation((current) => ({ ...current, targetType: value }))}
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger data-tour="tour-ai-allocate-target"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ORGANIZATION">Organization</SelectItem>
                   <SelectItem value="USER">User</SelectItem>
                 </SelectContent>
               </Select>
               <Input
+                data-tour="tour-ai-allocate-amount"
                 type="number"
                 min={1}
                 placeholder="AI credits to allocate"
@@ -785,7 +786,7 @@ export function AiPage() {
                 </SelectContent>
               </Select>
             )}
-            <Button type="submit" variant="outline" disabled={allocationMutation.isPending}>
+            <Button data-tour="tour-ai-allocate-submit" type="submit" variant="outline" disabled={allocationMutation.isPending}>
               {allocationMutation.isPending ? <Spinner className="h-4 w-4" /> : <Send className="h-4 w-4" />}
               Allocate credits
             </Button>

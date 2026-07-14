@@ -498,7 +498,7 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
             Manage identity, access level, workspace assignment, and locale.
           </p>
         </div>
-        <Button type="submit" variant="primary" disabled={submitting}>
+        <Button id="tour-user-submit" type="submit" variant="primary" disabled={submitting}>
           {submitting ? <Spinner className="h-4 w-4" /> : <Save className="h-4 w-4" />}
           {isEdit ? 'Save changes' : 'Create user'}
         </Button>
@@ -513,12 +513,12 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Email</label>
-              <Input type="email" disabled={isEdit} placeholder="jane@example.com" {...register('email')} />
+              <Input id="tour-user-email" type="email" disabled={isEdit} placeholder="jane@example.com" {...register('email')} />
               {errors.email && <p className="text-xs text-danger">{errors.email.message}</p>}
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Full name</label>
-              <Input placeholder="Jane Doe" {...register('name')} />
+              <Input id="tour-user-name" placeholder="Jane Doe" {...register('name')} />
               {errors.name && <p className="text-xs text-danger">{errors.name.message}</p>}
             </div>
           </div>
@@ -543,6 +543,7 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
             )}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Organization</label>
+              <div id="tour-user-org">
               <Controller
                 control={control}
                 name="organizationId"
@@ -562,9 +563,11 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
                   </Select>
                 )}
               />
+              </div>
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Role</label>
+              <div id="tour-user-role">
               <Controller
                 control={control}
                 name="role"
@@ -593,6 +596,7 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
                   </Select>
                 )}
               />
+              </div>
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Status</label>

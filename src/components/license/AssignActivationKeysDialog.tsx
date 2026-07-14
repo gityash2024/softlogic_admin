@@ -304,6 +304,7 @@ export function AssignActivationKeysDialog({
               cappedSelectedIds.length === 0
             }
             onClick={() => mutation.mutate()}
+            data-tour="tour-license-assign-keys-submit"
           >
             {mutation.isPending ? <Spinner className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
             Assign and email

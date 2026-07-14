@@ -233,7 +233,7 @@ export function ActivityPage() {
   );
 
   return (
-    <div className="space-y-5">
+    <div data-tour="tour-activity-list" className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Total audit events"

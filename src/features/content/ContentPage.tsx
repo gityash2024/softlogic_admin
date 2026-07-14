@@ -547,7 +547,7 @@ export function ContentPage() {
   };
 
   return (
-    <div className="space-y-5">
+    <div data-tour="tour-content-section" className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-4">
         <StatCard
           label="Canvases"

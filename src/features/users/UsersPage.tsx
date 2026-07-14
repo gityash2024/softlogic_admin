@@ -608,7 +608,7 @@ export function UsersPage() {
         />
       </div>
 
-      <Card>
+      <Card data-tour="tour-users-list">
         <div className="flex flex-col gap-4 border-b border-line px-4 py-5 sm:px-6 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-ink-900">User Directory</h2>

@@ -248,6 +248,7 @@ export function LicensePage() {
       (isSuperAdmin || isPartnerAdmin ? null : (user?.primaryOrganization?.id ?? null)),
   );
   const [manualReference, setManualReference] = useState('');
+
   // Amount is entered in major units (e.g. rupees) and converted to minor units
   // (paise) on submit — matching the edit-payment flow.
   const [amountMajor, setAmountMajor] = useState(1000);
@@ -379,6 +380,27 @@ export function LicensePage() {
     () => partnerOrganizations(allOrganizations),
     [allOrganizations],
   );
+
+  // Listen for interactive tour events to programmatically select an organization
+  useEffect(() => {
+    const handleTourSelectOrg = () => {
+      // Find the first partner or org and select it for the tour
+      if (isSuperAdmin && partners.length > 0) {
+        setSelectedPartnerId(partners[0].id);
+        // It will automatically update the partnerScopeId because of the derived state below
+      }
+    };
+    const handleTourCloseModals = () => {
+      setBulkOpen(false);
+      setAssignKeysOpen(false);
+    };
+    window.addEventListener('tour-action-select-org', handleTourSelectOrg);
+    window.addEventListener('tour-action-close-modals', handleTourCloseModals);
+    return () => {
+      window.removeEventListener('tour-action-select-org', handleTourSelectOrg);
+      window.removeEventListener('tour-action-close-modals', handleTourCloseModals);
+    };
+  }, [isSuperAdmin, partners]);
   const directOrganizations = useMemo(
     () =>
       allOrganizations.filter(
@@ -1086,7 +1108,7 @@ export function LicensePage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+      <div data-tour="tour-license-stats" className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <h2 className="text-2xl font-black text-ink-900">Licensing</h2>
           <p className="text-sm text-ink-500">
@@ -1100,7 +1122,7 @@ export function LicensePage() {
                 value={selectedPartnerId}
                 onValueChange={handleSuperAdminPartnerChange}
               >
-                <SelectTrigger>
+                <SelectTrigger data-tour="tour-license-org-select">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent searchPlaceholder="Search partner...">
@@ -1163,7 +1185,7 @@ export function LicensePage() {
                 setSelectedOrgId(value === PARTNER_AGGREGATE_VALUE ? null : value)
               }
             >
-              <SelectTrigger>
+              <SelectTrigger data-tour="tour-license-org-select">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent searchPlaceholder="Search organization...">
@@ -1925,6 +1947,7 @@ export function LicensePage() {
                       className="w-full sm:w-auto"
                       disabled={!canCreateActivationKey || !isLicenseTermValid}
                       onClick={openBulkDialog}
+                      data-tour="tour-license-bulk-create"
                     >
                       <Layers className="h-4 w-4" />
                       Bulk create keys
@@ -2016,6 +2039,7 @@ export function LicensePage() {
                 availablePartnerPoolKeys.length === 0
               }
               onClick={() => setAssignKeysOpen(true)}
+              data-tour="tour-license-assign-keys"
             >
               <Mail className="h-4 w-4" />
               Assign/email pool keys
@@ -2288,6 +2312,7 @@ export function LicensePage() {
                             className="mt-1"
                             disabled={!canCreateActivationKey}
                             onClick={openBulkDialog}
+                            data-tour="tour-license-bulk-create-secondary"
                           >
                             <Layers className="h-4 w-4" />
                             Bulk create keys
@@ -2726,6 +2751,7 @@ export function LicensePage() {
                 </span>
               </Button>
               <Button
+                data-tour="tour-license-bulk-auto"
                 type="button"
                 variant="outline"
                 className="h-auto justify-start px-4 py-4 text-left"
@@ -2789,6 +2815,7 @@ export function LicensePage() {
                   Number of keys
                 </label>
                 <Input
+                  data-tour="tour-license-bulk-qty"
                   type="number"
                   min={1}
                   max={maxAutoBulkCount}
@@ -2838,7 +2865,7 @@ export function LicensePage() {
 
           <DialogFooter>
             {!bulkResult && bulkMode === 'choice' ? (
-              <Button type="button" variant="outline" onClick={closeBulkDialog}>
+              <Button type="button" variant="outline" onClick={closeBulkDialog} data-tour="tour-license-bulk-cancel">
                 Cancel
               </Button>
             ) : !bulkResult && bulkMode === 'manual' ? (
@@ -2868,6 +2895,7 @@ export function LicensePage() {
                   Cancel
                 </Button>
                 <Button
+                  data-tour="tour-license-bulk-submit"
                   type="button"
                   variant="primary"
                   disabled={

@@ -194,7 +194,7 @@ export function DashboardPage() {
   return (
     <div className="space-y-5">
       <section className="overflow-hidden rounded-lg bg-brand-navy text-white shadow-elevated">
-        <div className="grid gap-6 px-4 py-5 sm:px-6 lg:grid-cols-[1fr_360px] lg:px-7">
+        <div data-tour="tour-dashboard-stats" className="grid gap-6 px-4 py-5 sm:px-6 lg:grid-cols-[1fr_360px] lg:px-7">
           <div>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase text-white/70">
@@ -307,7 +307,7 @@ export function DashboardPage() {
         </Card>
       )}
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section data-tour="tour-dashboard-metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           label="Active Users"
           value={data.users.active}
