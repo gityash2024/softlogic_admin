@@ -117,6 +117,7 @@ export function TourProvider({ children }: TourProviderProps) {
 
     let actionIndex = 0;
     let attempts = 0;
+    let partnerSwitches = 0;
 
     const isVisible = (el: Element | null) => {
       if (!el) return false;
@@ -131,7 +132,7 @@ export function TourProvider({ children }: TourProviderProps) {
           if (forcePreActions || !isVisible(targetEl)) {
             const selector = selectorsToClick[actionIndex];
             const actionBtn = document.querySelector(selector) as HTMLElement;
-            if (actionBtn) {
+            if (actionBtn && !(actionBtn as HTMLButtonElement).disabled && !actionBtn.hasAttribute('disabled') && !actionBtn.closest(':disabled')) {
               actionBtn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
               actionBtn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
               actionBtn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
@@ -140,11 +141,18 @@ export function TourProvider({ children }: TourProviderProps) {
               
               actionIndex++;
               attempts = 0;
+              partnerSwitches = 0;
             } else {
               attempts++;
-              if (attempts >= 20) {
+              // If disabled/loading for 2 seconds, try selecting the next organization
+              if (attempts === 20 && partnerSwitches < 10) {
+                window.dispatchEvent(new CustomEvent('tour-action-select-next-org'));
+                partnerSwitches++;
+                attempts = 0; // Wait for the new org to load
+              } else if (attempts >= 50) { // Wait up to 5 seconds
                 actionIndex++;
                 attempts = 0;
+                partnerSwitches = 0;
               }
             }
             return false;

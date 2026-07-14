@@ -384,11 +384,23 @@ export function LicensePage() {
   // Listen for interactive tour events to programmatically select an organization
   useEffect(() => {
     const handleTourSelectOrg = () => {
-      // Find the first partner or org and select it for the tour
+      // Find a partner that has capacity, or fallback to the first partner
       if (isSuperAdmin && partners.length > 0) {
-        setSelectedPartnerId(partners[0].id);
-        setSelectedOrgId(partners[0].id);
+        const eligiblePartner = partners.find((p) => (p.licenseSeatMax ?? 0) > 0) ?? partners[0];
+        setSelectedPartnerId(eligiblePartner.id);
+        setSelectedOrgId(eligiblePartner.id);
         // It will automatically update the partnerScopeId because of the derived state below
+      }
+    };
+    const handleTourSelectNextOrg = () => {
+      if (isSuperAdmin && partners.length > 0) {
+        setSelectedPartnerId((prevId) => {
+          const currentIndex = partners.findIndex((p) => p.id === prevId);
+          const nextIndex = (currentIndex + 1) % partners.length;
+          const nextId = partners[nextIndex].id;
+          setSelectedOrgId(nextId);
+          return nextId;
+        });
       }
     };
     const handleTourCloseModals = () => {
@@ -396,9 +408,11 @@ export function LicensePage() {
       setAssignKeysOpen(false);
     };
     window.addEventListener('tour-action-select-org', handleTourSelectOrg);
+    window.addEventListener('tour-action-select-next-org', handleTourSelectNextOrg);
     window.addEventListener('tour-action-close-modals', handleTourCloseModals);
     return () => {
       window.removeEventListener('tour-action-select-org', handleTourSelectOrg);
+      window.removeEventListener('tour-action-select-next-org', handleTourSelectNextOrg);
       window.removeEventListener('tour-action-close-modals', handleTourCloseModals);
     };
   }, [isSuperAdmin, partners]);

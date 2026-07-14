@@ -47,7 +47,7 @@ import { ConfirmSubmitDialog, type ConfirmRow } from '@/components/ui/confirm-su
 const USER_MODULE_ROLES: UserRole[] = ['TEACHER', 'STUDENT', 'PARENT'];
 
 const schema = z.object({
-  email: z.string().email('Enter a valid email'),
+  email: z.string().min(1, 'Email is required').email('Enter a valid email'),
   name: z.string().min(1, 'Name is required'),
   role: z.string().min(1, 'Role is required'),
   organizationId: z.string().optional(),

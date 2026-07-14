@@ -36,8 +36,8 @@ export function FloatingTourTrigger() {
     <div
       style={{
         position: 'fixed',
-        bottom: 32,
-        right: 32,
+        bottom: 16,
+        right: 16,
         zIndex: 90000,
         display: 'flex',
         flexDirection: 'column',
@@ -124,12 +124,12 @@ export function FloatingTourTrigger() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         style={{
-          width: 56,
-          height: 56,
-          borderRadius: 28,
+          width: 40,
+          height: 40,
+          borderRadius: 20,
           backgroundColor: '#0B4EA2',
           border: 'none',
-          boxShadow: '0 6px 20px rgba(11, 78, 162, 0.4)',
+          boxShadow: '0 4px 12px rgba(11, 78, 162, 0.4)',
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
@@ -142,9 +142,9 @@ export function FloatingTourTrigger() {
         title="Help & Tutorials"
       >
         {isOpen ? (
-          <X size={24} color="#ffffff" />
+          <X size={18} color="#ffffff" />
         ) : (
-          <HelpCircle size={28} color="#ffffff" />
+          <HelpCircle size={20} color="#ffffff" />
         )}
       </button>
 
