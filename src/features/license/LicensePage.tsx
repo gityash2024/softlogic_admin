@@ -1913,6 +1913,7 @@ export function LicensePage() {
                     <Button
                       variant="primary"
                       className="w-full sm:w-auto"
+                      data-tour="tour-license-generate-btn"
                       disabled={
                         !canCreateActivationKey ||
                         keyLabel.trim().length === 0 ||
