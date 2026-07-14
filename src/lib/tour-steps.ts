@@ -189,17 +189,17 @@ export function getTourStepsForProfile(profile: TourProfile, role: UserRole): Ap
     if (role === 'SUPER_ADMIN' || role === 'PARTNER_ADMIN') {
       steps.push({
         id: 'license-org-select',
-        target: '[data-tour="tour-license-org-select"]',
+        target: '[data-tour="tour-license-org-select"]:first-of-type',
         title: 'Select an Organisation',
         content: 'Select a specific partner or organisation here to manage their individual activation keys and allocations.',
         route: '/license',
         placement: 'bottom',
-        preActionSelectors: ['[data-tour="tour-license-org-select"]', '[role="option"]:nth-of-type(2)']
+        preActionSelectors: ['[data-tour="tour-license-org-select"]:first-of-type', '[role="option"]:nth-of-type(2)']
       });
     }
     steps.push({
       id: 'license-select-partner',
-      target: '[data-tour="tour-license-org-select"]',
+      target: '[data-tour="tour-license-org-select"]:first-of-type',
       title: 'Select Partner',
       content: 'Select a partner to manage their keys.',
       route: '/license',
@@ -208,7 +208,7 @@ export function getTourStepsForProfile(profile: TourProfile, role: UserRole): Ap
     });
     steps.push({
       id: 'license-generate',
-      target: '[data-tour="tour-license-generate-btn"]',
+      target: '[data-tour="tour-license-bulk-create"], [data-tour="tour-license-bulk-create-secondary"]',
       title: 'Generate Hardware Keys',
       content: 'Click here to generate a batch of secure hardware activation keys for interactive panels.',
       route: '/license',
@@ -222,7 +222,7 @@ export function getTourStepsForProfile(profile: TourProfile, role: UserRole): Ap
       content: 'Select the automatic mode to let the system instantly generate random, secure keys.',
       route: '/license',
       placement: 'bottom',
-      preActionSelector: '[data-tour="tour-license-generate-btn"]',
+      preActionSelector: '[data-tour="tour-license-bulk-create"], [data-tour="tour-license-bulk-create-secondary"]',
     });
     steps.push({
       id: 'license-generate-qty',

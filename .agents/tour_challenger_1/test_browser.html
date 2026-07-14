@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<body>
+<script>
+  let count = 0;
+  setInterval(() => {
+    count++;
+    console.log("Tick", count);
+    document.body.innerHTML += "Tick " + count + "<br>";
+    if (count > 5) return; // just to not actually freeze forever if I was wrong
+    document.querySelector("123invalid"); // This throws!
+  }, 100);
+</script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode, useState, useCallback, useEffect, useRef } from 'react';
+import React, { createContext, useContext, ReactNode, useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/lib/auth-store';
@@ -43,6 +43,7 @@ export function TourProvider({ children }: TourProviderProps) {
   const [targetRect, setTargetRect] = useState<RectCoords | null>(null);
 
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const navRef = useRef<number>(-1);
 
   useEffect(() => {
     if (user) {
@@ -95,16 +96,21 @@ export function TourProvider({ children }: TourProviderProps) {
     }
 
     if (currentStep.route && location.pathname !== currentStep.route) {
-      setTargetRect(null);
-      navigate(currentStep.route);
-      return;
+      if (navRef.current !== stepIndex) {
+        navRef.current = stepIndex;
+        setTargetRect(null);
+        navigate(currentStep.route);
+        return;
+      }
+    } else {
+      navRef.current = stepIndex;
     }
 
     if (currentStep.preActionEvent) {
       window.dispatchEvent(new CustomEvent(currentStep.preActionEvent));
     }
 
-    const forcePreActions = !!currentStep.preActionSelectors;
+    const forcePreActions = !!currentStep.preActionForce;
     const selectorsToClick = currentStep.preActionSelectors 
       ? [...currentStep.preActionSelectors] 
       : (currentStep.preActionSelector ? [currentStep.preActionSelector] : []);
@@ -112,52 +118,59 @@ export function TourProvider({ children }: TourProviderProps) {
     let actionIndex = 0;
     let attempts = 0;
 
+    const isVisible = (el: Element | null) => {
+      if (!el) return false;
+      const rect = el.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    };
+
     const findElement = () => {
-      if (actionIndex < selectorsToClick.length) {
-        const targetEl = document.querySelector(currentStep.target);
-        if (forcePreActions || !targetEl) {
-          const selector = selectorsToClick[actionIndex];
-          const actionBtn = document.querySelector(selector) as HTMLElement;
-          if (actionBtn) {
-            actionBtn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
-            actionBtn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-            actionBtn.click();
-            actionBtn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
-            actionBtn.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-            
-            actionIndex++;
-            attempts = 0;
-          } else {
-            attempts++;
-            if (attempts >= 20) {
+      try {
+        if (actionIndex < selectorsToClick.length) {
+          const targetEl = document.querySelector(currentStep.target);
+          if (forcePreActions || !isVisible(targetEl)) {
+            const selector = selectorsToClick[actionIndex];
+            const actionBtn = document.querySelector(selector) as HTMLElement;
+            if (actionBtn) {
+              actionBtn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+              actionBtn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+              actionBtn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+              actionBtn.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+              actionBtn.click();
+              
               actionIndex++;
               attempts = 0;
+            } else {
+              attempts++;
+              if (attempts >= 20) {
+                actionIndex++;
+                attempts = 0;
+              }
             }
+            return false;
+          } else {
+            actionIndex = selectorsToClick.length;
           }
-          return false;
-        } else {
-          actionIndex = selectorsToClick.length;
         }
-      }
 
-      const el = document.querySelector(currentStep.target);
-      if (el) {
-        if (pollTimerRef.current) {
-          clearInterval(pollTimerRef.current);
-          pollTimerRef.current = null;
+        const el = document.querySelector(currentStep.target);
+        if (el) {
+          if (pollTimerRef.current) {
+            clearInterval(pollTimerRef.current);
+            pollTimerRef.current = null;
+          }
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          const rect = el.getBoundingClientRect();
+          setTargetRect({
+            top: rect.top,
+            left: rect.left,
+            width: rect.width,
+            height: rect.height,
+            bottom: rect.bottom,
+            right: rect.right,
+          });
+          return true;
         }
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        const rect = el.getBoundingClientRect();
-        setTargetRect({
-          top: rect.top,
-          left: rect.left,
-          width: rect.width,
-          height: rect.height,
-          bottom: rect.bottom,
-          right: rect.right,
-        });
-        return true;
-      }
       
       attempts += 1;
       if (attempts >= 20) {
@@ -168,6 +181,10 @@ export function TourProvider({ children }: TourProviderProps) {
         setTargetRect(null);
       }
       return false;
+      } catch (err) {
+        console.error('Tour pre-action error:', err);
+        return false;
+      }
     };
 
     if (!findElement()) {
@@ -228,8 +245,10 @@ export function TourProvider({ children }: TourProviderProps) {
   const stepNumber = stepIndex + 1;
   const totalSteps = steps.length;
 
+  const tourContextValue = useMemo(() => ({ startTour }), [startTour]);
+
   return (
-    <TourContext.Provider value={{ startTour }}>
+    <TourContext.Provider value={tourContextValue}>
       {children}
       {user && <FloatingTourTrigger />}
       {active &&

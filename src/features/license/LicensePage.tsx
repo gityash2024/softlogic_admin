@@ -387,6 +387,7 @@ export function LicensePage() {
       // Find the first partner or org and select it for the tour
       if (isSuperAdmin && partners.length > 0) {
         setSelectedPartnerId(partners[0].id);
+        setSelectedOrgId(partners[0].id);
         // It will automatically update the partnerScopeId because of the derived state below
       }
     };
