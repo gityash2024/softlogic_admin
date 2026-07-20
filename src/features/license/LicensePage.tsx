@@ -269,7 +269,7 @@ export function LicensePage() {
     { label: '', maxDevices: 1 },
   ]);
   const [bulkMode, setBulkMode] = useState<BulkCreateMode>('choice');
-  const [autoBulkCount, setAutoBulkCount] = useState(1);
+  const [autoBulkCount, setAutoBulkCount] = useState<number | ''>(1);
   const [bulkResult, setBulkResult] = useState<BulkHardwareActivationKeyResponse | null>(null);
   const [exportFormat, setExportFormat] = useState<AdminExportFormat>('xlsx');
   const [isExporting, setIsExporting] = useState(false);
@@ -1016,7 +1016,7 @@ export function LicensePage() {
       toast.error('Choose a valid licence start and expiry');
       return;
     }
-    const count = Math.trunc(autoBulkCount);
+    const count = typeof autoBulkCount === 'number' ? Math.trunc(autoBulkCount) : 0;
     if (count < 1 || count > maxAutoBulkCount) {
       toast.error(`Enter a number from 1 to ${maxAutoBulkCount}`);
       return;
@@ -2746,9 +2746,16 @@ export function LicensePage() {
           <DialogHeader>
             <DialogTitle>Bulk create activation keys</DialogTitle>
             <DialogDescription>
-              {bulkResult
-                ? `Created ${bulkResult.createdCount} key(s) for ${selectedOrganization?.name ?? 'this workspace'}. Copy them now — full keys are shown only once.`
-                : `Add one row per key for ${selectedOrganization?.name ?? 'this workspace'}. Each label is required.`}
+              {bulkResult ? (
+                <>
+                  Created <strong className="font-semibold text-ink-900">{bulkResult.createdCount}</strong> key(s) for{' '}
+                  <strong className="font-semibold text-ink-900">{selectedOrganization?.name ?? 'this workspace'}</strong>. Copy them now — full keys are shown only once.
+                </>
+              ) : (
+                <>
+                  Add one row per key for <strong className="font-semibold text-ink-900">{selectedOrganization?.name ?? 'this workspace'}</strong>. Each label is required.
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
 
@@ -2821,7 +2828,7 @@ export function LicensePage() {
                 Add another key
               </Button>
               <p className="text-xs text-ink-500">
-                {remainingActivationKeys} activation key seat(s) remaining.
+                <strong className="font-semibold text-ink-900">{remainingActivationKeys}</strong> activation key seat(s) remaining.
               </p>
             </div>
           ) : !bulkResult && bulkMode === 'auto' ? (
@@ -2836,13 +2843,28 @@ export function LicensePage() {
                   min={1}
                   max={maxAutoBulkCount}
                   value={autoBulkCount}
-                  onChange={(event) =>
-                    setAutoBulkCount(Math.max(1, Number(event.target.value) || 1))
-                  }
+                  onChange={(event) => {
+                    const raw = event.target.value;
+                    if (raw === '') {
+                      setAutoBulkCount('');
+                    } else {
+                      const num = Number(raw);
+                      setAutoBulkCount(Number.isNaN(num) ? '' : num);
+                    }
+                  }}
                 />
+                {autoBulkCount === '' ? (
+                  <p className="text-xs font-medium text-red-600">
+                    Please enter a valid number of keys (1 to <strong className="font-semibold">{maxAutoBulkCount}</strong>)
+                  </p>
+                ) : typeof autoBulkCount === 'number' && (autoBulkCount < 1 || autoBulkCount > maxAutoBulkCount) ? (
+                  <p className="text-xs font-medium text-red-600">
+                    Number of keys must be between 1 and <strong className="font-semibold">{maxAutoBulkCount}</strong>
+                  </p>
+                ) : null}
               </div>
               <p className="text-xs text-ink-500">
-                {remainingActivationKeys} activation key seat(s) remaining.
+                <strong className="font-semibold text-ink-900">{remainingActivationKeys}</strong> activation key seat(s) remaining.
               </p>
             </div>
           ) : bulkResult ? (
@@ -2901,7 +2923,7 @@ export function LicensePage() {
                   onClick={submitBulk}
                 >
                   {bulkMutation.isPending && <Spinner className="h-4 w-4" />}
-                  Create {validBulkRows.length || ''} key
+                  Create <strong className="font-semibold">{validBulkRows.length || ''}</strong> key
                   {validBulkRows.length === 1 ? '' : 's'}
                 </Button>
               </>
@@ -2916,6 +2938,7 @@ export function LicensePage() {
                   variant="primary"
                   disabled={
                     !selectedOrganization ||
+                    typeof autoBulkCount !== 'number' ||
                     autoBulkCount < 1 ||
                     autoBulkCount > maxAutoBulkCount ||
                     bulkMutation.isPending
@@ -2923,7 +2946,8 @@ export function LicensePage() {
                   onClick={submitAutoBulk}
                 >
                   {bulkMutation.isPending && <Spinner className="h-4 w-4" />}
-                  Create {autoBulkCount} key{autoBulkCount === 1 ? '' : 's'}
+                  Create <strong className="font-semibold">{autoBulkCount || ''}</strong> key
+                  {autoBulkCount === 1 ? '' : 's'}
                 </Button>
               </>
             ) : (
