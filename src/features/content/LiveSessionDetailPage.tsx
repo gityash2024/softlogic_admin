@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Bot,
   CalendarClock,
+  ClipboardCheck,
   ClipboardList,
   Download,
   Eye,
@@ -16,6 +17,7 @@ import {
   Loader2,
   MessageSquareText,
   MonitorPlay,
+  Plus,
   Radio,
   Users,
 } from 'lucide-react';
@@ -46,6 +48,12 @@ import { useAuthStore } from '@/lib/auth-store';
 import { formatDateTime } from '@/lib/utils';
 import { classroomApi } from '@/services/classroom.api';
 import { contentApi } from '@/services/content.api';
+import {
+  getAssessmentsBySession,
+  type Assessment,
+} from '@/services/assessment.api';
+import { AssessmentCreateModal } from './AssessmentCreateModal';
+import { AssessmentSubmissionsModal } from './AssessmentSubmissionsModal';
 import {
   LIVE_SESSION_STATUS_LABEL,
   type AdminLiveSessionRecord,
@@ -225,26 +233,39 @@ function DetailStat({
   );
 }
 
-function StudyMaterialUploader({ sessionId }: { sessionId: string }) {
+function StudyMaterialUploader({
+  sessionId,
+  onAddAssessment,
+}: {
+  sessionId: string;
+  onAddAssessment?: () => void;
+}) {
   return (
     <Card className="border-brand-primary/20 bg-brand-primary/[0.025] px-5 py-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <FileUp className="h-5 w-5 text-brand-primary" />
-            <h3 className="text-base font-bold text-ink-900">Share study materials</h3>
+            <h3 className="text-base font-bold text-ink-900">Share study materials & assessments</h3>
           </div>
           <p className="mt-1 max-w-3xl text-sm text-ink-500">
-            Open the dedicated upload workspace for multi-file upload, same-page preview, and
-            upload tracking.
+            Open the dedicated upload workspace for multi-file upload, or attach file upload and auto-scored MCQ assessments.
           </p>
         </div>
-        <Button asChild>
-          <Link to={`/teacher/sessions/${sessionId}/materials`}>
-            <FileUp className="h-4 w-4" />
-            Upload materials
-          </Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {onAddAssessment && (
+            <Button type="button" variant="outline" onClick={onAddAssessment}>
+              <Plus className="h-4 w-4" />
+              Add Assessment
+            </Button>
+          )}
+          <Button asChild>
+            <Link to={`/teacher/sessions/${sessionId}/materials`}>
+              <FileUp className="h-4 w-4" />
+              Upload materials
+            </Link>
+          </Button>
+        </div>
       </div>
     </Card>
   );
@@ -551,6 +572,10 @@ export function LiveSessionDetailPage() {
   const navigate = useNavigate();
   const actor = useAuthStore((state) => state.user);
   const [previewAsset, setPreviewAsset] = useState<LiveSessionMediaAsset | null>(null);
+  const [isCreateAssessmentOpen, setIsCreateAssessmentOpen] = useState(false);
+  const [selectedAssessmentForSubmissions, setSelectedAssessmentForSubmissions] =
+    useState<Assessment | null>(null);
+
   const portalRole =
     actor?.role === 'TEACHER' || actor?.role === 'STUDENT' || actor?.role === 'PARENT';
 
@@ -562,6 +587,16 @@ export function LiveSessionDetailPage() {
     },
     enabled: Boolean(id),
   });
+
+  const assessmentsQuery = useQuery({
+    queryKey: ['assessments-session', id],
+    queryFn: () => {
+      if (!id) return [];
+      return getAssessmentsBySession(id);
+    },
+    enabled: Boolean(id),
+  });
+  const assessments = assessmentsQuery.data || [];
 
   if (query.isLoading) {
     return (
@@ -653,7 +688,12 @@ export function LiveSessionDetailPage() {
         <DetailStat icon={CalendarClock} label="Duration" value={durationLabel(session)} />
       </div>
 
-      {isTeacher && id && <StudyMaterialUploader sessionId={id} />}
+      {isTeacher && id && (
+        <StudyMaterialUploader
+          sessionId={id}
+          onAddAssessment={() => setIsCreateAssessmentOpen(true)}
+        />
+      )}
 
       <div className="grid gap-5 xl:grid-cols-2">
         <Card className="px-5 py-5">
@@ -703,9 +743,22 @@ export function LiveSessionDetailPage() {
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <Card className="min-w-0 overflow-hidden px-5 py-5">
-          <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-brand-primary" />
-            <h3 className="text-base font-bold text-ink-900">Study materials</h3>
+          <div className="flex items-center justify-between gap-2 border-b border-line pb-3">
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-brand-primary" />
+              <h3 className="text-base font-bold text-ink-900">Study materials</h3>
+            </div>
+            {isTeacher && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsCreateAssessmentOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+                Add Assessment
+              </Button>
+            )}
           </div>
           <div className="mt-4 grid gap-3">
             {studyMaterials.map((asset) => (
@@ -718,6 +771,79 @@ export function LiveSessionDetailPage() {
             )}
           </div>
         </Card>
+
+        {/* Assessments Section */}
+        <Card className="min-w-0 overflow-hidden px-5 py-5">
+          <div className="flex items-center justify-between gap-2 border-b border-line pb-3">
+            <div className="flex items-center gap-2">
+              <ClipboardCheck className="h-5 w-5 text-brand-primary" />
+              <h3 className="text-base font-bold text-ink-900">Assessments</h3>
+            </div>
+            {isTeacher && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsCreateAssessmentOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+                Add Assessment
+              </Button>
+            )}
+          </div>
+
+          <div className="mt-4 grid gap-3">
+            {assessments.map((item) => (
+              <div
+                key={item.id}
+                className="flex flex-col gap-3 rounded-lg border border-line bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h4 className="truncate text-sm font-bold text-ink-900">{item.title}</h4>
+                    <Badge variant={item.type === 'MCQ' ? 'info' : 'default'}>
+                      {item.type === 'MCQ' ? 'Auto-Scored MCQ' : 'File Upload'}
+                    </Badge>
+                    <Badge variant="default" className="bg-brand-primary/10 text-brand-primary font-semibold">
+                      {item.submissionCount ?? 0} Submissions
+                    </Badge>
+                  </div>
+                  {item.description && (
+                    <p className="mt-1 line-clamp-2 text-xs text-ink-500">{item.description}</p>
+                  )}
+                  <div className="mt-2 flex flex-wrap gap-4 text-xs text-ink-400">
+                    {item.dueDate && <span>Due: {formatDateTime(item.dueDate)}</span>}
+                    {item.maxScore && <span>Max Score: {item.maxScore} pts</span>}
+                    {item.timeLimitMinutes && <span>Time Limit: {item.timeLimitMinutes} mins</span>}
+                    {item.questions && <span>Questions: {item.questions.length}</span>}
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedAssessmentForSubmissions(item)}
+                >
+                  View Submissions
+                </Button>
+              </div>
+            ))}
+
+            {assessments.length === 0 && (
+              <div className="rounded-lg border border-dashed border-line p-6 text-center">
+                <ClipboardList className="mx-auto h-8 w-8 text-ink-300" />
+                <p className="mt-2 text-sm font-semibold text-ink-800">No assessments attached</p>
+                <p className="text-xs text-ink-500">
+                  {isTeacher
+                    ? 'Click "Add Assessment" to create a new assignment or quiz for students.'
+                    : 'No assessments have been assigned for this session.'}
+                </p>
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
 
         <Card className="min-w-0 overflow-hidden px-5 py-5">
           <div className="flex items-center gap-2">
@@ -804,7 +930,6 @@ export function LiveSessionDetailPage() {
             )}
           </div>
         </Card>
-      </div>
 
       <Card>
         <div className="border-b border-line px-5 py-4">
@@ -898,6 +1023,23 @@ export function LiveSessionDetailPage() {
       </div>
 
       <MaterialPreviewDialog asset={previewAsset} onClose={() => setPreviewAsset(null)} />
+
+      {id && (
+        <AssessmentCreateModal
+          open={isCreateAssessmentOpen}
+          onOpenChange={setIsCreateAssessmentOpen}
+          sessionId={id}
+          onSuccess={() => {
+            assessmentsQuery.refetch();
+          }}
+        />
+      )}
+
+      <AssessmentSubmissionsModal
+        open={Boolean(selectedAssessmentForSubmissions)}
+        onOpenChange={(open) => !open && setSelectedAssessmentForSubmissions(null)}
+        assessment={selectedAssessmentForSubmissions}
+      />
     </div>
   );
 }
