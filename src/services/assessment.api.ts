@@ -20,7 +20,7 @@ export interface CreateAssessmentPayload {
   dueDate?: string;
   timeLimitMinutes?: number;
   settings?: Record<string, any>;
-  questions?: MCQQuestion[];
+  questions?: any[];
 }
 
 export interface Assessment {

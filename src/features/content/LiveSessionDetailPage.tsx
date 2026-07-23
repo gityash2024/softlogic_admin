@@ -52,7 +52,6 @@ import {
   getAssessmentsBySession,
   type Assessment,
 } from '@/services/assessment.api';
-import { AssessmentCreateModal } from './AssessmentCreateModal';
 import { AssessmentSubmissionsModal } from './AssessmentSubmissionsModal';
 import {
   LIVE_SESSION_STATUS_LABEL,
@@ -572,7 +571,6 @@ export function LiveSessionDetailPage() {
   const navigate = useNavigate();
   const actor = useAuthStore((state) => state.user);
   const [previewAsset, setPreviewAsset] = useState<LiveSessionMediaAsset | null>(null);
-  const [isCreateAssessmentOpen, setIsCreateAssessmentOpen] = useState(false);
   const [selectedAssessmentForSubmissions, setSelectedAssessmentForSubmissions] =
     useState<Assessment | null>(null);
 
@@ -691,7 +689,7 @@ export function LiveSessionDetailPage() {
       {isTeacher && id && (
         <StudyMaterialUploader
           sessionId={id}
-          onAddAssessment={() => setIsCreateAssessmentOpen(true)}
+          onAddAssessment={() => navigate('/teacher/sessions/' + id + '/assessments/new')}
         />
       )}
 
@@ -753,7 +751,7 @@ export function LiveSessionDetailPage() {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setIsCreateAssessmentOpen(true)}
+                onClick={() => navigate('/teacher/sessions/' + id + '/assessments/new')}
               >
                 <Plus className="h-4 w-4" />
                 Add Assessment
@@ -784,7 +782,7 @@ export function LiveSessionDetailPage() {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setIsCreateAssessmentOpen(true)}
+                onClick={() => navigate('/teacher/sessions/' + id + '/assessments/new')}
               >
                 <Plus className="h-4 w-4" />
                 Add Assessment
@@ -1039,17 +1037,6 @@ export function LiveSessionDetailPage() {
       </div>
 
       <MaterialPreviewDialog asset={previewAsset} onClose={() => setPreviewAsset(null)} />
-
-      {id && (
-        <AssessmentCreateModal
-          open={isCreateAssessmentOpen}
-          onOpenChange={setIsCreateAssessmentOpen}
-          sessionId={id}
-          onSuccess={() => {
-            assessmentsQuery.refetch();
-          }}
-        />
-      )}
 
       <AssessmentSubmissionsModal
         open={Boolean(selectedAssessmentForSubmissions)}

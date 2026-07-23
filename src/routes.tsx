@@ -26,6 +26,7 @@ import { SupportInboxPage } from '@/features/support/SupportInboxPage';
 import { ContentPage } from '@/features/content/ContentPage';
 import { LiveSessionDetailPage } from '@/features/content/LiveSessionDetailPage';
 import { StudyMaterialUploadPage } from '@/features/content/StudyMaterialUploadPage';
+import { AssessmentCreatePage } from '@/features/content/AssessmentCreatePage';
 import { ActivityPage } from '@/features/activity/ActivityPage';
 import { LicensePage } from '@/features/license/LicensePage';
 import { AiPage } from '@/features/ai/AiPage';
@@ -61,6 +62,7 @@ export const router = createBrowserRouter([
               { path: '/users/:id/edit', element: <UserFormPage /> },
               { path: '/content', element: <ContentPage /> },
               { path: '/content/live-sessions/:id', element: <LiveSessionDetailPage /> },
+              { path: '/content/live-sessions/:id/assessments/new', element: <AssessmentCreatePage /> },
               { path: '/organizations', element: <OrganizationsPage /> },
               { path: '/organizations/new', element: <OrganizationFormPage /> },
               { path: '/organizations/:id/edit', element: <OrganizationFormPage /> },
@@ -95,6 +97,7 @@ export const router = createBrowserRouter([
                 children: [
                   { path: '/teacher/sessions/:id', element: <LiveSessionDetailPage /> },
                   { path: '/teacher/sessions/:id/materials', element: <StudyMaterialUploadPage /> },
+                  { path: '/teacher/sessions/:id/assessments/new', element: <AssessmentCreatePage /> },
                 ],
               },
               { path: '/teacher/materials', element: <RolePortalPage module="materials" /> },
