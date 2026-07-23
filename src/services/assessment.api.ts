@@ -19,6 +19,7 @@ export interface CreateAssessmentPayload {
   maxScore?: number;
   dueDate?: string;
   timeLimitMinutes?: number;
+  settings?: Record<string, any>;
   questions?: MCQQuestion[];
 }
 
@@ -32,6 +33,7 @@ export interface Assessment {
   dueDate?: string | null;
   timeLimitMinutes?: number | null;
   questions?: MCQQuestion[] | null;
+  settings?: Record<string, any> | null;
   submissionCount?: number;
   createdAt: string;
   updatedAt: string;

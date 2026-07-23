@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { FileText, HelpCircle, Loader2, Plus, Trash2 } from 'lucide-react';
+import { useRef, useState, type ChangeEvent, type DragEvent } from 'react';
+import { FileText, HelpCircle, Loader2, Plus, Trash2, UploadCloud } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -15,12 +15,23 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { extractApiError } from '@/lib/api';
+import { api, extractApiError } from '@/lib/api';
+import { cn } from '@/lib/utils';
+
+function formatBytes(bytes: number | null | undefined) {
+  if (!bytes) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  return `${(bytes / 1024 ** index).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+}
 import {
   createAssessment,
   type AssessmentType,
   type MCQQuestion,
 } from '@/services/assessment.api';
+import type { AdminLiveSessionRecord, ApiResponse } from '@/types/api';
+
+type LiveSessionMediaAsset = NonNullable<AdminLiveSessionRecord['mediaAssets']>[number];
 
 interface AssessmentCreateModalProps {
   open: boolean;
@@ -43,6 +54,9 @@ export function AssessmentCreateModal({
   const [fileDescription, setFileDescription] = useState('');
   const [maxScore, setMaxScore] = useState<number>(100);
   const [dueDate, setDueDate] = useState('');
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Auto-Scored MCQ Assessment state
   const [mcqTitle, setMcqTitle] = useState('');
@@ -62,6 +76,11 @@ export function AssessmentCreateModal({
     setFileDescription('');
     setMaxScore(100);
     setDueDate('');
+    setAttachmentFile(null);
+    setIsDragging(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
     setMcqTitle('');
     setMcqDescription('');
     setTimeLimitMinutes(30);
@@ -73,6 +92,47 @@ export function AssessmentCreateModal({
         correctOptionIndex: 0,
       },
     ]);
+  };
+
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isSubmitting) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (isSubmitting) return;
+
+    const droppedFile = e.dataTransfer.files?.[0];
+    if (droppedFile) {
+      setAttachmentFile(droppedFile);
+    }
+  };
+
+  const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      setAttachmentFile(selectedFile);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    if (isSubmitting) return;
+    setAttachmentFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleAddQuestion = () => {
@@ -145,6 +205,31 @@ export function AssessmentCreateModal({
 
     setIsSubmitting(true);
     try {
+      let attachmentAsset: LiveSessionMediaAsset | undefined;
+      
+      if (attachmentFile) {
+        const formData = new FormData();
+        formData.append('file', attachmentFile);
+        formData.append('kind', 'FILE');
+        formData.append('displayFileName', attachmentFile.name);
+        formData.append(
+          'metadata',
+          JSON.stringify({
+            category: 'ASSESSMENT_ATTACHMENT',
+            source: 'TEACHER_PORTAL',
+            originalFileName: attachmentFile.name,
+            displayFileName: attachmentFile.name,
+          }),
+        );
+        
+        const response = await api.post<ApiResponse<LiveSessionMediaAsset>>(
+          `/live-sessions/${sessionId}/media`,
+          formData,
+          { headers: { 'Content-Type': 'multipart/form-data' } }
+        );
+        attachmentAsset = response.data.data;
+      }
+
       await createAssessment({
         liveSessionId: sessionId,
         title: fileTitle.trim(),
@@ -152,6 +237,7 @@ export function AssessmentCreateModal({
         type: 'FILE_UPLOAD',
         maxScore: maxScore > 0 ? maxScore : 100,
         dueDate: dueDate || undefined,
+        settings: attachmentAsset ? { attachmentAsset } : {},
       });
 
       toast.success('File Upload Assessment created successfully');
@@ -256,6 +342,82 @@ export function AssessmentCreateModal({
                   onChange={(e) => setFileDescription(e.target.value)}
                   rows={3}
                 />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="file-attachment">Attachment (Optional)</Label>
+
+                <input
+                  ref={fileInputRef}
+                  id="file-attachment"
+                  type="file"
+                  className="hidden"
+                  disabled={isSubmitting}
+                  onChange={handleFileSelect}
+                />
+
+                {!attachmentFile ? (
+                  <div
+                    className={cn(
+                      'flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed bg-white p-6 text-center transition',
+                      isDragging
+                        ? 'border-brand-primary bg-brand-primary/5 ring-4 ring-brand-primary/10'
+                        : 'border-line hover:border-brand-primary/50 hover:bg-brand-primary/[0.025]',
+                      isSubmitting && 'cursor-not-allowed opacity-70'
+                    )}
+                    onClick={() => {
+                      if (!isSubmitting) fileInputRef.current?.click();
+                    }}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                  >
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-primary/10 text-brand-primary shadow-sm">
+                      <UploadCloud className="h-6 w-6" />
+                    </div>
+                    <p className="mt-3 text-sm font-bold text-ink-900">
+                      Click to upload or drag & drop file
+                    </p>
+                    <p className="mt-1 text-xs text-ink-500">
+                      Provide an optional file (e.g. PDF instructions) for students.
+                    </p>
+                  </div>
+                ) : (
+                  <div
+                    className={cn(
+                      'flex items-center justify-between rounded-xl border border-line bg-surface-variant/40 p-3.5 shadow-sm',
+                      isSubmitting && 'opacity-80'
+                    )}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
+                        {isSubmitting ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <FileText className="h-5 w-5" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-ink-900">
+                          {attachmentFile.name}
+                        </p>
+                        <p className="text-xs text-ink-500">
+                          {isSubmitting ? 'Uploading file...' : formatBytes(attachmentFile.size)}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={isSubmitting}
+                      className="h-8 w-8 p-0 text-ink-400 hover:text-danger hover:bg-danger/10"
+                      onClick={handleRemoveFile}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

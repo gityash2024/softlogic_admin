@@ -817,6 +817,22 @@ export function LiveSessionDetailPage() {
                     {item.timeLimitMinutes && <span>Time Limit: {item.timeLimitMinutes} mins</span>}
                     {item.questions && <span>Questions: {item.questions.length}</span>}
                   </div>
+                  {item.settings?.attachmentAsset && (
+                    <div className="mt-3 flex items-center">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto p-0 text-brand-primary hover:text-brand-primary/80 hover:bg-transparent justify-start"
+                        onClick={() => setPreviewAsset(item.settings!.attachmentAsset as LiveSessionMediaAsset)}
+                      >
+                        <FileText className="mr-2 h-4 w-4" />
+                        <span className="text-sm font-medium underline underline-offset-4">
+                          {(item.settings!.attachmentAsset as LiveSessionMediaAsset).fileName || 'View Attachment'}
+                        </span>
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 <Button
