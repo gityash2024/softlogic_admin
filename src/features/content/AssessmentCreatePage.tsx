@@ -1,5 +1,5 @@
 import { useRef, useState, type ChangeEvent, type DragEvent } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -45,6 +45,7 @@ function formatBytes(bytes: number | null | undefined) {
 export function AssessmentCreatePage() {
   const { id: sessionId } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<AssessmentType>('FILE_UPLOAD');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -230,6 +231,7 @@ export function AssessmentCreatePage() {
       });
 
       toast.success('File Upload Assessment created successfully');
+      queryClient.invalidateQueries({ queryKey: ['assessments-session', sessionId] });
       navigate(`/teacher/sessions/${sessionId}`);
     } catch (err) {
       toast.error(extractApiError(err));
@@ -280,6 +282,7 @@ export function AssessmentCreatePage() {
       });
 
       toast.success('MCQ Assessment created successfully');
+      queryClient.invalidateQueries({ queryKey: ['assessments-session', sessionId] });
       navigate(`/teacher/sessions/${sessionId}`);
     } catch (err) {
       toast.error(extractApiError(err));

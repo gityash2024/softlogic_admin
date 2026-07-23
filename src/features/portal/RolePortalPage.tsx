@@ -5,15 +5,19 @@ import {
   ArrowRight,
   BookOpen,
   CalendarClock,
+  ChevronDown,
+  ClipboardCheck,
   ClipboardList,
   Copy,
   Download,
   Eye,
   FileStack,
+  FileText,
   Image as ImageIcon,
   KeyRound,
   MonitorPlay,
   Play,
+  Plus,
   Presentation,
   Send,
   Square,
@@ -31,6 +35,7 @@ import {
   type ClassroomContentSlide,
   type ClassroomSummary,
 } from "@/services/classroom.api";
+import { getAssessmentsBySession, type Assessment } from "@/services/assessment.api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -1027,180 +1032,6 @@ function SessionCard({
   );
 }
 
-function MaterialsModule({ summary }: { summary: ClassroomSummary }) {
-  const [selectedCanvasId, setSelectedCanvasId] = useState<string | null>(null);
-  const canvasesQuery = useQuery({
-    queryKey: ["classroom", "content", "canvases"],
-    queryFn: classroomApi.contentCanvases,
-  });
-  const boards = canvasesQuery.data ?? [];
-  const selectedId = selectedCanvasId ?? boards[0]?.id ?? null;
-  const detailQuery = useQuery({
-    queryKey: ["classroom", "content", "canvas", selectedId],
-    queryFn: () => classroomApi.contentCanvas(selectedId as string),
-    enabled: Boolean(selectedId),
-  });
-  const detail = detailQuery.data;
-  const totals = boards.reduce(
-    (acc, board) => ({
-      materials: acc.materials + board.counts.imports + board.counts.recordings,
-      exports: acc.exports + board.counts.exports,
-      activity: acc.activity + board.counts.activity,
-    }),
-    { materials: 0, exports: 0, activity: 0 },
-  );
-
-  return (
-    <section className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-3">
-        <StatTile
-          label="Materials"
-          value={canvasesQuery.data ? totals.materials : summary.materials.length}
-          icon={FileStack}
-        />
-        <StatTile
-          label="Boards"
-          value={canvasesQuery.data ? boards.length : summary.canvases.length}
-          icon={BookOpen}
-        />
-        <StatTile
-          label="Activity"
-          value={canvasesQuery.data ? totals.activity : summary.notifications.length}
-          icon={ClipboardList}
-        />
-      </div>
-
-      {canvasesQuery.isLoading ? (
-        <Card className="flex items-center gap-2 px-5 py-4 text-sm text-ink-500">
-          <Spinner className="h-4 w-4 text-brand-primary" />
-          Loading board content...
-        </Card>
-      ) : boards.length === 0 ? (
-        <Card className="px-5 py-4 text-sm text-ink-500">
-          No board materials have been captured yet.
-        </Card>
-      ) : (
-        <div className="grid gap-4 xl:grid-cols-[360px_1fr]">
-          <div className="space-y-3">
-            {boards.map((board) => (
-              <button
-                key={board.id}
-                type="button"
-                onClick={() => setSelectedCanvasId(board.id)}
-                className={`w-full rounded-lg border bg-white p-3 text-left shadow-card transition hover:border-brand-primary/40 ${
-                  selectedId === board.id ? "border-brand-primary" : "border-line"
-                }`}
-              >
-                <BoardPreviewTile board={board} compact />
-                <p className="mt-3 truncate text-sm font-bold text-ink-900">
-                  {board.title}
-                </p>
-                <p className="mt-1 text-xs text-ink-500">
-                  Updated {formatDateTime(board.updatedAt)}
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-semibold text-ink-500">
-                  <span>{board.counts.imports} imports</span>
-                  <span>{board.counts.exports} exports</span>
-                  <span>{board.counts.liveSessions} sessions</span>
-                </div>
-              </button>
-            ))}
-          </div>
-          {detailQuery.isLoading ? (
-            <Card className="flex items-center gap-2 px-5 py-4 text-sm text-ink-500">
-              <Spinner className="h-4 w-4 text-brand-primary" />
-              Loading selected board...
-            </Card>
-          ) : detail ? (
-            <BoardContentDetail detail={detail} />
-          ) : (
-            <Card className="px-5 py-4 text-sm text-ink-500">
-              Select a board to review its content.
-            </Card>
-          )}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function BoardContentDetail({ detail }: { detail: ClassroomContentCanvasDetail }) {
-  return (
-    <div className="space-y-4">
-      <Card className="px-4 py-5 sm:px-5">
-        <div className="flex flex-col gap-4 lg:flex-row">
-          <div className="w-full lg:w-80">
-            <BoardPreviewTile board={detail} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-bold uppercase tracking-wide text-brand-primary">
-              Board content
-            </p>
-            <h3 className="mt-1 truncate text-xl font-black text-ink-900">
-              {detail.title}
-            </h3>
-            <p className="mt-1 text-sm text-ink-500">
-              Created {formatDateTime(detail.createdAt)} - Updated{" "}
-              {formatDateTime(detail.updatedAt)}
-            </p>
-            <div className="mt-4 grid gap-2 sm:grid-cols-4">
-              <StatTile label="Materials" value={detail.assets.length} icon={FileStack} />
-              <StatTile label="Exports" value={detail.exports.length} icon={Download} />
-              <StatTile label="Sessions" value={detail.liveSessions.length} icon={MonitorPlay} />
-              <StatTile label="Activity" value={detail.activity.length} icon={ClipboardList} />
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      <div className="grid gap-4 xl:grid-cols-2">
-        <ContentSection
-          title="Materials"
-          empty="No imports, media, or recordings have been captured for this board."
-          items={detail.assets.map((item) => ({
-            id: item.id,
-            title: item.title,
-            subtitle: `${item.type} - ${formatDateTime(item.createdAt)}`,
-            href: item.url ?? undefined,
-            icon: item.url ? ImageIcon : FileStack,
-          }))}
-        />
-        <ContentSection
-          title="Exports"
-          empty="No exports have been recorded for this board yet."
-          items={detail.exports.map((item) => ({
-            id: item.id,
-            title: `${item.format} export`,
-            subtitle: `${item.status} - ${formatDateTime(item.completedAt ?? item.createdAt)}`,
-            href: item.fileUrl ?? undefined,
-            icon: Download,
-          }))}
-        />
-        <ContentSection
-          title="Sessions"
-          empty="No live sessions are linked with this board yet."
-          items={detail.liveSessions.map((item) => ({
-            id: item.id,
-            title: item.title ?? "Live Session",
-            subtitle: `${item.status} - ${item.participantCount} participants - ${formatDateTime(item.createdAt)}`,
-            icon: MonitorPlay,
-          }))}
-        />
-        <ContentSection
-          title="Activity"
-          empty="No activity has been captured for this board yet."
-          items={detail.activity.map((item) => ({
-            id: item.id,
-            title: item.title,
-            subtitle: `${item.actorName ?? "SoftLogic"} - ${formatDateTime(item.createdAt)}`,
-            icon: ClipboardList,
-          }))}
-        />
-      </div>
-    </div>
-  );
-}
-
 function ContentSection({
   title,
   empty,
@@ -1432,6 +1263,218 @@ function RoleModuleBody({
     );
   }
   return <DashboardModule summary={summary} />;
+}
+
+function MaterialsModule({ summary }: { summary: ClassroomSummary }) {
+  const teacherSessions = summary.sessions;
+  const [expandedSessions, setExpandedSessions] = useState<string[]>([]);
+  const queryClient = useQueryClient();
+
+  const toggleSession = (sessionId: string) => {
+    setExpandedSessions((prev) =>
+      prev.includes(sessionId)
+        ? prev.filter((id) => id !== sessionId)
+        : [...prev, sessionId],
+    );
+  };
+
+  return (
+    <section className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-black text-ink-900">
+            Session Materials & Assessments
+          </h2>
+          <p className="text-sm text-ink-500">
+            Expand a session to view its attached materials and assessments.
+          </p>
+        </div>
+      </div>
+      {teacherSessions.length === 0 ? (
+        <Card className="px-4 py-8 text-center">
+          <FileStack className="mx-auto h-8 w-8 text-ink-400" />
+          <p className="mt-2 text-sm text-ink-500">
+            You don't have any sessions yet.
+          </p>
+        </Card>
+      ) : (
+        <div className="grid gap-4">
+          {teacherSessions.map((session) => (
+            <SessionMaterialsCard
+              key={session.id}
+              session={session}
+              isExpanded={expandedSessions.includes(session.id)}
+              onToggle={() => toggleSession(session.id)}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function SessionMaterialsCard({
+  session,
+  isExpanded,
+  onToggle,
+}: {
+  session: AdminLiveSessionRecord;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  const { data: detail, isLoading } = useQuery({
+    queryKey: ["classroom", "live-session", session.id, "details"],
+    queryFn: async () => {
+      const res = await api.get<{ data: any }>(
+        `/classroom/live-sessions/${session.id}/details`,
+      );
+      return res.data.data;
+    },
+    enabled: isExpanded,
+  });
+
+  const { data: assessments, isLoading: isAssessmentsLoading } = useQuery({
+    queryKey: ["assessments", session.id],
+    queryFn: async () => {
+      const res = await api.get<{ data: any[] }>(
+        `/assessments/sessions/${session.id}`,
+      );
+      return res.data.data;
+    },
+    enabled: isExpanded,
+  });
+
+  return (
+    <Card className="overflow-hidden">
+      <div
+        className="flex cursor-pointer items-center justify-between bg-surface-variant px-4 py-4 hover:bg-line/20"
+        onClick={onToggle}
+      >
+        <div className="flex items-center gap-3">
+          {isExpanded ? (
+            <ChevronDown className="h-5 w-5 text-brand-primary" />
+          ) : (
+            <ChevronDown className="h-5 w-5 text-brand-primary -rotate-90" />
+          )}
+          <div>
+            <p className="font-bold text-ink-900">
+              {session.title ?? "Live Session"}
+            </p>
+            <p className="text-xs text-ink-500">
+              {formatDateTime(session.createdAt)} •{" "}
+              {session._count?.participants ?? 0} participants
+            </p>
+          </div>
+        </div>
+        <Badge variant={statusVariant(session.status)}>{session.status}</Badge>
+      </div>
+
+      {isExpanded && (
+        <div className="border-t border-line px-4 py-5 sm:px-5">
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Study Materials */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b border-line pb-2">
+                <h4 className="font-bold text-ink-900 flex items-center gap-2">
+                  <FileStack className="h-4 w-4 text-brand-primary" />
+                  Study Materials
+                </h4>
+                <Button asChild size="sm" variant="ghost" className="h-8">
+                  <Link to={`/teacher/sessions/${session.id}/materials`}>
+                    <Plus className="mr-1 h-3 w-3" /> Add Material
+                  </Link>
+                </Button>
+              </div>
+              {isLoading ? (
+                <div className="flex justify-center py-4">
+                  <Spinner className="h-4 w-4 text-brand-primary" />
+                </div>
+              ) : detail?.assets && detail.assets.length > 0 ? (
+                <div className="space-y-2">
+                  {detail.assets.map((asset: any) => (
+                    <div
+                      key={asset.id}
+                      className="flex items-center justify-between rounded border border-line px-3 py-2 text-sm"
+                    >
+                      <div className="flex items-center gap-2">
+                        <ImageIcon className="h-4 w-4 text-ink-500" />
+                        <span className="font-medium text-ink-900">
+                          {asset.title}
+                        </span>
+                      </div>
+                      {asset.url && (
+                        <a
+                          href={asset.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-brand-primary hover:underline"
+                        >
+                          View
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-ink-500 italic">
+                  No study materials attached.
+                </p>
+              )}
+            </div>
+
+            {/* Assessments */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b border-line pb-2">
+                <h4 className="font-bold text-ink-900 flex items-center gap-2">
+                  <ClipboardList className="h-4 w-4 text-brand-primary" />
+                  Assessments
+                </h4>
+                <Button asChild size="sm" variant="ghost" className="h-8">
+                  <Link to={`/teacher/sessions/${session.id}/assessments/new`}>
+                    <Plus className="mr-1 h-3 w-3" /> Add Assessment
+                  </Link>
+                </Button>
+              </div>
+              {isAssessmentsLoading ? (
+                <div className="flex justify-center py-4">
+                  <Spinner className="h-4 w-4 text-brand-primary" />
+                </div>
+              ) : assessments && assessments.length > 0 ? (
+                <div className="space-y-2">
+                  {assessments.map((assessment) => (
+                    <div
+                      key={assessment.id}
+                      className="flex items-center justify-between rounded border border-line px-3 py-2 text-sm"
+                    >
+                      <div className="flex items-center gap-2">
+                        <MonitorPlay className="h-4 w-4 text-ink-500" />
+                        <div>
+                          <p className="font-medium text-ink-900">
+                            {assessment.title}
+                          </p>
+                          <p className="text-[10px] text-ink-500">
+                            {assessment.totalMarks} Marks •{" "}
+                            {assessment.questions?.length ?? 0} Qs
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant="info" className="text-[10px]">
+                        {assessment.status}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-ink-500 italic">
+                  No assessments created.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
 }
 
 function isModuleAllowed(role: UserRole, module: RolePortalModule) {

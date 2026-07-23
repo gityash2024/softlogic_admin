@@ -748,13 +748,14 @@ export function LiveSessionDetailPage() {
             </div>
             {isTeacher && (
               <Button
-                type="button"
+                asChild
                 variant="outline"
                 size="sm"
-                onClick={() => navigate('/teacher/sessions/' + id + '/assessments/new')}
               >
-                <Plus className="h-4 w-4" />
-                Add Assessment
+                <Link to={`/teacher/sessions/${id}/materials`}>
+                  <Plus className="h-4 w-4" />
+                  Add Study Material
+                </Link>
               </Button>
             )}
           </div>
