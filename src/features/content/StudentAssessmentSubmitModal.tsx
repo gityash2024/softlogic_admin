@@ -112,6 +112,18 @@ export function StudentAssessmentSubmitModal({
               ? `You scored ${existingSubmission.totalScore ?? 0} out of ${assessment.maxScore ?? assessment.questions?.length ?? 0} points.`
               : (existingSubmission?.fileName ? `File: ${existingSubmission.fileName}` : 'Your assessment has been recorded.')}
           </p>
+          {existingSubmission?.status === 'GRADED' && existingSubmission?.totalScore !== undefined && (
+            <div className="mt-4 p-4 bg-brand-primary/5 rounded-lg border border-brand-primary/20 text-left">
+              <p className="text-sm font-bold text-brand-primary mb-1">
+                Score: {existingSubmission.totalScore} / {assessment.maxScore || 100}
+              </p>
+              {existingSubmission.feedback && (
+                <p className="text-xs text-ink-600">
+                  <span className="font-semibold text-ink-800">Feedback:</span> {existingSubmission.feedback}
+                </p>
+              )}
+            </div>
+          )}
           <Button className="mt-6" onClick={() => handleOpenChange(false)}>
             Close
           </Button>
@@ -122,25 +134,39 @@ export function StudentAssessmentSubmitModal({
     if (!isMcq) {
       return (
         <div className="space-y-6">
-          <div className="rounded-lg border-2 border-dashed border-line p-8 text-center bg-surface-variant/40">
-            <FileText className="mx-auto h-12 w-12 text-ink-300 mb-4" />
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-ink-900">
-                Upload your assignment file
-              </p>
-              <p className="text-xs text-ink-500">
-                Ensure your file is under 50MB. PDFs or Word documents are preferred.
-              </p>
-            </div>
-            <div className="mt-6 max-w-sm mx-auto">
-              <Label htmlFor="file-upload" className="sr-only">Choose file</Label>
-              <Input
-                id="file-upload"
-                type="file"
-                className="cursor-pointer"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
-              />
-            </div>
+          <div className="rounded-xl border-2 border-dashed border-line p-8 text-center bg-surface-variant/40 hover:bg-surface-variant/80 transition-colors relative cursor-pointer group">
+            <input
+              id="file-upload"
+              type="file"
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+            />
+            {file ? (
+              <div className="space-y-4">
+                <div className="mx-auto h-16 w-16 bg-success/10 rounded-full flex items-center justify-center">
+                  <CheckCircle2 className="h-8 w-8 text-success" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-ink-900 truncate px-4">{file.name}</p>
+                  <p className="text-xs font-medium text-success">Ready to submit • {(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                </div>
+                <p className="text-xs text-ink-400 group-hover:text-brand-primary transition-colors">Click or drag to change file</p>
+              </div>
+            ) : (
+              <div className="space-y-4 pointer-events-none">
+                <div className="mx-auto h-16 w-16 bg-white shadow-sm rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                  <Upload className="h-7 w-7 text-brand-primary" />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-base font-semibold text-ink-900">
+                    Click to upload or drag and drop
+                  </p>
+                  <p className="text-xs text-ink-500 max-w-[250px] mx-auto">
+                    SVG, PNG, JPG, PDF or DOCX (max. 50MB)
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={() => handleOpenChange(false)}>

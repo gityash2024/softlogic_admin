@@ -106,7 +106,7 @@ export async function gradeSubmission(
   submissionId: string,
   payload: GradeSubmissionPayload,
 ): Promise<AssessmentSubmission> {
-  const res = await api.patch<ApiResponse<AssessmentSubmission>>(`/assessments/submissions/${submissionId}/grade`, payload);
+  const res = await api.post<ApiResponse<AssessmentSubmission>>(`/assessments/submissions/${submissionId}/grade`, payload);
   return res.data.data;
 }
 
