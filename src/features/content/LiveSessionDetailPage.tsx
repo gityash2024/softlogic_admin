@@ -53,6 +53,7 @@ import {
   type Assessment,
 } from '@/services/assessment.api';
 import { AssessmentSubmissionsModal } from './AssessmentSubmissionsModal';
+import { StudentAssessmentSubmitModal } from './StudentAssessmentSubmitModal';
 import {
   LIVE_SESSION_STATUS_LABEL,
   type AdminLiveSessionRecord,
@@ -331,6 +332,7 @@ export function LiveSessionDetailPage() {
   const [previewAsset, setPreviewAsset] = useState<LiveSessionMediaAsset | null>(null);
   const [selectedAssessmentForSubmissions, setSelectedAssessmentForSubmissions] =
     useState<Assessment | null>(null);
+  const [submitAssessment, setSubmitAssessment] = useState<Assessment | null>(null);
 
   const portalRole =
     actor?.role === 'TEACHER' || actor?.role === 'STUDENT' || actor?.role === 'PARENT';
@@ -594,15 +596,29 @@ export function LiveSessionDetailPage() {
                 </div>
 
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSelectedAssessmentForSubmissions(item)}
-                  >
-                    <Eye className="mr-2 h-4 w-4" />
-                    View Submissions
-                  </Button>
+                  {isTeacher ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedAssessmentForSubmissions(item)}
+                    >
+                      <Eye className="mr-2 h-4 w-4" />
+                      View Submissions
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant={(item.submissions && item.submissions.length > 0) ? "secondary" : "default"}
+                      size="sm"
+                      onClick={() => setSubmitAssessment(item)}
+                    >
+                      <Eye className="mr-2 h-4 w-4" />
+                      {(item.submissions && item.submissions.length > 0)
+                        ? (item.type === 'QUIZ_MCQ' ? 'View Score' : 'View Submission')
+                        : (item.type === 'QUIZ_MCQ' ? 'Take Quiz' : 'Submit')}
+                    </Button>
+                  )}
                   <Badge variant="success" className="shrink-0">
                     PUBLISHED
                   </Badge>
@@ -809,6 +825,14 @@ export function LiveSessionDetailPage() {
         onOpenChange={(open) => !open && setSelectedAssessmentForSubmissions(null)}
         assessment={selectedAssessmentForSubmissions}
       />
+
+      {submitAssessment && (
+        <StudentAssessmentSubmitModal
+          open={Boolean(submitAssessment)}
+          onOpenChange={(open) => !open && setSubmitAssessment(null)}
+          assessment={submitAssessment}
+        />
+      )}
     </div>
   );
 }
