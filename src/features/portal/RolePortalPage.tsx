@@ -48,6 +48,7 @@ import {
   type AdminLiveSessionRecord,
   type UserRole,
 } from "@/types/api";
+import { StudentAssessmentSubmitModal } from "../content/StudentAssessmentSubmitModal";
 
 export type RolePortalModule =
   | "dashboard"
@@ -1305,6 +1306,7 @@ function MaterialsModule({ summary }: { summary: ClassroomSummary }) {
             <SessionMaterialsCard
               key={session.id}
               session={session}
+              role={summary.role}
               isExpanded={expandedSessions.includes(session.id)}
               onToggle={() => toggleSession(session.id)}
             />
@@ -1317,10 +1319,12 @@ function MaterialsModule({ summary }: { summary: ClassroomSummary }) {
 
 function SessionMaterialsCard({
   session,
+  role,
   isExpanded,
   onToggle,
 }: {
   session: AdminLiveSessionRecord;
+  role: UserRole;
   isExpanded: boolean;
   onToggle: () => void;
 }) {
@@ -1336,6 +1340,8 @@ function SessionMaterialsCard({
     },
     enabled: isExpanded,
   });
+
+  const [submitAssessment, setSubmitAssessment] = useState<Assessment | null>(null);
 
   const studyMaterials =
     detail?.studyMaterials && detail.studyMaterials.length > 0
@@ -1484,6 +1490,19 @@ function SessionMaterialsCard({
                             View
                           </Button>
                         )}
+                        {role === "STUDENT" && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="h-7 px-3 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSubmitAssessment(assessment);
+                            }}
+                          >
+                            {assessment.type === 'MCQ' ? 'Take Quiz' : 'Submit'}
+                          </Button>
+                        )}
                         <Badge variant="info" className="text-[10px] shrink-0 uppercase">
                           {assessment.status}
                         </Badge>
@@ -1502,6 +1521,13 @@ function SessionMaterialsCard({
       )}
 
       <MaterialPreviewDialog asset={previewAsset} onClose={() => setPreviewAsset(null)} />
+      {submitAssessment && (
+        <StudentAssessmentSubmitModal
+          open={!!submitAssessment}
+          onOpenChange={(open) => !open && setSubmitAssessment(null)}
+          assessment={submitAssessment}
+        />
+      )}
     </Card>
   );
 }

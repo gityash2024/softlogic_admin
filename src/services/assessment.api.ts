@@ -74,6 +74,13 @@ export interface AssessmentSubmission {
   breakdown?: MCQAnswerBreakdown[] | null;
 }
 
+export interface SubmitAssessmentPayload {
+  answers: {
+    questionId: string;
+    selectedOptionIds: string[];
+  }[];
+}
+
 export interface GradeSubmissionPayload {
   score: number;
   feedback?: string;
@@ -102,9 +109,31 @@ export async function gradeSubmission(
   return res.data.data;
 }
 
+export async function submitAssessment(
+  assessmentId: string,
+  payload: SubmitAssessmentPayload,
+): Promise<AssessmentSubmission> {
+  const res = await api.post<ApiResponse<AssessmentSubmission>>(`/assessments/${assessmentId}/submit`, payload);
+  return res.data.data;
+}
+
+export async function submitAssessmentFile(
+  assessmentId: string,
+  file: File,
+): Promise<AssessmentSubmission> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await api.post<ApiResponse<AssessmentSubmission>>(`/assessments/${assessmentId}/submit-file`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return res.data.data;
+}
+
 export const assessmentApi = {
   createAssessment,
   getAssessmentsBySession,
   getSubmissions,
   gradeSubmission,
+  submitAssessment,
+  submitAssessmentFile,
 };
