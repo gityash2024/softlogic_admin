@@ -550,11 +550,11 @@ export function LiveSessionDetailPage() {
             {assessments.map((item) => (
               <div
                 key={item.id}
-                className="flex flex-col gap-3 rounded-lg border border-line bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-3 rounded-lg border border-line bg-white p-4"
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h4 className="truncate text-sm font-bold text-ink-900 max-w-full sm:max-w-[250px]">{item.title}</h4>
+                    <h4 className="text-sm font-bold text-ink-900 truncate max-w-full">{item.title}</h4>
                     <Badge variant={item.type === 'MCQ' ? 'info' : 'default'} className="shrink-0">
                       {item.type === 'MCQ' ? 'Auto-Scored MCQ' : 'File Upload'}
                     </Badge>
@@ -572,7 +572,7 @@ export function LiveSessionDetailPage() {
                     {item.questions && <span>Questions: {item.questions.length}</span>}
                   </div>
                   {item.settings?.attachmentAsset && (
-                    <div className="mt-3 flex items-center max-w-full">
+                    <div className="mt-2 flex items-center min-w-0">
                       <Button
                         type="button"
                         variant="ghost"
@@ -589,15 +589,17 @@ export function LiveSessionDetailPage() {
                   )}
                 </div>
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="shrink-0"
-                  onClick={() => setSelectedAssessmentForSubmissions(item)}
-                >
-                  View Submissions
-                </Button>
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0"
+                    onClick={() => setSelectedAssessmentForSubmissions(item)}
+                  >
+                    View Submissions
+                  </Button>
+                </div>
               </div>
             ))}
 
