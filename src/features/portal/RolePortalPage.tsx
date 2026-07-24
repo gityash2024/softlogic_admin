@@ -1470,10 +1470,7 @@ function SessionMaterialsCard({
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="info" className="text-[10px]">
-                          {assessment.status}
-                        </Badge>
+                      <div className="flex items-center gap-2 shrink-0">
                         {assessment.settings?.attachmentAsset && (
                           <Button
                             variant="ghost"
@@ -1487,6 +1484,9 @@ function SessionMaterialsCard({
                             View
                           </Button>
                         )}
+                        <Badge variant="info" className="text-[10px] shrink-0 uppercase">
+                          {assessment.status}
+                        </Badge>
                       </div>
                     </div>
                   ))}

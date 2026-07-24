@@ -554,11 +554,11 @@ export function LiveSessionDetailPage() {
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h4 className="truncate text-sm font-bold text-ink-900">{item.title}</h4>
-                    <Badge variant={item.type === 'MCQ' ? 'info' : 'default'}>
+                    <h4 className="truncate text-sm font-bold text-ink-900 max-w-full sm:max-w-[250px]">{item.title}</h4>
+                    <Badge variant={item.type === 'MCQ' ? 'info' : 'default'} className="shrink-0">
                       {item.type === 'MCQ' ? 'Auto-Scored MCQ' : 'File Upload'}
                     </Badge>
-                    <Badge variant="default" className="bg-brand-primary/10 text-brand-primary font-semibold">
+                    <Badge variant="default" className="bg-brand-primary/10 text-brand-primary font-semibold shrink-0">
                       {item.submissionCount ?? 0} Submissions
                     </Badge>
                   </div>
@@ -593,6 +593,7 @@ export function LiveSessionDetailPage() {
                   type="button"
                   variant="outline"
                   size="sm"
+                  className="shrink-0"
                   onClick={() => setSelectedAssessmentForSubmissions(item)}
                 >
                   View Submissions
