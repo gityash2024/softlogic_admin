@@ -196,10 +196,9 @@ function MaterialCard({
     await downloadMediaAsset(asset);
     setIsDownloading(false);
   }
-
   return (
-    <div className="min-w-0 overflow-hidden rounded-lg border border-line bg-white px-4 py-3">
-      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
+    <div className="min-w-0 overflow-hidden rounded-lg border border-line bg-white p-4">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-variant text-brand-primary">
           <Icon className="h-5 w-5" />
         </div>
@@ -208,22 +207,26 @@ function MaterialCard({
           className="min-w-0 flex-1 text-left"
           onClick={() => onPreview(asset)}
         >
-          <p className="truncate text-sm font-semibold text-ink-900">{asset.fileName}</p>
+          <p className="truncate text-sm font-bold text-ink-900">{asset.fileName}</p>
           <p className="mt-1 truncate text-xs text-ink-500">
-            {asset.kind} - {asset.mimeType} - {formatBytes(asset.sizeBytes)}
+            {asset.kind} • {formatBytes(asset.sizeBytes)} • {formatDateTime(asset.createdAt)}
           </p>
-          <p className="mt-1 text-xs text-ink-400">{formatDateTime(asset.createdAt)}</p>
         </button>
-        <div className="flex shrink-0 flex-wrap gap-2">
+      </div>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
+        <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" size="sm" onClick={() => onPreview(asset)}>
-            <Eye className="h-4 w-4" />
-            Preview
+            <Eye className="mr-2 h-4 w-4" />
+            View
           </Button>
           <Button type="button" variant="ghost" size="sm" disabled={isDownloading} onClick={handleDownload}>
-            {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
             Download
           </Button>
         </div>
+        <Badge variant="success" className="shrink-0">
+          PUBLISHED
+        </Badge>
       </div>
     </div>
   );
@@ -550,11 +553,11 @@ export function LiveSessionDetailPage() {
             {assessments.map((item) => (
               <div
                 key={item.id}
-                className="overflow-hidden rounded-lg border border-line bg-white p-4"
+                className="min-w-0 overflow-hidden rounded-lg border border-line bg-white p-4"
               >
-                <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                <div className="min-w-0 overflow-hidden">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h4 className="text-sm font-bold text-ink-900" style={{ wordBreak: 'break-word' }}>{item.title}</h4>
+                    <h4 className="min-w-0 flex-1 break-words text-sm font-bold text-ink-900">{item.title}</h4>
                     <Badge variant={item.type === 'MCQ' ? 'info' : 'default'} className="shrink-0 whitespace-nowrap">
                       {item.type === 'MCQ' ? 'Auto-Scored MCQ' : 'File Upload'}
                     </Badge>
@@ -590,15 +593,19 @@ export function LiveSessionDetailPage() {
                   )}
                 </div>
 
-                <div className="mt-3 flex justify-end">
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => setSelectedAssessmentForSubmissions(item)}
                   >
+                    <Eye className="mr-2 h-4 w-4" />
                     View Submissions
                   </Button>
+                  <Badge variant="success" className="shrink-0">
+                    PUBLISHED
+                  </Badge>
                 </div>
               </div>
             ))}
