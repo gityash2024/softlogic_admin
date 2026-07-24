@@ -615,8 +615,8 @@ export function LiveSessionDetailPage() {
                     >
                       <Eye className="mr-2 h-4 w-4" />
                       {(item.submissions && item.submissions.length > 0)
-                        ? (item.type === 'QUIZ_MCQ' ? 'View Score' : 'View Submission')
-                        : (item.type === 'QUIZ_MCQ' ? 'Take Quiz' : 'Submit')}
+                        ? (item.type === 'MCQ' ? 'View Score' : 'View Submission')
+                        : (item.type === 'MCQ' ? 'Take Quiz' : 'Submit')}
                     </Button>
                   )}
                   <Badge variant="success" className="shrink-0">
