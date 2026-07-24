@@ -572,16 +572,16 @@ export function LiveSessionDetailPage() {
                     {item.questions && <span>Questions: {item.questions.length}</span>}
                   </div>
                   {item.settings?.attachmentAsset && (
-                    <div className="mt-3 flex items-center">
+                    <div className="mt-3 flex items-center max-w-full">
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="h-auto p-0 text-brand-primary hover:text-brand-primary/80 hover:bg-transparent justify-start"
+                        className="h-auto p-0 text-brand-primary hover:text-brand-primary/80 hover:bg-transparent justify-start max-w-full"
                         onClick={() => setPreviewAsset(item.settings!.attachmentAsset as LiveSessionMediaAsset)}
                       >
-                        <FileText className="mr-2 h-4 w-4" />
-                        <span className="text-sm font-medium underline underline-offset-4">
+                        <FileText className="mr-2 h-4 w-4 shrink-0" />
+                        <span className="text-sm font-medium underline underline-offset-4 truncate">
                           {(item.settings!.attachmentAsset as LiveSessionMediaAsset).fileName || 'View Attachment'}
                         </span>
                       </Button>
