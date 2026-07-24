@@ -33,3 +33,10 @@ export function initials(name?: string | null, fallback = '?') {
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
+
+export function formatBytes(bytes: number | null | undefined) {
+  if (!bytes) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  return `${(bytes / Math.pow(1024, index)).toFixed(2)} ${units[index]}`;
+}

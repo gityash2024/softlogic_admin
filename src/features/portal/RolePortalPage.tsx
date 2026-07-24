@@ -16,6 +16,7 @@ import {
   Image as ImageIcon,
   KeyRound,
   MonitorPlay,
+  PenTool,
   Play,
   Plus,
   Presentation,
@@ -25,6 +26,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { MaterialPreviewDialog, type LiveSessionMediaAsset } from "@/components/MaterialPreviewDialog";
 import { api, extractApiError } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
 import { formatDateTime } from "@/lib/utils";
@@ -1322,6 +1324,8 @@ function SessionMaterialsCard({
   isExpanded: boolean;
   onToggle: () => void;
 }) {
+  const [previewAsset, setPreviewAsset] = useState<LiveSessionMediaAsset | null>(null);
+
   const { data: detail, isLoading } = useQuery({
     queryKey: ["classroom", "live-session", session.id, "details"],
     queryFn: async () => {
@@ -1409,16 +1413,17 @@ function SessionMaterialsCard({
                           {asset.fileName ?? asset.title ?? "Material"}
                         </span>
                       </div>
-                      {asset.publicUrl && (
-                        <a
-                          href={asset.publicUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs text-brand-primary hover:underline"
-                        >
-                          View
-                        </a>
-                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-brand-primary hover:bg-brand-primary/10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPreviewAsset(asset);
+                        }}
+                      >
+                        View
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -1465,9 +1470,24 @@ function SessionMaterialsCard({
                           </p>
                         </div>
                       </div>
-                      <Badge variant="info" className="text-[10px]">
-                        {assessment.status}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="info" className="text-[10px]">
+                          {assessment.status}
+                        </Badge>
+                        {assessment.settings?.attachmentAsset && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs text-brand-primary hover:bg-brand-primary/10"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPreviewAsset(assessment.settings.attachmentAsset);
+                            }}
+                          >
+                            View
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1480,6 +1500,8 @@ function SessionMaterialsCard({
           </div>
         </div>
       )}
+
+      <MaterialPreviewDialog asset={previewAsset} onClose={() => setPreviewAsset(null)} />
     </Card>
   );
 }

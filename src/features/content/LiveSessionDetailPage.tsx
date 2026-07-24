@@ -45,7 +45,7 @@ import {
 } from '@/components/ui/table';
 import { api, apiObjectUrl, extractApiError } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
-import { formatDateTime } from '@/lib/utils';
+import { formatDateTime, formatBytes } from '@/lib/utils';
 import { classroomApi } from '@/services/classroom.api';
 import { contentApi } from '@/services/content.api';
 import {
@@ -61,7 +61,12 @@ import {
 } from '@/types/api';
 import { BoardPreviewTile, type WhiteboardPreviewSlide } from './WhiteboardPreview';
 
-type LiveSessionMediaAsset = NonNullable<AdminLiveSessionRecord['mediaAssets']>[number];
+import {
+  MaterialPreviewDialog,
+  downloadMediaAsset,
+  isStudyMaterial,
+  type LiveSessionMediaAsset,
+} from '@/components/MaterialPreviewDialog';
 type LiveSessionRecording = NonNullable<AdminLiveSessionRecord['recordings']>[number];
 type LiveSessionEvent = AdminLiveSessionRecord['events'][number];
 
@@ -70,13 +75,6 @@ function statusVariant(status: LiveSessionStatus) {
   if (status === 'SCHEDULED') return 'info' as const;
   if (status === 'CANCELLED') return 'danger' as const;
   return 'default' as const;
-}
-
-function formatBytes(bytes: number | null | undefined) {
-  if (!bytes) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-  return `${(bytes / 1024 ** index).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
 function durationLabel(session: AdminLiveSessionRecord) {
@@ -114,94 +112,7 @@ function payloadList(payload: Record<string, unknown> | null | undefined, key: s
   return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
 }
 
-function isStudyMaterial(asset: LiveSessionMediaAsset) {
-  return asset.metadata?.category === 'STUDY_MATERIAL';
-}
 
-function assetExtension(asset: LiveSessionMediaAsset) {
-  const parts = asset.fileName.toLowerCase().split('.');
-  return parts.length > 1 ? parts.pop() ?? '' : '';
-}
-
-function isPdfAsset(asset: LiveSessionMediaAsset) {
-  return asset.mimeType === 'application/pdf' || assetExtension(asset) === 'pdf';
-}
-
-function isTextAsset(asset: LiveSessionMediaAsset) {
-  return asset.mimeType.startsWith('text/') || ['txt', 'csv'].includes(assetExtension(asset));
-}
-
-function isOfficeAsset(asset: LiveSessionMediaAsset) {
-  return ['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'].includes(assetExtension(asset));
-}
-
-function officeViewerUrl(publicUrl: string) {
-  return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(publicUrl)}`;
-}
-
-function mediaAssetUrl(asset: LiveSessionMediaAsset | null | undefined) {
-  return apiObjectUrl(asset?.storageKey, asset?.publicUrl);
-}
-
-function useBlobPreviewUrl(sourceUrl: string | null, enabled: boolean) {
-  const [state, setState] = useState<{
-    url: string | null;
-    isLoading: boolean;
-    error: string | null;
-  }>({ url: null, isLoading: false, error: null });
-
-  useEffect(() => {
-    if (!sourceUrl || !enabled) {
-      setState({ url: null, isLoading: false, error: null });
-      return;
-    }
-
-    let isActive = true;
-    let objectUrl: string | null = null;
-    setState({ url: null, isLoading: true, error: null });
-
-    api
-      .get<Blob>(sourceUrl, { responseType: 'blob' })
-      .then((response) => {
-        if (!isActive) return;
-        objectUrl = URL.createObjectURL(response.data);
-        setState({ url: objectUrl, isLoading: false, error: null });
-      })
-      .catch((error) => {
-        if (!isActive) return;
-        setState({ url: null, isLoading: false, error: extractApiError(error) });
-      });
-
-    return () => {
-      isActive = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [enabled, sourceUrl]);
-
-  return state;
-}
-
-async function downloadMediaAsset(asset: LiveSessionMediaAsset) {
-  const assetUrl = mediaAssetUrl(asset);
-  if (!assetUrl) {
-    toast.error('Download link is unavailable for this material');
-    return;
-  }
-
-  try {
-    const response = await api.get<Blob>(assetUrl, { responseType: 'blob' });
-    const objectUrl = URL.createObjectURL(response.data);
-    const anchor = document.createElement('a');
-    anchor.href = objectUrl;
-    anchor.download = asset.fileName;
-    document.body.append(anchor);
-    anchor.click();
-    anchor.remove();
-    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-  } catch (error) {
-    toast.error(extractApiError(error));
-  }
-}
 
 function backPathForRole(role: UserRole | undefined) {
   if (role === 'TEACHER') return '/teacher/sessions';
@@ -318,163 +229,7 @@ function MaterialCard({
   );
 }
 
-function MaterialPreviewDialog({
-  asset,
-  onClose,
-}: {
-  asset: LiveSessionMediaAsset | null;
-  onClose: () => void;
-}) {
-  const assetUrl = mediaAssetUrl(asset);
-  const shouldUseBlobPreview = Boolean(asset && assetUrl && (isPdfAsset(asset) || isTextAsset(asset)));
-  const blobPreview = useBlobPreviewUrl(assetUrl, shouldUseBlobPreview);
-  const previewUrl = blobPreview.url ?? assetUrl;
-  const [isDownloading, setIsDownloading] = useState(false);
 
-  async function handleDownload() {
-    if (!asset) return;
-    setIsDownloading(true);
-    await downloadMediaAsset(asset);
-    setIsDownloading(false);
-  }
-
-  function renderPreview() {
-    if (!asset) return null;
-
-    if (!previewUrl && !blobPreview.isLoading) {
-      return (
-        <div className="flex min-h-[420px] flex-col items-center justify-center rounded-lg border border-dashed border-line bg-surface-variant px-5 text-center">
-          <FileText className="h-10 w-10 text-ink-300" />
-          <p className="mt-3 text-sm font-semibold text-ink-800">Preview link unavailable</p>
-        </div>
-      );
-    }
-
-    if (blobPreview.isLoading) {
-      return (
-        <div className="flex min-h-[420px] flex-col items-center justify-center rounded-lg border border-line bg-surface-variant px-5 text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
-          <p className="mt-3 text-sm font-semibold text-ink-800">Loading secure preview</p>
-        </div>
-      );
-    }
-
-    if (blobPreview.error) {
-      return (
-        <div className="flex min-h-[420px] flex-col items-center justify-center rounded-lg border border-line bg-surface-variant px-5 text-center">
-          <FileText className="h-10 w-10 text-danger" />
-          <p className="mt-3 text-sm font-semibold text-ink-800">Preview could not load</p>
-          <p className="mt-1 max-w-md text-sm text-ink-500">{blobPreview.error}</p>
-        </div>
-      );
-    }
-
-    if (asset.kind === 'IMAGE') {
-      return (
-        <img
-          src={previewUrl ?? undefined}
-          alt={asset.fileName}
-          className="h-[min(62dvh,680px)] w-full rounded-lg border border-line bg-surface-variant object-contain"
-        />
-      );
-    }
-
-    if (asset.kind === 'VIDEO') {
-      return (
-        <video
-          src={previewUrl ?? undefined}
-          className="h-[min(62dvh,680px)] w-full rounded-lg border border-line bg-ink-900"
-          controls
-        />
-      );
-    }
-
-    if (isPdfAsset(asset) || isTextAsset(asset)) {
-      return (
-        <iframe
-          title={asset.fileName}
-          src={previewUrl ?? undefined}
-          className="h-[min(62dvh,680px)] w-full rounded-lg border border-line bg-white"
-        />
-      );
-    }
-
-    if (isOfficeAsset(asset) && assetUrl) {
-      return (
-        <div className="space-y-3">
-          <iframe
-            title={asset.fileName}
-            src={officeViewerUrl(assetUrl)}
-            className="h-[min(62dvh,680px)] w-full rounded-lg border border-line bg-white"
-            allowFullScreen
-          />
-          <p className="text-xs text-ink-500">
-            Office previews are rendered by Microsoft Office viewer. Use Download if the preview
-            takes longer than expected.
-          </p>
-        </div>
-      );
-    }
-
-    return (
-      <div className="flex min-h-[420px] flex-col items-center justify-center rounded-lg border border-line bg-surface-variant px-5 text-center">
-        <FileText className="h-10 w-10 text-brand-primary" />
-        <p className="mt-3 max-w-md break-words text-sm font-semibold text-ink-800">
-          {asset.fileName}
-        </p>
-        <p className="mt-1 text-sm text-ink-500">Download this material to open it on your device.</p>
-      </div>
-    );
-  }
-
-  return (
-    <Dialog open={Boolean(asset)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[min(1180px,calc(100vw-2rem))] gap-0 overflow-hidden p-0">
-        <DialogHeader className="border-b border-line px-5 py-4 pr-12">
-          <DialogTitle className="break-words pr-2">{asset?.fileName ?? 'Study material'}</DialogTitle>
-          <DialogDescription>
-            {asset
-              ? `${asset.kind} - ${asset.mimeType} - ${formatBytes(asset.sizeBytes)}`
-              : 'Preview shared study material'}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid min-h-0 gap-0 lg:grid-cols-[minmax(0,1fr)_240px]">
-          <div className="min-w-0 p-5">{renderPreview()}</div>
-          <aside className="border-t border-line bg-surface-variant/40 p-5 lg:border-l lg:border-t-0">
-            <div className="space-y-4 text-sm">
-              <div>
-                <p className="text-xs font-semibold uppercase text-ink-400">Shared</p>
-                <p className="mt-1 font-semibold text-ink-800">
-                  {asset ? formatDateTime(asset.createdAt) : '-'}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase text-ink-400">Access</p>
-                <p className="mt-1 font-semibold text-ink-800">Students and parents</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase text-ink-400">File type</p>
-                <p className="mt-1 break-words font-semibold text-ink-800">{asset?.mimeType ?? '-'}</p>
-              </div>
-            </div>
-            <Button type="button" className="mt-6 w-full" disabled={!asset || isDownloading} onClick={handleDownload}>
-              {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              Download material
-            </Button>
-            {assetUrl && (
-              <Button asChild variant="outline" className="mt-2 w-full">
-                <a href={assetUrl} target="_blank" rel="noreferrer">
-                  <ExternalLink className="h-4 w-4" />
-                  Open in new tab
-                </a>
-              </Button>
-            )}
-          </aside>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 function RecordingCard({ recording }: { recording: LiveSessionRecording }) {
   return (
