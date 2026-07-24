@@ -138,7 +138,7 @@ export function AssessmentSubmissionsModal({
 
     try {
       const updated = await gradeSubmission(submission.id, {
-        score: numericScore,
+        totalScore: numericScore,
         feedback: currentState.feedback.trim() || undefined,
       });
 

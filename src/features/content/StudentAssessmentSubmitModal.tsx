@@ -109,13 +109,13 @@ export function StudentAssessmentSubmitModal({
           </h3>
           <p className="mt-2 text-sm text-ink-500">
             {isMcq && existingSubmission
-              ? `You scored ${existingSubmission.score ?? existingSubmission.totalPoints ?? 0} out of ${assessment.maxScore ?? assessment.questions?.length ?? 0} points.`
+              ? `You scored ${existingSubmission.totalScore ?? existingSubmission.totalPoints ?? 0} out of ${assessment.maxScore ?? assessment.questions?.length ?? 0} points.`
               : (existingSubmission?.fileName ? `File: ${existingSubmission.fileName}` : 'Your assessment has been recorded.')}
           </p>
-          {existingSubmission?.gradedAt && existingSubmission?.score !== undefined && existingSubmission?.score !== null && (
+          {existingSubmission?.gradedAt && existingSubmission?.totalScore !== undefined && existingSubmission?.totalScore !== null && (
             <div className="mt-4 p-4 bg-brand-primary/5 rounded-lg border border-brand-primary/20 text-left">
               <p className="text-sm font-bold text-brand-primary mb-1">
-                Score: {existingSubmission.score} / {assessment.maxScore || 100}
+                Score: {existingSubmission.totalScore} / {assessment.maxScore || 100}
               </p>
               {existingSubmission.feedback && (
                 <p className="text-xs text-ink-600">

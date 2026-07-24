@@ -62,10 +62,11 @@ export interface AssessmentSubmission {
   fileUrl?: string | null;
   fileName?: string | null;
   fileSizeBytes?: number | null;
-  score?: number | null;
+  totalScore?: number | null;
   maxScore?: number | null;
   feedback?: string | null;
   gradedAt?: string | null;
+  status?: string;
   // MCQ specific fields
   autoScore?: number | null;
   totalPoints?: number | null;
@@ -83,7 +84,7 @@ export interface SubmitAssessmentPayload {
 }
 
 export interface GradeSubmissionPayload {
-  score: number;
+  totalScore: number;
   feedback?: string;
 }
 
