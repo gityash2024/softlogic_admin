@@ -1348,7 +1348,7 @@ function SessionMaterialsCard({
     queryKey: ["assessments-session", session.id],
     queryFn: async () => {
       const res = await api.get<{ data: any[] }>(
-        `/assessments/sessions/${session.id}`,
+        `/live-sessions/${session.id}/assessments`,
       );
       return res.data.data;
     },

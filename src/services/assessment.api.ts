@@ -85,7 +85,7 @@ export async function createAssessment(payload: CreateAssessmentPayload): Promis
 }
 
 export async function getAssessmentsBySession(sessionId: string): Promise<Assessment[]> {
-  const res = await api.get<ApiResponse<Assessment[]>>(`/assessments/session/${sessionId}`);
+  const res = await api.get<ApiResponse<Assessment[]>>(`/live-sessions/${sessionId}/assessments`);
   return res.data.data;
 }
 
