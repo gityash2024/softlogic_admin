@@ -546,19 +546,19 @@ export function LiveSessionDetailPage() {
             )}
           </div>
 
-          <div className="mt-4 grid gap-3">
+          <div className="mt-4 grid gap-3" style={{ minWidth: 0 }}>
             {assessments.map((item) => (
               <div
                 key={item.id}
-                className="flex flex-col gap-3 rounded-lg border border-line bg-white p-4"
+                className="overflow-hidden rounded-lg border border-line bg-white p-4"
               >
-                <div className="min-w-0">
+                <div style={{ minWidth: 0, overflow: 'hidden' }}>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h4 className="text-sm font-bold text-ink-900 truncate max-w-full">{item.title}</h4>
-                    <Badge variant={item.type === 'MCQ' ? 'info' : 'default'} className="shrink-0">
+                    <h4 className="text-sm font-bold text-ink-900" style={{ wordBreak: 'break-word' }}>{item.title}</h4>
+                    <Badge variant={item.type === 'MCQ' ? 'info' : 'default'} className="shrink-0 whitespace-nowrap">
                       {item.type === 'MCQ' ? 'Auto-Scored MCQ' : 'File Upload'}
                     </Badge>
-                    <Badge variant="default" className="bg-brand-primary/10 text-brand-primary font-semibold shrink-0">
+                    <Badge variant="default" className="bg-brand-primary/10 text-brand-primary font-semibold shrink-0 whitespace-nowrap">
                       {item.submissionCount ?? 0} Submissions
                     </Badge>
                   </div>
@@ -572,16 +572,17 @@ export function LiveSessionDetailPage() {
                     {item.questions && <span>Questions: {item.questions.length}</span>}
                   </div>
                   {item.settings?.attachmentAsset && (
-                    <div className="mt-2 flex items-center min-w-0">
+                    <div className="mt-2 overflow-hidden">
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="h-auto p-0 text-brand-primary hover:text-brand-primary/80 hover:bg-transparent justify-start max-w-full"
+                        className="h-auto p-0 text-brand-primary hover:text-brand-primary/80 hover:bg-transparent justify-start"
+                        style={{ maxWidth: '100%' }}
                         onClick={() => setPreviewAsset(item.settings!.attachmentAsset as LiveSessionMediaAsset)}
                       >
                         <FileText className="mr-2 h-4 w-4 shrink-0" />
-                        <span className="text-sm font-medium underline underline-offset-4 truncate">
+                        <span className="text-sm font-medium underline underline-offset-4" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
                           {(item.settings!.attachmentAsset as LiveSessionMediaAsset).fileName || 'View Attachment'}
                         </span>
                       </Button>
@@ -589,12 +590,11 @@ export function LiveSessionDetailPage() {
                   )}
                 </div>
 
-                <div className="flex justify-end">
+                <div className="mt-3 flex justify-end">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="shrink-0"
                     onClick={() => setSelectedAssessmentForSubmissions(item)}
                   >
                     View Submissions
