@@ -212,7 +212,7 @@ export function AssessmentSubmissionsModal({
               </TableHeader>
               <TableBody>
                 {submissions.map((sub) => {
-                  const score = sub.autoScore ?? sub.score ?? 0;
+                  const score = sub.autoScore ?? sub.totalScore ?? 0;
                   const total = sub.totalPoints ?? sub.maxScore ?? 100;
                   const percent = sub.percentage ?? (total > 0 ? Math.round((score / total) * 100) : 0);
                   const correct = sub.correctCount ?? 0;
@@ -355,7 +355,7 @@ export function AssessmentSubmissionsModal({
             {submissions.map((sub) => {
               const state = gradingState[sub.id] || { score: '', feedback: '', isSaving: false };
               const maxScore = sub.maxScore ?? assessment.maxScore ?? 100;
-              const isGraded = Boolean(sub.gradedAt || (sub.score !== null && sub.score !== undefined));
+              const isGraded = Boolean(sub.gradedAt || (sub.totalScore !== null && sub.totalScore !== undefined));
 
               return (
                 <div
