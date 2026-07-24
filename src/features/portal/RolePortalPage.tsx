@@ -934,7 +934,7 @@ function SessionCard({
             {session.title ?? session.canvas?.name ?? "Live Session"}
           </p>
           <p className="mt-1 text-xs text-ink-500">
-            {session._count?.participants ?? 0} participants - Created{" "}
+            {session.participants?.length ?? session._count?.participants ?? 0} participants - Created{" "}
             {formatDateTime(session.createdAt)}
           </p>
           <p className="mt-1 text-xs text-ink-400">
@@ -1333,8 +1333,15 @@ function SessionMaterialsCard({
     enabled: isExpanded,
   });
 
+  const studyMaterials =
+    detail?.studyMaterials && detail.studyMaterials.length > 0
+      ? detail.studyMaterials
+      : (detail?.mediaAssets ?? []).filter(
+          (asset: any) => asset.metadata?.category === "STUDY_MATERIAL",
+        );
+
   const { data: assessments, isLoading: isAssessmentsLoading } = useQuery({
-    queryKey: ["assessments", session.id],
+    queryKey: ["assessments-session", session.id],
     queryFn: async () => {
       const res = await api.get<{ data: any[] }>(
         `/assessments/sessions/${session.id}`,
@@ -1362,7 +1369,7 @@ function SessionMaterialsCard({
             </p>
             <p className="text-xs text-ink-500">
               {formatDateTime(session.createdAt)} •{" "}
-              {session._count?.participants ?? 0} participants
+              {session.participants?.length ?? session._count?.participants ?? 0} participants
             </p>
           </div>
         </div>
@@ -1389,22 +1396,22 @@ function SessionMaterialsCard({
                 <div className="flex justify-center py-4">
                   <Spinner className="h-4 w-4 text-brand-primary" />
                 </div>
-              ) : detail?.assets && detail.assets.length > 0 ? (
+              ) : studyMaterials && studyMaterials.length > 0 ? (
                 <div className="space-y-2">
-                  {detail.assets.map((asset: any) => (
+                  {studyMaterials.map((asset: any) => (
                     <div
                       key={asset.id}
                       className="flex items-center justify-between rounded border border-line px-3 py-2 text-sm"
                     >
                       <div className="flex items-center gap-2">
-                        <ImageIcon className="h-4 w-4 text-ink-500" />
+                        <FileStack className="h-4 w-4 text-ink-500" />
                         <span className="font-medium text-ink-900">
-                          {asset.title}
+                          {asset.fileName ?? asset.title ?? "Material"}
                         </span>
                       </div>
-                      {asset.url && (
+                      {asset.publicUrl && (
                         <a
-                          href={asset.url}
+                          href={asset.publicUrl}
                           target="_blank"
                           rel="noreferrer"
                           className="text-xs text-brand-primary hover:underline"
@@ -1548,7 +1555,7 @@ export function RolePortalPage({
 
   return (
     <div className="space-y-5">
-      <ModuleHeader summary={summary} module={canonicalModule} />
+      {canonicalModule !== "materials" && <ModuleHeader summary={summary} module={canonicalModule} />}
       <RoleModuleBody
         summary={summary}
         module={canonicalModule}
