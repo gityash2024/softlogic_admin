@@ -35,6 +35,7 @@ export interface Assessment {
   questions?: MCQQuestion[] | null;
   settings?: Record<string, any> | null;
   submissionCount?: number;
+  submissions?: AssessmentSubmission[];
   createdAt: string;
   updatedAt: string;
 }

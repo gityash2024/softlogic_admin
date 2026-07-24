@@ -1471,7 +1471,7 @@ function SessionMaterialsCard({
                             {assessment.title}
                           </p>
                           <p className="text-[10px] text-ink-500">
-                            {assessment.totalMarks} Marks •{" "}
+                            {assessment.maxScore ?? assessment.totalMarks} Marks •{" "}
                             {assessment.questions?.length ?? 0} Qs
                           </p>
                         </div>
@@ -1492,7 +1492,7 @@ function SessionMaterialsCard({
                         )}
                         {role === "STUDENT" && (
                           <Button
-                            variant="default"
+                            variant={(assessment.submissions && assessment.submissions.length > 0) ? "secondary" : "default"}
                             size="sm"
                             className="h-7 px-3 text-xs"
                             onClick={(e) => {
@@ -1500,11 +1500,15 @@ function SessionMaterialsCard({
                               setSubmitAssessment(assessment);
                             }}
                           >
-                            {assessment.type === 'MCQ' ? 'Take Quiz' : 'Submit'}
+                            {(assessment.submissions && assessment.submissions.length > 0)
+                               ? (assessment.type === 'MCQ' ? 'View Score' : 'View Submission')
+                               : (assessment.type === 'MCQ' ? 'Take Quiz' : 'Submit')}
                           </Button>
                         )}
                         <Badge variant="info" className="text-[10px] shrink-0 uppercase">
-                          {assessment.status}
+                          {(assessment.submissions && assessment.submissions.length > 0)
+                            ? 'Submitted'
+                            : assessment.status}
                         </Badge>
                       </div>
                     </div>

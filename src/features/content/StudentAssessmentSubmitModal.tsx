@@ -94,14 +94,24 @@ export function StudentAssessmentSubmitModal({
   const isMcq = assessment.type === 'MCQ';
 
   const renderContent = () => {
-    if (submitted) {
+    const existingSubmission = assessment?.submissions?.[0];
+
+    if (submitted || existingSubmission) {
+      const submission = existingSubmission || (submitted ? { status: 'GRADED', totalScore: 0, maxScore: 0 } : null); // Fallback for newly submitted state where query hasn't updated yet
+
       return (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <div className="rounded-full bg-success/10 p-4 mb-4">
             <CheckCircle2 className="h-12 w-12 text-success" />
           </div>
-          <h3 className="text-xl font-bold text-ink-900">Submission Successful!</h3>
-          <p className="mt-2 text-sm text-ink-500">Your assessment has been submitted. You can safely close this window.</p>
+          <h3 className="text-xl font-bold text-ink-900">
+            {isMcq ? 'Assessment Completed' : 'File Submitted Successfully'}
+          </h3>
+          <p className="mt-2 text-sm text-ink-500">
+            {isMcq && existingSubmission
+              ? `You scored ${existingSubmission.totalScore ?? 0} out of ${assessment.maxScore ?? assessment.questions?.length ?? 0} points.`
+              : (existingSubmission?.fileName ? `File: ${existingSubmission.fileName}` : 'Your assessment has been recorded.')}
+          </p>
           <Button className="mt-6" onClick={() => handleOpenChange(false)}>
             Close
           </Button>
