@@ -81,7 +81,7 @@ export function AssessmentSubmissionsModal({
           {};
         (data || []).forEach((sub) => {
           initialMap[sub.id] = {
-            score: sub.score !== undefined && sub.score !== null ? String(sub.score) : '',
+            score: sub.totalScore !== undefined && sub.totalScore !== null ? String(sub.totalScore) : '',
             feedback: sub.feedback || '',
             isSaving: false,
           };
