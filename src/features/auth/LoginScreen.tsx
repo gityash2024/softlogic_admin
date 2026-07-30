@@ -35,6 +35,8 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
+const appBrand = import.meta.env.VITE_APP_BRAND?.trim() || 'SoftLogic AI';
+
 function lockoutMessage(decision: Exclude<LoginAttemptDecision, { allowed: true }>) {
   const remaining = loginAttemptLockout.formatRemaining(decision.remainingMs);
   return decision.finalBlock
@@ -171,7 +173,8 @@ export function LoginScreen() {
                 Sign in securely
               </h2>
               <p className="mt-2 text-sm leading-6 text-ink-500">
-                Use your account email and password or scan a secure QR code.
+                {appBrand} is invite-only. Sign in with the account provided by
+                your organization.
               </p>
             </div>
 
