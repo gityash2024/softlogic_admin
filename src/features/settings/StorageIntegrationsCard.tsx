@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Cloud, ExternalLink, RefreshCw, Unplug } from "lucide-react";
 import { toast } from "sonner";
@@ -102,6 +102,7 @@ function ProviderConnection({
   provider: OrganizationStorageProvider;
 }) {
   const queryClient = useQueryClient();
+  const pollTimerRef = useRef<number | null>(null);
   const details = PROVIDER_DETAILS[provider];
   const queryKey = ["integration-status", organization.id, provider];
   const refreshStorageState = () => {
@@ -112,34 +113,58 @@ function ProviderConnection({
     queryClient.invalidateQueries({ queryKey: ["organizations"] });
     queryClient.invalidateQueries({ queryKey: ["dashboard-overview"] });
   };
+  const stopPolling = () => {
+    if (pollTimerRef.current !== null) {
+      window.clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  };
+  useEffect(() => stopPolling, []);
+  const pollConnection = (popup: Window) => {
+    stopPolling();
+    const deadline = Date.now() + 2 * 60 * 1000;
+    const poll = () => {
+      void queryClient
+        .fetchQuery({
+          queryKey,
+          queryFn: () => integrationsApi.status(provider, organization.id),
+        })
+        .then((status) => {
+          refreshStorageState();
+          if (status.connected || popup.closed || Date.now() >= deadline) {
+            stopPolling();
+          }
+        })
+        .catch(() => {
+          if (popup.closed || Date.now() >= deadline) stopPolling();
+        });
+    };
+    poll();
+    pollTimerRef.current = window.setInterval(poll, 2500);
+  };
   const statusQuery = useQuery({
     queryKey,
     queryFn: () => integrationsApi.status(provider, organization.id),
   });
   const connectMutation = useMutation({
-    mutationFn: () => integrationsApi.oauthUrl(provider, organization.id),
-    onSuccess: (result) => {
+    mutationFn: async (popup: Window) => ({
+      popup,
+      result: await integrationsApi.oauthUrl(provider, organization.id),
+    }),
+    onSuccess: ({ popup, result }) => {
       if (!result.configured || !result.authUrl) {
+        popup.close();
         toast.error(result.message || details.missingSetupMessage);
         return;
       }
-      const opened = window.open(
-        result.authUrl,
-        "_blank",
-        "noopener,noreferrer",
-      );
-      if (!opened) {
-        toast.error(`Allow pop-ups to connect ${details.label}.`);
-        return;
-      }
+      popup.location.replace(result.authUrl);
+      pollConnection(popup);
       toast.info(`Complete ${details.label} authorization in the browser tab.`);
-      [4000, 10000, 20000, 35000].forEach((delay) => {
-        window.setTimeout(() => {
-          refreshStorageState();
-        }, delay);
-      });
     },
-    onError: (error) => toast.error(extractApiError(error)),
+    onError: (error, popup) => {
+      popup.close();
+      toast.error(extractApiError(error));
+    },
   });
   const disconnectMutation = useMutation({
     mutationFn: () => integrationsApi.disconnect(provider, organization.id),
@@ -222,7 +247,14 @@ function ProviderConnection({
               size="sm"
               variant="primary"
               className="flex-1 sm:flex-none"
-              onClick={() => connectMutation.mutate()}
+              onClick={() => {
+                const popup = window.open("about:blank", "_blank");
+                if (!popup) {
+                  toast.error(`Allow pop-ups to connect ${details.label}.`);
+                  return;
+                }
+                connectMutation.mutate(popup);
+              }}
               disabled={connectMutation.isPending || !credentialReady}
             >
               <ExternalLink className="h-4 w-4" />
@@ -244,15 +276,12 @@ export function StorageIntegrationsCard() {
     user?.role === "PARTNER_ADMIN" ||
     user?.role === "CUSTOMER_ADMIN";
   const organizationsQuery = useQuery({
-    queryKey: ["organizations", "storage-settings", "internal-only"],
+    queryKey: ["organizations", "storage-settings"],
     queryFn: organizationsApi.all,
     enabled: isSuperAdmin,
   });
   const superAdminOrganizations = useMemo(
-    () =>
-      (organizationsQuery.data ?? []).filter(
-        (organization) => organization.kind === "INTERNAL",
-      ),
+    () => organizationsQuery.data ?? [],
     [organizationsQuery.data],
   );
   const organizations: StorageOrganization[] = isSuperAdmin
@@ -295,11 +324,11 @@ export function StorageIntegrationsCard() {
         {organizationsQuery.isLoading && isSuperAdmin ? (
           <div className="flex items-center gap-2 text-sm text-ink-500">
             <Spinner className="h-4 w-4" />
-            Loading internal workspace...
+            Loading organizations...
           </div>
         ) : !selected ? (
           <p className="rounded-lg border border-dashed border-line px-3 py-3 text-sm text-ink-500">
-            No internal organization is available for storage configuration.
+            No organization is available for storage configuration.
           </p>
         ) : (
           <>
@@ -310,14 +339,14 @@ export function StorageIntegrationsCard() {
               {isSuperAdmin && organizations.length > 1 ? (
                 <div className="min-w-0 space-y-1.5">
                   <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-                    Internal organization
+                    Organization
                   </label>
                   <Select
                     value={organizationId}
                     onValueChange={setRequestedOrganizationId}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select internal organization" />
+                      <SelectValue placeholder="Select organization" />
                     </SelectTrigger>
                     <SelectContent>
                       {organizations.map((organization) => (
