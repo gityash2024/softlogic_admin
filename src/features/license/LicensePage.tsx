@@ -232,6 +232,10 @@ const DIRECT_ORGANIZATIONS_VALUE = 'DIRECT_OR_INTERNAL';
 const PARTNER_AGGREGATE_VALUE = 'PARTNER_AGGREGATE';
 const PARTNER_SELF_VALUE = 'PARTNER_SELF';
 const NO_ORGANIZATION_VALUE = 'NO_ORGANIZATION';
+const ACTIVATION_KEY_DATE_EDITOR_EMAILS = new Set([
+  'admin@softlogicwhiteboard.com',
+  'anirudha@softlogic.co.in',
+]);
 
 export function LicensePage() {
   const { user } = useAuthStore();
@@ -239,6 +243,8 @@ export function LicensePage() {
   const queryClient = useQueryClient();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const isPartnerAdmin = user?.role === 'PARTNER_ADMIN';
+  const canEditActivationKeyDates =
+    isSuperAdmin && ACTIVATION_KEY_DATE_EDITOR_EMAILS.has(user?.email?.toLowerCase() ?? '');
   const requestedOrganizationId = searchParams.get('organizationId');
   const [selectedPartnerId, setSelectedPartnerId] = useState<string>(
     GLOBAL_LICENSE_VALUE,
@@ -832,7 +838,7 @@ export function LicensePage() {
     100,
     (teacherCapacityUsed / Math.max(teacherCapacityLimit, 1)) * 100,
   );
-  const activationKeysColSpan = 8 + (aggregatePartnerMode ? 1 : 0) + (isSuperAdmin ? 1 : 0);
+  const activationKeysColSpan = 8 + (aggregatePartnerMode ? 1 : 0) + (canEditActivationKeyDates ? 1 : 0);
   const allDevices = rawDisplayedActivationKeys.flatMap((key) =>
     key.activations.map((activation) => ({ activation, key })),
   );
@@ -852,6 +858,11 @@ export function LicensePage() {
     : licenseEndDate.toISOString();
   const isLicenseTermValid =
     Boolean(licenseStartIso && licenseEndIso) && licenseEndDate > licenseStartDate;
+  const isTermEditValid =
+    termEdit !== null &&
+    termEdit.startsAt !== '' &&
+    termEdit.expiresAt !== '' &&
+    new Date(termEdit.expiresAt).getTime() > new Date(termEdit.startsAt).getTime();
   const refreshLicenseTerm = () => {
     const now = new Date();
     const months = durationMonthsFor(licenseDuration);
@@ -876,13 +887,16 @@ export function LicensePage() {
 
   const openTermEdit = (key: HardwareActivationKeyRecord) => {
     const startDate = new Date(key.startsAt);
+    const expiryDate = key.expiresAt ? new Date(key.expiresAt) : null;
     setTermEdit({
       id: key.id,
       label: key.label ?? 'Activation key',
       startsAt: Number.isNaN(startDate.getTime())
         ? dateTimeLocalValue(new Date())
         : dateTimeLocalValue(startDate),
-      expiresAt: '',
+      expiresAt: expiryDate && !Number.isNaN(expiryDate.getTime())
+        ? dateTimeLocalValue(expiryDate)
+        : '',
     });
   };
 
@@ -1855,6 +1869,8 @@ export function LicensePage() {
                         type="datetime-local"
                         value={licenseStartInput}
                         onChange={(event) => setLicenseStartInput(event.target.value)}
+                        max={licenseEndInput || undefined}
+                        aria-invalid={!isLicenseTermValid}
                       />
                     </div>
                     <div className="min-w-0 space-y-1.5">
@@ -1890,6 +1906,7 @@ export function LicensePage() {
                           setLicenseDuration('custom');
                           setLicenseEndInput(event.target.value);
                         }}
+                        min={licenseStartInput || undefined}
                         aria-invalid={!isLicenseTermValid}
                       />
                       {!isLicenseTermValid && (
@@ -2139,7 +2156,7 @@ export function LicensePage() {
                   <TableHead>Bound device</TableHead>
                   <TableHead>Starts</TableHead>
                   <TableHead>Expires</TableHead>
-                  {isSuperAdmin && <TableHead className="text-right">Actions</TableHead>}
+                  {canEditActivationKeyDates && <TableHead className="text-right">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -2147,10 +2164,6 @@ export function LicensePage() {
                   const revealed = revealedKeyIds[key.id];
                   const plain = key.activationKey ?? '';
                   const displayKey = formatActivationKeyForDisplay(plain);
-                  const canRepairLegacyTerm =
-                    !key.expiresAt &&
-                    key.status !== 'DISABLED' &&
-                    key.status !== 'EXPIRED';
                   return (
                     <TableRow key={key.id}>
                       <TableCell className="min-w-0">
@@ -2257,45 +2270,45 @@ export function LicensePage() {
                           {key.expiresAt ? formatDate(key.expiresAt) : '-'}
                         </p>
                       </TableCell>
-                      {isSuperAdmin && (
+                      {canEditActivationKeyDates && (
                         <TableCell className="text-right whitespace-nowrap">
                           {keyView === 'archived' ? (
                             <span className="text-xs text-ink-400">Archived</span>
                           ) : (
                             <div className="flex justify-end gap-1 whitespace-nowrap">
-                              {canRepairLegacyTerm && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openTermEdit(key)}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                                Edit dates
+                              </Button>
+                              {isSuperAdmin && <>
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => openTermEdit(key)}
+                                  disabled={key.status === 'DISABLED'}
+                                  onClick={() => setRevokeKeyId(key.id)}
                                 >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                  Edit dates
+                                  Revoke
                                 </Button>
-                              )}
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={key.status === 'DISABLED'}
-                                onClick={() => setRevokeKeyId(key.id)}
-                              >
-                                Revoke
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setReplaceKeyId(key.id)}
-                              >
-                                Replace
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-danger"
-                                onClick={() => setArchiveKeyId(key.id)}
-                              >
-                                Archive
-                              </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setReplaceKeyId(key.id)}
+                                >
+                                  Replace
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-danger"
+                                  onClick={() => setArchiveKeyId(key.id)}
+                                >
+                                  Archive
+                                </Button>
+                              </>}
                             </div>
                           )}
                         </TableCell>
@@ -2973,9 +2986,9 @@ export function LicensePage() {
       <Dialog open={Boolean(termEdit)} onOpenChange={(open) => !open && setTermEdit(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Repair legacy key dates</DialogTitle>
+            <DialogTitle>Edit activation key dates</DialogTitle>
             <DialogDescription>
-              Set the V2 start and expiry date for {termEdit?.label ?? 'this activation key'}.
+              Set the start and expiry date for {termEdit?.label ?? 'this activation key'}.
             </DialogDescription>
           </DialogHeader>
           {termEdit && (
@@ -2987,6 +3000,8 @@ export function LicensePage() {
                 <Input
                   type="datetime-local"
                   value={termEdit.startsAt}
+                  max={termEdit.expiresAt || undefined}
+                  aria-invalid={!isTermEditValid}
                   onChange={(event) =>
                     setTermEdit((current) =>
                       current ? { ...current, startsAt: event.target.value } : current,
@@ -3001,6 +3016,8 @@ export function LicensePage() {
                 <Input
                   type="datetime-local"
                   value={termEdit.expiresAt}
+                  min={termEdit.startsAt || undefined}
+                  aria-invalid={!isTermEditValid}
                   onChange={(event) =>
                     setTermEdit((current) =>
                       current ? { ...current, expiresAt: event.target.value } : current,
@@ -3017,7 +3034,7 @@ export function LicensePage() {
             <Button
               type="button"
               variant="primary"
-              disabled={updateKeyTermMutation.isPending}
+              disabled={updateKeyTermMutation.isPending || !isTermEditValid}
               onClick={submitTermEdit}
             >
               {updateKeyTermMutation.isPending && <Spinner className="h-4 w-4" />}
