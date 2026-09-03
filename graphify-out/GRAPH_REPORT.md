@@ -1,16 +1,16 @@
 # Graph Report - admin_panel_softlogic  (2026-09-03)
 
 ## Corpus Check
-- 116 files · ~105,853 words
+- 116 files · ~106,085 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 952 nodes · 1150 edges · 95 communities (69 shown, 26 thin omitted)
+- 952 nodes · 1151 edges · 95 communities (69 shown, 26 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 15 edges (avg confidence: 0.54)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `00aa9dda`
+- Built from commit: `757ed941`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -103,7 +103,7 @@
 ## God Nodes (most connected - your core abstractions)
 1. `compilerOptions` - 23 edges
 2. `compilerOptions` - 16 edges
-3. `LicensePage()` - 14 edges
+3. `LicensePage()` - 15 edges
 4. `AdminExportFormat` - 12 edges
 5. `SuperAdminDownloadsPage()` - 11 edges
 6. `AiPage()` - 8 edges
@@ -186,7 +186,7 @@ Cohesion: 0.13
 Nodes (16): accountForOrg(), accountForUser(), accountName(), AiOverviewOrganization, AiPage(), CreditRow(), formatTokens(), formatUsd() (+8 more)
 
 ### Community 14 - "LicensePage.tsx"
-Cohesion: 0.16
+Cohesion: 0.17
 Nodes (19): ACTIVATION_KEY_DATE_EDITOR_EMAILS, ActivationKeyTermEditState, addMonths(), BulkCreateMode, dateInputToIso(), dateInputValue(), dateTimeInputToIso(), dateTimeLocalValue() (+11 more)
 
 ### Community 15 - "SubscriptionFormPage.tsx"

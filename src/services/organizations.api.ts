@@ -123,8 +123,24 @@ export interface SchedulePlayStoreMigrationPayload {
 export const organizationsApi = {
   list: (query?: AdminListQuery) =>
     getAdminList<AdminOrganization>('/admin/organizations', query),
-  all: async () =>
-    (await getAdminList<AdminOrganization>('/admin/organizations', { perPage: 100 })).data,
+  all: async () => {
+    const firstPage = await getAdminList<AdminOrganization>('/admin/organizations', {
+      page: 1,
+      perPage: 100,
+    });
+    const totalPages = Number(firstPage.meta.totalPages ?? 1);
+    if (totalPages <= 1) return firstPage.data;
+
+    const remainingPages = await Promise.all(
+      Array.from({ length: totalPages - 1 }, (_, index) =>
+        getAdminList<AdminOrganization>('/admin/organizations', {
+          page: index + 2,
+          perPage: 100,
+        }),
+      ),
+    );
+    return [firstPage, ...remainingPages].flatMap((page) => page.data);
+  },
   get: (id: string) => getAdminItem<AdminOrganization>(`/admin/organizations/${id}`),
   export: (query: AdminListQuery, format: AdminExportFormat) =>
     downloadAdminExport('/admin/organizations/export', query, format),

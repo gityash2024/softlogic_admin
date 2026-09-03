@@ -288,6 +288,7 @@ export function LicensePage() {
   const [emailKeysOpen, setEmailKeysOpen] = useState(false);
   const [assignKeysOpen, setAssignKeysOpen] = useState(false);
   const [paymentEdit, setPaymentEdit] = useState<PaymentEditState | null>(null);
+  const [organizationSearchQuery, setOrganizationSearchQuery] = useState('');
 
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [debouncedGlobalSearch, setDebouncedGlobalSearch] = useState('');
@@ -443,6 +444,20 @@ export function LicensePage() {
         : [],
     [allOrganizations, selectedPartnerId, superAdminPartnerScope],
   );
+  const organizationSearchResults = useMemo(() => {
+    const query = organizationSearchQuery.trim().toLowerCase();
+    if (!query || !isSuperAdmin) return [];
+    return allOrganizations
+      .filter((organization) =>
+        [
+          organization.name,
+          organization.slug,
+          organization.supportEmail,
+          organization.primaryAdminUser?.email,
+        ].some((value) => value?.toLowerCase().includes(query)),
+      )
+      .slice(0, 8);
+  }, [allOrganizations, isSuperAdmin, organizationSearchQuery]);
   const aggregatePartnerMode = Boolean(
     partnerScopeId && !selectedOrgId && (superAdminPartnerScope || isPartnerAdmin),
   );
@@ -1127,6 +1142,20 @@ export function LicensePage() {
     setSelectedOrgId(value);
   };
 
+  const handleOrganizationSearchSelect = (organization: (typeof allOrganizations)[number]) => {
+    if (organization.kind === 'PARTNER') {
+      setSelectedPartnerId(organization.id);
+      setSelectedOrgId(organization.id);
+    } else if (organization.parentOrganizationId) {
+      setSelectedPartnerId(organization.parentOrganizationId);
+      setSelectedOrgId(organization.id);
+    } else {
+      setSelectedPartnerId(DIRECT_ORGANIZATIONS_VALUE);
+      setSelectedOrgId(organization.id);
+    }
+    setOrganizationSearchQuery('');
+  };
+
   if (isLoading) {
     return (
       <div className="flex h-40 items-center justify-center">
@@ -1138,13 +1167,14 @@ export function LicensePage() {
   return (
     <div className="space-y-5">
       <div data-tour="tour-license-stats" className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div>
-          <h2 className="text-2xl font-black text-ink-900">Licensing</h2>
-          <p className="text-sm text-ink-500">
-            Offline-only billing, activation keys, and device state for each workspace.
-          </p>
-        </div>
-        <div className="grid w-full min-w-0 gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] xl:w-auto xl:min-w-[620px] 2xl:min-w-[760px]">
+        <div
+          className={cn(
+            'grid w-full min-w-0 gap-2',
+            isSuperAdmin
+              ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(240px,0.9fr)_auto] xl:w-auto xl:min-w-[860px] 2xl:min-w-[980px]'
+              : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] xl:w-auto xl:min-w-[620px] 2xl:min-w-[760px]',
+          )}
+        >
           {isSuperAdmin && (
             <>
               <Select
@@ -1206,6 +1236,49 @@ export function LicensePage() {
                 </Select>
               )}
             </>
+          )}
+          {isSuperAdmin && (
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
+              <Input
+                value={organizationSearchQuery}
+                onChange={(event) => setOrganizationSearchQuery(event.target.value)}
+                placeholder="Find organization or admin email..."
+                className="h-10 pl-9"
+                aria-label="Search all organizations"
+                aria-expanded={organizationSearchResults.length > 0}
+              />
+              {organizationSearchResults.length > 0 && (
+                <div
+                  role="listbox"
+                  className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
+                >
+                  {organizationSearchResults.map((organization) => {
+                    const contact =
+                      organization.primaryAdminUser?.email ?? organization.supportEmail;
+                    const hierarchy = organization.parentOrganization
+                      ? `Under ${organization.parentOrganization.name}`
+                      : organization.kind === 'PARTNER'
+                        ? 'Partner organization'
+                        : 'Direct / internal';
+                    return (
+                      <button
+                        key={organization.id}
+                        type="button"
+                        role="option"
+                        className="flex w-full flex-col rounded-md px-3 py-2 text-left hover:bg-slate-50 focus:bg-slate-50 focus:outline-none"
+                        onClick={() => handleOrganizationSearchSelect(organization)}
+                      >
+                        <span className="text-sm font-semibold text-ink-900">{organization.name}</span>
+                        <span className="text-xs text-ink-500">
+                          {hierarchy}{contact ? ` · ${contact}` : ''}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           )}
           {isPartnerAdmin && partnerChildOrganizations.length > 0 && (
             <Select
