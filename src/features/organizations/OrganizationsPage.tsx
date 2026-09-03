@@ -7,6 +7,7 @@ import {
   Copy,
   Eye,
   Image as ImageIcon,
+  KeyRound,
   Network,
   Pencil,
   Plus,
@@ -48,6 +49,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
+import { PlayStoreMigrationDialog } from './PlayStoreMigrationDialog';
 import {
   Select,
   SelectContent,
@@ -108,6 +110,7 @@ export function OrganizationsPage() {
     organization: AdminOrganization;
     status: OrganizationStatus;
   } | null>(null);
+  const [migrationOrganization, setMigrationOrganization] = useState<AdminOrganization | null>(null);
 
   const page = numberParam(params.get('page'), 1);
   const search = params.get('search') ?? '';
@@ -695,6 +698,18 @@ export function OrganizationsPage() {
                           className={ORGANIZATION_ACTION_BUTTON_CLASS}
                           size="icon"
                           variant="ghost"
+                          disabled={Boolean(org.deletedAt)}
+                          title="Enable Play Store activation migration"
+                          onClick={() => setMigrationOrganization(org)}
+                        >
+                          <KeyRound className="h-4 w-4 text-brand-primary" />
+                        </Button>
+                      )}
+                      {actor?.role === 'SUPER_ADMIN' && (
+                        <Button
+                          className={ORGANIZATION_ACTION_BUTTON_CLASS}
+                          size="icon"
+                          variant="ghost"
                           disabled={org.kind === 'INTERNAL' || Boolean(org.deletedAt)}
                           title={
                             org.deletedAt
@@ -796,6 +811,10 @@ export function OrganizationsPage() {
         onConfirm={() => {
           if (logoRemoval) removeLogo.mutate(logoRemoval.id);
         }}
+      />
+      <PlayStoreMigrationDialog
+        organization={migrationOrganization}
+        onOpenChange={(open) => !open && setMigrationOrganization(null)}
       />
       <ConfirmationDialog
         open={!!archiveAction}

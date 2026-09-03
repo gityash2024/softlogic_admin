@@ -95,6 +95,31 @@ export interface ArchiveOrganizationWithChildrenResult {
   archivedChildCount: number;
 }
 
+export interface PlayStoreMigrationCampaign {
+  id: string;
+  organizationId: string;
+  reason: string;
+  startsAt: string;
+  endsAt: string;
+  status: 'SCHEDULED' | 'CANCELLED';
+  effectiveStatus: 'SCHEDULED' | 'CANCELLED' | 'EXPIRED';
+  cancelledAt?: string | null;
+  emailSentAt?: string | null;
+  emailLastError?: string | null;
+}
+
+export interface PlayStoreMigrationStatus {
+  campaign: PlayStoreMigrationCampaign | null;
+  keyCount: number;
+  primaryAdmin: { email: string; name?: string | null } | null;
+}
+
+export interface SchedulePlayStoreMigrationPayload {
+  reason: string;
+  startsAt: string;
+  endsAt: string;
+}
+
 export const organizationsApi = {
   list: (query?: AdminListQuery) =>
     getAdminList<AdminOrganization>('/admin/organizations', query),
@@ -148,6 +173,30 @@ export const organizationsApi = {
     const res = await api.put<ApiResponse<unknown>>(
       `/admin/organizations/${id}/storage`,
       payload,
+    );
+    return res.data.data;
+  },
+  getPlayStoreMigration: async (id: string) => {
+    const res = await api.get<ApiResponse<PlayStoreMigrationStatus>>(
+      `/admin/organizations/${id}/play-store-migration`,
+    );
+    return res.data.data;
+  },
+  schedulePlayStoreMigration: async (id: string, payload: SchedulePlayStoreMigrationPayload) => {
+    const res = await api.post<ApiResponse<PlayStoreMigrationCampaign>>(
+      `/admin/organizations/${id}/play-store-migration`, payload,
+    );
+    return res.data.data;
+  },
+  cancelPlayStoreMigration: async (id: string) => {
+    const res = await api.post<ApiResponse<PlayStoreMigrationCampaign>>(
+      `/admin/organizations/${id}/play-store-migration/cancel`,
+    );
+    return res.data.data;
+  },
+  retryPlayStoreMigrationEmail: async (id: string) => {
+    const res = await api.post<ApiResponse<PlayStoreMigrationCampaign>>(
+      `/admin/organizations/${id}/play-store-migration/retry-email`,
     );
     return res.data.data;
   },

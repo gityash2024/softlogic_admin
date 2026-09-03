@@ -1,16 +1,15 @@
-# Graph Report - admin_panel_softlogic  (2026-09-03)
+# Graph Report - .  (2026-07-07)
 
 ## Corpus Check
-- 116 files · ~105,740 words
-- Verdict: corpus is large enough that graph structure adds value.
+- cluster-only mode — file stats not available
 
 ## Summary
-- 952 nodes · 1150 edges · 95 communities (69 shown, 26 thin omitted)
-- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 15 edges (avg confidence: 0.54)
+- 899 nodes · 1093 edges · 82 communities (61 shown, 21 thin omitted)
+- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 10 edges (avg confidence: 0.53)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `284ba578`
+- Built from commit: `f6cac08c`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -69,7 +68,6 @@
 - [[_COMMUNITY_SetupPasswordScreen.tsx|SetupPasswordScreen.tsx]]
 - [[_COMMUNITY_HelpThreadsPage.tsx|HelpThreadsPage.tsx]]
 - [[_COMMUNITY_activation-key.ts|activation-key.ts]]
-- [[_COMMUNITY_admin-hierarchy.ts|admin-hierarchy.ts]]
 - [[_COMMUNITY_App.tsx|App.tsx]]
 - [[_COMMUNITY_ActivationKeyLabelDialog.tsx|ActivationKeyLabelDialog.tsx]]
 - [[_COMMUNITY_EmailActivationKeysDialog.tsx|EmailActivationKeysDialog.tsx]]
@@ -78,32 +76,17 @@
 - [[_COMMUNITY_tsconfig.json|tsconfig.json]]
 - [[_COMMUNITY_label.tsx|label.tsx]]
 - [[_COMMUNITY_progress.tsx|progress.tsx]]
-- [[_COMMUNITY_ai-access.ts|ai-access.ts]]
-- [[_COMMUNITY_maintenance-access.ts|maintenance-access.ts]]
 - [[_COMMUNITY_query-client.ts|query-client.ts]]
 - [[_COMMUNITY_routes.tsx|routes.tsx]]
 - [[_COMMUNITY_ADMIN_ROLES|ADMIN_ROLES]]
 - [[_COMMUNITY_SubscriptionDetailRecord|SubscriptionDetailRecord]]
 - [[_COMMUNITY_vercel.json|vercel.json]]
 - [[_COMMUNITY_vite.config.ts|vite.config.ts]]
-- [[_COMMUNITY_vite-env.d.ts|vite-env.d.ts]]
-- [[_COMMUNITY_assessment.api.ts|assessment.api.ts]]
-- [[_COMMUNITY_subscriptions.api.ts|subscriptions.api.ts]]
-- [[_COMMUNITY_MaterialPreviewDialog.tsx|MaterialPreviewDialog.tsx]]
-- [[_COMMUNITY_TourProvider.tsx|TourProvider.tsx]]
-- [[_COMMUNITY_organizations.api.ts|organizations.api.ts]]
-- [[_COMMUNITY_users.api.ts|users.api.ts]]
-- [[_COMMUNITY_admin-api.ts|admin-api.ts]]
-- [[_COMMUNITY_AdminExportFormat|AdminExportFormat]]
-- [[_COMMUNITY_ActivityPage.tsx|ActivityPage.tsx]]
-- [[_COMMUNITY_AssessmentCreatePage.tsx|AssessmentCreatePage.tsx]]
-- [[_COMMUNITY_tour-steps.ts|tour-steps.ts]]
-- [[_COMMUNITY_textarea.tsx|textarea.tsx]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `compilerOptions` - 23 edges
 2. `compilerOptions` - 16 edges
-3. `LicensePage()` - 14 edges
+3. `LicensePage()` - 13 edges
 4. `AdminExportFormat` - 12 edges
 5. `SuperAdminDownloadsPage()` - 11 edges
 6. `AiPage()` - 8 edges
@@ -115,27 +98,27 @@
 ## Surprising Connections (you probably didn't know these)
 - `QrLoginScannerCard()` --references--> `html5-qrcode`  [EXTRACTED]
   src/features/settings/QrLoginScannerCard.tsx → package.json
-- `LiveSessionDetailPage()` --indirect_call--> `isStudyMaterial()`  [INFERRED]
-  src/features/content/LiveSessionDetailPage.tsx → src/components/MaterialPreviewDialog.tsx
 - `QrLoginPanel()` --references--> `qrcode`  [EXTRACTED]
   src/features/auth/QrLoginPanel.tsx → package.json
 - `textFromChildren()` --references--> `react`  [EXTRACTED]
   src/components/ui/select.tsx → package.json
-- `ActivityPage()` --references--> `AdminExportFormat`  [EXTRACTED]
-  src/features/activity/ActivityPage.tsx → src/services/admin-api.ts
+- `ContentPage()` --references--> `AdminExportFormat`  [EXTRACTED]
+  src/features/content/ContentPage.tsx → src/services/admin-api.ts
+- `OrganizationsPage()` --references--> `AdminExportFormat`  [EXTRACTED]
+  src/features/organizations/OrganizationsPage.tsx → src/services/admin-api.ts
 
 ## Import Cycles
 - None detected.
 
-## Communities (95 total, 26 thin omitted)
+## Communities (82 total, 21 thin omitted)
 
 ### Community 0 - "api.ts"
 Cohesion: 0.03
 Nodes (75): AdminCanvasRecord, AdminContentImportRecord, AdminExportRecord, AdminLiveSessionRecord, AdminOrganization, AdminUser, AiAllocationOverview, AiConfigSummary (+67 more)
 
 ### Community 1 - "licensing.api.ts"
-Cohesion: 0.15
-Nodes (13): AssignEmailActivationKeysPayload, AssignEmailActivationKeysResponse, BulkHardwareActivationKeyItem, BulkHardwareActivationKeyPayload, BulkHardwareActivationKeyResponse, CreateHardwareActivationKeyResponse, EmailActivationKeysResponse, HardwareActivationKeyPayload (+5 more)
+Cohesion: 0.05
+Nodes (53): actionLabel(), ActivityPage(), COMMON_ACTIONS, TARGET_TYPES, statusVariant(), subscriptionScopeLabel(), SubscriptionsPage(), activityApi (+45 more)
 
 ### Community 2 - "dependencies"
 Cohesion: 0.04
@@ -143,11 +126,11 @@ Nodes (45): dependencies, axios, class-variance-authority, clsx, date-fns, @font
 
 ### Community 3 - "RolePortalPage.tsx"
 Cohesion: 0.08
-Nodes (29): asNumber(), asRecord(), BoardPreviewTile(), colorFrom(), combinedBounds(), DashboardModule(), defaultPathForRole(), extractPreviewImage() (+21 more)
+Nodes (28): asNumber(), asRecord(), BoardPreviewTile(), colorFrom(), combinedBounds(), DashboardModule(), defaultPathForRole(), extractPreviewImage() (+20 more)
 
 ### Community 4 - "ContentPage.tsx"
-Cohesion: 0.15
-Nodes (12): compactPath(), ContentTab, EXPORT_FORMATS, ExportsTable(), exportStatusVariant(), formatBytes(), ImportsTable(), importStatusVariant() (+4 more)
+Cohesion: 0.10
+Nodes (28): compactPath(), ContentPage(), ContentTab, EXPORT_FORMATS, ExportsTable(), exportStatusVariant(), formatBytes(), ImportsTable() (+20 more)
 
 ### Community 5 - "devDependencies"
 Cohesion: 0.07
@@ -158,8 +141,8 @@ Cohesion: 0.10
 Nodes (24): html5-qrcode, buildCameraTargets(), CameraDevice, cameraErrorMessage(), cameraLabel(), CameraStartTarget, isRearCamera(), ParsedQrLoginPayload (+16 more)
 
 ### Community 7 - "LiveSessionDetailPage.tsx"
-Cohesion: 0.10
-Nodes (29): AssessmentSubmissionsModal(), AssessmentSubmissionsModalProps, backPathForRole(), durationLabel(), LiveSessionDetailPage(), LiveSessionEvent, LiveSessionRecording, payloadList() (+21 more)
+Cohesion: 0.12
+Nodes (22): assetExtension(), backPathForRole(), downloadMediaAsset(), durationLabel(), formatBytes(), isOfficeAsset(), isPdfAsset(), isStudyMaterial() (+14 more)
 
 ### Community 8 - "DownloadsPage.tsx"
 Cohesion: 0.11
@@ -186,12 +169,12 @@ Cohesion: 0.13
 Nodes (16): accountForOrg(), accountForUser(), accountName(), AiOverviewOrganization, AiPage(), CreditRow(), formatTokens(), formatUsd() (+8 more)
 
 ### Community 14 - "LicensePage.tsx"
-Cohesion: 0.16
-Nodes (19): ACTIVATION_KEY_DATE_EDITOR_EMAILS, ActivationKeyTermEditState, addMonths(), BulkCreateMode, dateInputToIso(), dateInputValue(), dateTimeInputToIso(), dateTimeLocalValue() (+11 more)
+Cohesion: 0.17
+Nodes (18): ActivationKeyTermEditState, addMonths(), BulkCreateMode, dateInputToIso(), dateInputValue(), dateTimeInputToIso(), dateTimeLocalValue(), DURATION_OPTIONS (+10 more)
 
 ### Community 15 - "SubscriptionFormPage.tsx"
 Cohesion: 0.14
-Nodes (17): addDaysToDate(), addMonthsToDate(), allocatedSeatTotal(), DURATION_OPTIONS, FormValues, schema, SubscriptionFormPage(), SubscriptionPreviewCardProps (+9 more)
+Nodes (16): addDaysToDate(), addMonthsToDate(), allocatedSeatTotal(), DURATION_OPTIONS, FormValues, schema, SubscriptionFormPage(), SubscriptionPreviewCardProps (+8 more)
 
 ### Community 16 - "MaintenancePage.tsx"
 Cohesion: 0.22
@@ -202,8 +185,8 @@ Cohesion: 0.11
 Nodes (17): compilerOptions, allowImportingTsExtensions, erasableSyntaxOnly, lib, module, moduleDetection, moduleResolution, noEmit (+9 more)
 
 ### Community 18 - "login-attempt-lockout.ts"
-Cohesion: 0.29
-Nodes (6): ATTEMPT_LIMITS, LockoutRecord, LoginAttemptDecision, LoginAttemptFailureResult, loginAttemptLockout, StoredLockouts
+Cohesion: 0.18
+Nodes (12): ATTEMPT_LIMITS, defaultRecord(), LockoutRecord, LoginAttemptDecision, LoginAttemptFailureResult, loginAttemptLockout, readRecord(), readStore() (+4 more)
 
 ### Community 19 - "ThreadDetailPage.tsx"
 Cohesion: 0.26
@@ -266,8 +249,8 @@ Cohesion: 0.33
 Nodes (5): integrationsApi, IntegrationStatus, OAuthUrlResult, StorageCredentialsQuery, UpsertStorageCredentialPayload
 
 ### Community 36 - "branding.ts"
-Cohesion: 0.43
-Nodes (5): deriveNavyColor(), isHexColor(), normalizeHex(), RuntimeBrand, runtimeBrandForOrganization()
+Cohesion: 0.47
+Nodes (4): isHexColor(), normalizeHex(), RuntimeBrand, runtimeBrandForOrganization()
 
 ### Community 37 - "auth.api.ts"
 Cohesion: 0.33
@@ -290,8 +273,8 @@ Cohesion: 0.40
 Nodes (4): DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator
 
 ### Community 42 - "OrganizationsPage"
-Cohesion: 0.43
-Nodes (6): kindVariant(), organizationKindLabel(), OrganizationsPage(), organizationStatusLabel(), localDateTime(), PlayStoreMigrationDialog()
+Cohesion: 0.70
+Nodes (4): kindVariant(), organizationKindLabel(), OrganizationsPage(), organizationStatusLabel()
 
 ### Community 48 - "avatar.tsx"
 Cohesion: 0.50
@@ -317,69 +300,25 @@ Nodes (3): HelpThreadsPage(), STATUS_FILTERS, statusVariant()
 Cohesion: 0.83
 Nodes (3): chunk(), formatActivationKeyForDisplay(), normalizeActivationKey()
 
-### Community 57 - "admin-hierarchy.ts"
-Cohesion: 0.47
-Nodes (3): descendantOrganizationIds(), organizationBelongsToPartner(), organizationsForPartner()
-
-### Community 82 - "assessment.api.ts"
-Cohesion: 0.12
-Nodes (9): Assessment, assessmentApi, AssessmentSubmission, AssessmentType, CreateAssessmentPayload, GradeSubmissionPayload, MCQAnswerBreakdown, MCQQuestion (+1 more)
-
-### Community 83 - "subscriptions.api.ts"
-Cohesion: 0.19
-Nodes (11): activityApi, AdminListQuery, cleanQuery(), downloadAdminExport(), getAdminList(), CreateSubscriptionPayload, RenewSubscriptionPayload, SubscriptionPaymentRecord (+3 more)
-
-### Community 84 - "MaterialPreviewDialog.tsx"
-Cohesion: 0.29
-Nodes (10): assetExtension(), downloadMediaAsset(), isOfficeAsset(), isPdfAsset(), isStudyMaterial(), isTextAsset(), LiveSessionMediaAsset, MaterialPreviewDialog() (+2 more)
-
-### Community 85 - "TourProvider.tsx"
-Cohesion: 0.24
-Nodes (7): FloatingTourTrigger(), CustomTourOverlayProps, RectCoords, TourContext, TourContextValue, TourProviderProps, useTour()
-
-### Community 86 - "organizations.api.ts"
-Cohesion: 0.20
-Nodes (9): ArchiveOrganizationWithChildrenResult, CreateOrganizationPayload, DeleteOrganizationResult, organizationsApi, PlayStoreMigrationCampaign, PlayStoreMigrationStatus, SchedulePlayStoreMigrationPayload, UpdateOrganizationPayload (+1 more)
-
-### Community 87 - "users.api.ts"
-Cohesion: 0.20
-Nodes (9): BulkInviteResult, BulkInviteRowResult, BulkInviteUser, CreateUserPayload, ForceLogoutResult, ForceVersionPayload, ResendInviteResult, UpdateUserPayload (+1 more)
-
-### Community 88 - "admin-api.ts"
-Cohesion: 0.39
-Nodes (6): downloadAdminFile(), fetchAdminFile(), filenameFromDisposition(), getAdminItem(), openAdminFile(), contentApi
-
-### Community 89 - "AdminExportFormat"
-Cohesion: 0.47
-Nodes (5): ContentPage(), statusVariant(), subscriptionScopeLabel(), SubscriptionsPage(), AdminExportFormat
-
-### Community 90 - "ActivityPage.tsx"
-Cohesion: 0.50
-Nodes (4): actionLabel(), ActivityPage(), COMMON_ACTIONS, TARGET_TYPES
-
-### Community 91 - "AssessmentCreatePage.tsx"
-Cohesion: 0.67
-Nodes (3): AssessmentCreatePage(), formatBytes(), LiveSessionMediaAsset
-
 ## Knowledge Gaps
-- **433 isolated node(s):** `name`, `private`, `version`, `type`, `dev` (+428 more)
+- **407 isolated node(s):** `name`, `private`, `version`, `type`, `dev` (+402 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **26 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **21 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `AdminExportFormat` connect `AdminExportFormat` to `licensing.api.ts`, `OrganizationsPage`, `SubscriptionFormPage.tsx`, `subscriptions.api.ts`, `organizations.api.ts`, `users.api.ts`, `admin-api.ts`, `ActivityPage.tsx`?**
-  _High betweenness centrality (0.029) - this node is a cross-community bridge._
-- **Why does `ContentPage()` connect `AdminExportFormat` to `ContentPage.tsx`?**
-  _High betweenness centrality (0.023) - this node is a cross-community bridge._
+- **Why does `AdminExportFormat` connect `licensing.api.ts` to `OrganizationsPage`, `ContentPage.tsx`, `SubscriptionFormPage.tsx`?**
+  _High betweenness centrality (0.019) - this node is a cross-community bridge._
+- **Why does `ContentPage()` connect `ContentPage.tsx` to `licensing.api.ts`?**
+  _High betweenness centrality (0.014) - this node is a cross-community bridge._
 - **Why does `dependencies` connect `dependencies` to `devDependencies`, `QrLoginScannerCard.tsx`?**
-  _High betweenness centrality (0.010) - this node is a cross-community bridge._
+  _High betweenness centrality (0.011) - this node is a cross-community bridge._
 - **What connects `name`, `private`, `version` to the rest of the system?**
-  _433 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _407 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `api.ts` be split into smaller, more focused modules?**
   _Cohesion score 0.02631578947368421 - nodes in this community are weakly interconnected._
+- **Should `licensing.api.ts` be split into smaller, more focused modules?**
+  _Cohesion score 0.051715309779825906 - nodes in this community are weakly interconnected._
 - **Should `dependencies` be split into smaller, more focused modules?**
   _Cohesion score 0.04343971631205674 - nodes in this community are weakly interconnected._
-- **Should `RolePortalPage.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.08246225319396051 - nodes in this community are weakly interconnected._
