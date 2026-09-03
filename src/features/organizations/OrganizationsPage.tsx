@@ -538,6 +538,14 @@ export function OrganizationsPage() {
             <TableBody>
               {organizations.map((org) => {
                 const isPartnerAccount = org.kind === 'PARTNER';
+                const migration = org.playStoreMigrationCampaigns?.[0];
+                const now = new Date();
+                const migrationScheduled =
+                  actor?.role === 'SUPER_ADMIN' &&
+                  migration?.status === 'SCHEDULED' &&
+                  new Date(migration.endsAt) > now;
+                const migrationActive =
+                  migrationScheduled && new Date(migration!.startsAt) <= now;
                 return (
                 <TableRow
                   key={org.id}
@@ -565,6 +573,17 @@ export function OrganizationsPage() {
                           {org.name}
                         </p>
                         <p className="truncate text-xs text-ink-500">{org.slug}</p>
+                        {migrationScheduled && (
+                          <div className="mt-1 flex items-center gap-1.5">
+                            <Badge variant={migrationActive ? 'success' : 'warning'}>
+                              {migrationActive ? 'Migration active' : 'Migration scheduled'}
+                            </Badge>
+                            <span className="truncate text-xs text-ink-500">
+                              {migrationActive ? 'Ends' : 'Starts'}{' '}
+                              {new Date(migrationActive ? migration!.endsAt : migration!.startsAt).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
                         <div className="mt-1 flex min-w-0 items-center gap-1">
                           <p className="truncate text-xs text-ink-500">
                             {org.supportEmail ?? (isPartnerAccount ? 'No partner email' : 'No support email')}

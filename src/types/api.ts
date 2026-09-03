@@ -252,6 +252,11 @@ export interface AdminOrganization {
     role: UserRole;
   } | null;
   setupEmailSent?: boolean | null;
+  playStoreMigrationCampaigns?: Array<{
+    status: 'SCHEDULED' | 'CANCELLED';
+    startsAt: string;
+    endsAt: string;
+  }>;
   subscriptions: SubscriptionRecord[];
   capacitySummary?: OrganizationCapacitySummaryRecord;
   _count: {

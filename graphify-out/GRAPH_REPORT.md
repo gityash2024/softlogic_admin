@@ -1,7 +1,7 @@
 # Graph Report - admin_panel_softlogic  (2026-09-03)
 
 ## Corpus Check
-- 116 files · ~105,740 words
+- 116 files · ~105,853 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `284ba578`
+- Built from commit: `00aa9dda`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
