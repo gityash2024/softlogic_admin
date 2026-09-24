@@ -4,6 +4,7 @@ import { useAuthStore } from '@/lib/auth-store';
 import { runtimeBrandForOrganization } from '@/lib/branding';
 import { ROLE_LABEL } from '@/types/api';
 import { Button } from '@/components/ui/button';
+import { AiAlertsBell } from './AiAlertsBell';
 
 const PATH_TO_TITLE: Record<string, { title: string; subtitle: string }> = {
   '/dashboard': {
@@ -172,6 +173,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
         </div>
 
         <div className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
+          <AiAlertsBell />
           <div className="hidden items-center gap-2 rounded-lg border border-line bg-white px-3 py-2 text-xs font-medium text-ink-500 shadow-sm md:flex">
             <CalendarDays className="h-4 w-4 text-brand-primary" />
             {new Date().toLocaleDateString(undefined, {

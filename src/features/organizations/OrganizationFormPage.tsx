@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 
 import { organizationsApi, type UpdateOrganizationPayload } from '@/services/organizations.api';
 import { aiApi } from '@/services/ai.api';
+import { AiTierFormFields } from '@/features/ai/components/AiTierFormFields';
 import { useAuthStore } from '@/lib/auth-store';
 import { canCreateOrganizationKind } from '@/lib/role-access';
 import { descendantOrganizationIds, organizationDepth } from '@/lib/admin-hierarchy';
@@ -1214,6 +1215,13 @@ function OrganizationFormEditor({
               </div>
             </div>
           </div>
+          {isEdit && organizationId ? (
+            <AiTierFormFields
+              scope="ORGANIZATION"
+              targetId={organizationId}
+              sourceOrganizationId={actor?.role === 'SUPER_ADMIN' ? null : actor?.primaryOrganization?.id ?? null}
+            />
+          ) : null}
         </Card>
 
         <Card className="space-y-5 px-4 py-5 sm:px-6">

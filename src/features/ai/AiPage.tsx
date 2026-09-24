@@ -1,7 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { io } from 'socket.io-client';
-import { BrainCircuit, CheckCircle2, ChevronDown, CloudCog, Database, KeyRound, RefreshCw, Save, Send, Undo2, Wallet } from 'lucide-react';
+import { BrainCircuit, CheckCircle2, CloudCog, Database, KeyRound, RefreshCw, Save, Send, Undo2, Wallet } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -9,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AiCreditInfoButton } from '@/components/ai/AiCreditInfoButton';
 import {
   Select,
@@ -20,7 +22,15 @@ import {
 import { aiApi } from '@/services/ai.api';
 import { extractApiError } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
-import type { AiCreditAccountSummary, AiModelPricingSummary, AiOverview, AiWarningLevel } from '@/types/api';
+import type { AiModelPricingSummary, AiOverview } from '@/types/api';
+import { AiCreditsTab } from './tabs/AiCreditsTab';
+import { AiFreeHealthTab } from './tabs/AiFreeHealthTab';
+import { AiLedgerTab } from './tabs/AiLedgerTab';
+import { AiOrganizationsTab } from './tabs/AiOrganizationsTab';
+import { AiPlansTab } from './tabs/AiPlansTab';
+import { AiTiersTab } from './tabs/AiTiersTab';
+import { AiUsageOverview } from './tabs/AiUsageOverview';
+import { AiUsersTab } from './tabs/AiUsersTab';
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ??
@@ -56,12 +66,8 @@ type PricingFormRow = {
   enabled: boolean;
 };
 
-type AiOverviewOrganization = AiOverview['organizations'][number];
-
-type OrganizationCreditRow = {
-  organization: AiOverviewOrganization;
-  account: AiCreditAccountSummary | undefined;
-};
+const AI_TABS = ['overview', 'tiers', 'credits', 'plans', 'organizations', 'users', 'ledger', 'free-health', 'google-billing'] as const;
+type AiTab = (typeof AI_TABS)[number];
 
 const pricingRowFromSummary = (row: AiModelPricingSummary): PricingFormRow => ({
   modelId: row.modelId,
@@ -73,30 +79,6 @@ const pricingRowFromSummary = (row: AiModelPricingSummary): PricingFormRow => ({
   searchUsdPerThousand: microsToInputValue(row.searchUsdMicrosPerThousand),
   enabled: row.enabled,
 });
-
-const warningLabel: Record<AiWarningLevel, string> = {
-  NONE: 'Healthy',
-  LOW_20: '20% warning',
-  LOW_10: '10% warning',
-  LOW_5: '5% warning',
-  EXHAUSTED: 'Exhausted',
-};
-
-const warningClass = (level: AiWarningLevel) => {
-  if (level === 'EXHAUSTED') return 'border-red-200 bg-red-50 text-red-700';
-  if (level === 'LOW_5' || level === 'LOW_10') return 'border-amber-200 bg-amber-50 text-amber-700';
-  if (level === 'LOW_20') return 'border-yellow-200 bg-yellow-50 text-yellow-700';
-  return 'border-emerald-200 bg-emerald-50 text-emerald-700';
-};
-
-function accountName(account: AiCreditAccountSummary) {
-  return (
-    account.organization?.name ??
-    account.user?.name ??
-    account.user?.email ??
-    (account.scope === 'MASTER' ? 'Master AI pool' : account.id)
-  );
-}
 
 function accountForOrg(data: AiOverview | undefined, organizationId: string) {
   return data?.accounts.find((account) => account.scope === 'ORGANIZATION' && account.organizationId === organizationId);
@@ -137,19 +119,15 @@ export function AiPage() {
     billingTableName: '',
     monthlyCapUsd: '50',
   });
-  const [ledgerFilters, setLedgerFilters] = useState({
-    search: '',
-    type: 'ALL',
-    direction: 'ALL',
-    model: '',
-    fromDate: '',
-    toDate: '',
-    minCredits: '',
-    maxCredits: '',
-  });
-  const [openOrganizationGroups, setOpenOrganizationGroups] = useState<Set<string>>(
-    () => new Set(),
-  );
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab') as AiTab | null;
+  const activeTab: AiTab = requestedTab && AI_TABS.includes(requestedTab) ? requestedTab : 'overview';
+  const changeTab = (value: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (value === 'overview') next.delete('tab');
+    else next.set('tab', value);
+    setSearchParams(next, { replace: true });
+  };
 
   const overviewQuery = useQuery({
     queryKey: ['ai-overview'],
@@ -167,6 +145,13 @@ export function AiPage() {
     socket.on('connect', () => socket.emit('ai:join'));
     socket.on('ai:credits-updated', () => {
       queryClient.invalidateQueries({ queryKey: ['ai-overview'] });
+      // Phase 2 tabs (summary, lists, ledger, orders) share the `ai-` key prefix.
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = String(query.queryKey[0] ?? '');
+          return key !== 'ai-overview' && key.startsWith('ai-');
+        },
+      });
     });
     return () => {
       socket.disconnect();
@@ -364,49 +349,6 @@ export function AiPage() {
     },
     onError: (error) => toast.error(extractApiError(error)),
   });
-  const visibleOrgRows = useMemo(
-    () =>
-      (data?.organizations ?? []).map((organization) => ({
-        organization,
-        account: accountForOrg(data, organization.id),
-      })),
-    [data],
-  );
-  const visibleOrgGroups = useMemo(() => {
-    const rowsById = new Map(visibleOrgRows.map((row) => [row.organization.id, row]));
-    const childrenByParentId = new Map<string, OrganizationCreditRow[]>();
-
-    visibleOrgRows.forEach((row) => {
-      const parentId = row.organization.parentOrganizationId;
-      if (!parentId || !rowsById.has(parentId)) return;
-      const existingChildren = childrenByParentId.get(parentId) ?? [];
-      existingChildren.push(row);
-      childrenByParentId.set(parentId, existingChildren);
-    });
-
-    const collectChildren = (
-      parentId: string,
-      visitedIds = new Set<string>(),
-    ): OrganizationCreditRow[] => {
-      if (visitedIds.has(parentId)) return [];
-      visitedIds.add(parentId);
-
-      return (childrenByParentId.get(parentId) ?? []).flatMap((child) => [
-        child,
-        ...collectChildren(child.organization.id, new Set(visitedIds)),
-      ]);
-    };
-
-    return visibleOrgRows
-      .filter((row) => {
-        const parentId = row.organization.parentOrganizationId;
-        return !parentId || !rowsById.has(parentId);
-      })
-      .map((parent) => ({
-        parent,
-        children: collectChildren(parent.organization.id),
-      }));
-  }, [visibleOrgRows]);
   const visibleUserRows = useMemo(
     () =>
       (data?.users ?? [])
@@ -414,47 +356,6 @@ export function AiPage() {
         .map((row) => ({ user: row, account: accountForUser(data, row.id) })),
     [data],
   );
-  const filteredLedger = useMemo(() => {
-    const search = ledgerFilters.search.trim().toLowerCase();
-    const minCredits = Number(ledgerFilters.minCredits || Number.NaN);
-    const maxCredits = Number(ledgerFilters.maxCredits || Number.NaN);
-    const fromTime = ledgerFilters.fromDate ? new Date(`${ledgerFilters.fromDate}T00:00:00`).getTime() : null;
-    const toTime = ledgerFilters.toDate ? new Date(`${ledgerFilters.toDate}T23:59:59`).getTime() : null;
-    return (data?.recentLedger ?? []).filter((entry) => {
-      const createdTime = new Date(entry.createdAt).getTime();
-      if (fromTime && createdTime < fromTime) return false;
-      if (toTime && createdTime > toTime) return false;
-      if (ledgerFilters.type !== 'ALL' && entry.type !== ledgerFilters.type) return false;
-      if (ledgerFilters.direction === 'DEBIT' && entry.amountTokens >= 0) return false;
-      if (ledgerFilters.direction === 'CREDIT' && entry.amountTokens < 0) return false;
-      if (ledgerFilters.model.trim() && !(entry.modelId ?? '').toLowerCase().includes(ledgerFilters.model.trim().toLowerCase())) return false;
-      const absCredits = Math.abs(entry.amountTokens);
-      if (Number.isFinite(minCredits) && absCredits < minCredits) return false;
-      if (Number.isFinite(maxCredits) && absCredits > maxCredits) return false;
-      if (search) {
-        const haystack = [
-          entry.type,
-          entry.reason,
-          entry.modelId,
-          entry.actorUser?.name,
-          entry.actorUser?.email,
-          entry.account?.organization?.name,
-          entry.account?.user?.name,
-          entry.account?.user?.email,
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase();
-        if (!haystack.includes(search)) return false;
-      }
-      return true;
-    });
-  }, [data?.recentLedger, ledgerFilters]);
-  const ledgerTypes = useMemo(
-    () => Array.from(new Set((data?.recentLedger ?? []).map((entry) => entry.type))).sort(),
-    [data?.recentLedger],
-  );
-
   const updatePricingRow = (
     modelId: string,
     field: keyof PricingFormRow,
@@ -514,18 +415,6 @@ export function AiPage() {
     reclaimMutation.mutate();
   };
 
-  const toggleOrganizationGroup = (organizationId: string) => {
-    setOpenOrganizationGroups((current) => {
-      const next = new Set(current);
-      if (next.has(organizationId)) {
-        next.delete(organizationId);
-      } else {
-        next.add(organizationId);
-      }
-      return next;
-    });
-  };
-
   if (overviewQuery.isLoading) {
     return <div className="flex h-64 items-center justify-center"><Spinner className="h-7 w-7 text-brand-primary" /></div>;
   }
@@ -554,6 +443,20 @@ export function AiPage() {
         </Button>
       </div>
 
+      <Tabs value={activeTab} onValueChange={changeTab}>
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="tiers">Free &amp; Pro tiers</TabsTrigger>
+          <TabsTrigger value="credits">Free &amp; Pro credits</TabsTrigger>
+          <TabsTrigger value="plans">Plans &amp; payments</TabsTrigger>
+          <TabsTrigger value="organizations">Organizations</TabsTrigger>
+          <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="ledger">Ledger</TabsTrigger>
+          <TabsTrigger value="free-health">Free AI health</TabsTrigger>
+          {isSuperAdmin && data.googleBilling ? <TabsTrigger value="google-billing">Google billing</TabsTrigger> : null}
+        </TabsList>
+
+      <TabsContent value="overview" className="space-y-5">
       <div className="grid gap-4 xl:grid-cols-4">
         <MetricCard icon={Wallet} label="Master available" value={formatTokens(data.master.availableTokens)} detail={`${formatTokens(data.master.allocatedTokens)} total`} />
         <MetricCard icon={BrainCircuit} label="AI credits used" value={formatTokens(data.master.usedTokens)} detail={`${formatTokens(data.master.reservedTokens)} reserved`} />
@@ -928,6 +831,32 @@ export function AiPage() {
         </Card>
       </div>
 
+      <AiUsageOverview />
+      </TabsContent>
+
+      <TabsContent value="tiers">
+        <AiTiersTab />
+      </TabsContent>
+      <TabsContent value="credits">
+        <AiCreditsTab isSuperAdmin={isSuperAdmin} />
+      </TabsContent>
+      <TabsContent value="plans">
+        <AiPlansTab />
+      </TabsContent>
+      <TabsContent value="organizations">
+        <AiOrganizationsTab />
+      </TabsContent>
+      <TabsContent value="users">
+        <AiUsersTab />
+      </TabsContent>
+      <TabsContent value="ledger">
+        <AiLedgerTab />
+      </TabsContent>
+      <TabsContent value="free-health">
+        <AiFreeHealthTab />
+      </TabsContent>
+
+      <TabsContent value="google-billing">
       {isSuperAdmin && data.googleBilling ? (
         <Card className="space-y-4 px-4 py-5 sm:px-6">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
@@ -1041,187 +970,8 @@ export function AiPage() {
         </Card>
       ) : null}
 
-      <Card className="px-4 py-5 sm:px-6">
-        <h3 className="text-base font-bold text-ink-900">Organizations</h3>
-        <div className="mt-4 space-y-3">
-          {visibleOrgGroups.map(({ parent, children }) => {
-            const isOpen = openOrganizationGroups.has(parent.organization.id);
-            const childLabel = `${children.length} child organization${children.length === 1 ? '' : 's'}`;
-
-            return (
-              <section key={parent.organization.id} className="overflow-hidden rounded-lg border border-line bg-white">
-                <button
-                  type="button"
-                  aria-expanded={isOpen}
-                  aria-controls={`ai-org-group-${parent.organization.id}`}
-                  className="flex w-full flex-col gap-3 px-3 py-3 text-left transition hover:bg-surface-variant/70 sm:flex-row sm:items-center sm:justify-between"
-                  onClick={() => toggleOrganizationGroup(parent.organization.id)}
-                >
-                  <span className="flex min-w-0 items-center gap-3">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-line bg-surface-variant text-ink-600">
-                      <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold text-ink-900">
-                        {parent.organization.name}
-                      </span>
-                      <span className="mt-0.5 block text-xs text-ink-500">
-                        {children.length ? childLabel : 'No child organizations'}
-                      </span>
-                    </span>
-                  </span>
-                  <span className="grid w-full grid-cols-2 gap-2 text-xs sm:w-auto sm:grid-cols-[auto_auto_auto] sm:items-center sm:gap-6">
-                    <OrganizationHeaderMetric label="Allocated" value={formatTokens(parent.account?.allocatedTokens)} />
-                    <OrganizationHeaderMetric label="Available" value={formatTokens(parent.account?.availableTokens)} />
-                    <span className="col-span-2 sm:col-span-1">
-                      {parent.account ? (
-                        <StatusBadge account={parent.account} />
-                      ) : (
-                        <span className="text-xs text-ink-500">No pool yet</span>
-                      )}
-                    </span>
-                  </span>
-                </button>
-                {isOpen ? (
-                  <div id={`ai-org-group-${parent.organization.id}`} className="space-y-4 border-t border-line px-3 py-4">
-                    <OrganizationCreditTable title="Parent details" rows={[parent]} />
-                    {children.length ? (
-                      <OrganizationCreditTable title="Child organizations" rows={children} />
-                    ) : (
-                      <p className="rounded-lg border border-dashed border-line px-3 py-4 text-sm text-ink-500">
-                        No child organizations under this parent.
-                      </p>
-                    )}
-                  </div>
-                ) : null}
-              </section>
-            );
-          })}
-          {!visibleOrgGroups.length ? (
-            <p className="rounded-lg border border-dashed border-line px-3 py-4 text-sm text-ink-500">
-              No organizations found.
-            </p>
-          ) : null}
-        </div>
-      </Card>
-
-      <Card className="px-4 py-5 sm:px-6">
-        <h3 className="text-base font-bold text-ink-900">Users</h3>
-        <div className="mt-4 overflow-x-auto scrollbar-thin">
-          <table className="min-w-[860px] text-left text-sm">
-            <thead className="text-xs uppercase tracking-wide text-ink-500">
-              <tr>
-                <th className="py-2 pr-4">User</th>
-                <th className="py-2 pr-4">Role</th>
-                <th className="py-2 pr-4">Allocated</th>
-                <th className="py-2 pr-4">Used</th>
-                <th className="py-2 pr-4">Available</th>
-                <th className="py-2 pr-4">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleUserRows.map(({ user: row, account }) => (
-                <tr key={row.id} className="border-t border-line">
-                  <td className="py-3 pr-4">
-                    <p className="font-semibold text-ink-900">{row.name ?? row.email}</p>
-                    <p className="text-xs text-ink-500">{row.email}</p>
-                  </td>
-                  <td className="py-3 pr-4">{row.role}</td>
-                  <td className="py-3 pr-4">{formatTokens(account?.allocatedTokens)}</td>
-                  <td className="py-3 pr-4">{formatTokens(account?.usedTokens)}</td>
-                  <td className="py-3 pr-4">{account ? formatTokens(account.availableTokens) : 'Uses org pool'}</td>
-                  <td className="py-3 pr-4">
-                    {account ? <StatusBadge account={account} /> : <span className="text-xs text-ink-500">No personal limit</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      <Card className="px-4 py-5 sm:px-6">
-        <h3 className="text-base font-bold text-ink-900">Live Ledger</h3>
-        <div className="mt-4 grid gap-3 rounded-lg border border-line bg-surface-variant p-3 lg:grid-cols-4">
-          <Input
-            placeholder="Search actor, user, org, reason"
-            value={ledgerFilters.search}
-            onChange={(event) => setLedgerFilters((current) => ({ ...current, search: event.target.value }))}
-          />
-          <Select value={ledgerFilters.type} onValueChange={(value) => setLedgerFilters((current) => ({ ...current, type: value }))}>
-            <SelectTrigger><SelectValue placeholder="Ledger type" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All types</SelectItem>
-              {ledgerTypes.map((type) => <SelectItem key={type} value={type}>{type}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={ledgerFilters.direction} onValueChange={(value) => setLedgerFilters((current) => ({ ...current, direction: value }))}>
-            <SelectTrigger><SelectValue placeholder="Direction" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">Debit and credit</SelectItem>
-              <SelectItem value="DEBIT">Debits only</SelectItem>
-              <SelectItem value="CREDIT">Credits only</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input
-            placeholder="Model or tool"
-            value={ledgerFilters.model}
-            onChange={(event) => setLedgerFilters((current) => ({ ...current, model: event.target.value }))}
-          />
-          <Input
-            type="date"
-            value={ledgerFilters.fromDate}
-            onChange={(event) => setLedgerFilters((current) => ({ ...current, fromDate: event.target.value }))}
-          />
-          <Input
-            type="date"
-            value={ledgerFilters.toDate}
-            onChange={(event) => setLedgerFilters((current) => ({ ...current, toDate: event.target.value }))}
-          />
-          <Input
-            type="number"
-            min={0}
-            placeholder="Min credits"
-            value={ledgerFilters.minCredits}
-            onChange={(event) => setLedgerFilters((current) => ({ ...current, minCredits: event.target.value }))}
-          />
-          <Input
-            type="number"
-            min={0}
-            placeholder="Max credits"
-            value={ledgerFilters.maxCredits}
-            onChange={(event) => setLedgerFilters((current) => ({ ...current, maxCredits: event.target.value }))}
-          />
-        </div>
-        <div className="mt-4 grid gap-2">
-          {filteredLedger.map((entry) => (
-            <div key={entry.id} className="grid gap-2 rounded-lg border border-line bg-white px-3 py-3 text-sm md:grid-cols-[1fr_auto_auto]">
-              <div>
-                <p className="font-semibold text-ink-900">{entry.type} - {entry.reason ?? accountName(entry.account as AiCreditAccountSummary)}</p>
-                <p className="text-xs text-ink-500">
-                  {entry.actorUser?.name ?? entry.actorUser?.email ?? 'System'} - {new Date(entry.createdAt).toLocaleString()}
-                </p>
-                {(entry.modelId || entry.totalTokens || entry.estimatedCostMicros) ? (
-                  <p className="mt-1 text-xs text-ink-500">
-                    {entry.modelId ?? 'AI model'} - input {formatTokens(entry.inputTokens)}, output {formatTokens(entry.outputTokens)}, thinking {formatTokens(entry.thinkingTokens)}, total {formatTokens(entry.totalTokens)}, cost {formatUsd(entry.estimatedCostMicros)}
-                  </p>
-                ) : null}
-              </div>
-              <p className={entry.amountTokens >= 0 ? 'font-bold text-emerald-700' : 'font-bold text-red-700'}>
-                {entry.amountTokens >= 0 ? '+' : ''}{formatTokens(entry.amountTokens)}
-              </p>
-              <p className="text-xs text-ink-500">
-                {formatTokens(entry.oldTokenBalance)} {'->'} {formatTokens(entry.newTokenBalance)}
-              </p>
-            </div>
-          ))}
-          {!filteredLedger.length ? (
-            <p className="rounded-lg border border-dashed border-line px-3 py-4 text-sm text-ink-500">
-              No ledger entries match the selected filters.
-            </p>
-          ) : null}
-        </div>
-      </Card>
+      </TabsContent>
+      </Tabs>
     </div>
   );
 }
@@ -1265,64 +1015,5 @@ function ModelField({ label, value }: { label: string; value: string }) {
       <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">{label}</label>
       <Input value={value} disabled readOnly />
     </div>
-  );
-}
-
-function OrganizationHeaderMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <span className="min-w-[6.5rem]">
-      <span className="block text-[11px] font-semibold uppercase tracking-wide text-ink-500">{label}</span>
-      <span className="block font-bold text-ink-900">{value}</span>
-    </span>
-  );
-}
-
-function OrganizationCreditTable({ title, rows }: { title: string; rows: OrganizationCreditRow[] }) {
-  return (
-    <div className="space-y-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">{title}</p>
-      <div className="overflow-x-auto scrollbar-thin">
-        <table className="min-w-[920px] text-left text-sm">
-          <thead className="text-xs uppercase tracking-wide text-ink-500">
-            <tr>
-              <th className="py-2 pr-4">Organization</th>
-              <th className="py-2 pr-4">Allocated</th>
-              <th className="py-2 pr-4">Used</th>
-              <th className="py-2 pr-4">Reserved</th>
-              <th className="py-2 pr-4">Child allocated</th>
-              <th className="py-2 pr-4">Available</th>
-              <th className="py-2 pr-4">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(({ organization, account }) => (
-              <CreditRow key={organization.id} name={organization.name} account={account} />
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function CreditRow({ name, account }: { name: string; account?: AiCreditAccountSummary }) {
-  return (
-    <tr className="border-t border-line">
-      <td className="py-3 pr-4 font-semibold text-ink-900">{name}</td>
-      <td className="py-3 pr-4">{formatTokens(account?.allocatedTokens)}</td>
-      <td className="py-3 pr-4">{formatTokens(account?.usedTokens)}</td>
-      <td className="py-3 pr-4">{formatTokens(account?.reservedTokens)}</td>
-      <td className="py-3 pr-4">{formatTokens(account?.childAllocatedTokens)}</td>
-      <td className="py-3 pr-4 font-semibold">{formatTokens(account?.availableTokens)}</td>
-      <td className="py-3 pr-4">{account ? <StatusBadge account={account} /> : <span className="text-xs text-ink-500">No pool yet</span>}</td>
-    </tr>
-  );
-}
-
-function StatusBadge({ account }: { account: AiCreditAccountSummary }) {
-  return (
-    <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${warningClass(account.warningLevel)}`}>
-      {warningLabel[account.warningLevel]} - {account.percentRemaining}%
-    </span>
   );
 }

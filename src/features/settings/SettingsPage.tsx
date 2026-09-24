@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTour } from '@/components/tour/TourProvider';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -23,6 +23,7 @@ import {
   Clock,
   Globe,
   SlidersHorizontal,
+  Sparkles,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/lib/auth-store';
@@ -45,6 +46,9 @@ import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { formatDateTime, initials } from '@/lib/utils';
 import { StorageIntegrationsCard } from './StorageIntegrationsCard';
 import { QrLoginScannerCard } from './QrLoginScannerCard';
+import { SoftLogicAiTab } from './softlogic-ai/SoftLogicAiTab';
+import { aiBillingApi } from '@/services/ai-billing.api';
+import { aiBrandLabelsForUser, canBuyAiCredits } from '@/lib/ai-branding';
 
 const passwordSchema = z
   .object({
@@ -129,7 +133,28 @@ export function SettingsPage() {
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [activeTab, setActiveTab] = useState<'all' | 'profile' | 'security' | 'sessions' | 'storage'>('all');
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<'all' | 'profile' | 'security' | 'sessions' | 'storage' | 'softlogic-ai'>(() =>
+    searchParams.get('tab') === 'softlogic-ai' ? 'softlogic-ai' : 'all',
+  );
+  // Phase 2: <Brand> AI Pro purchases for org / partner admins. Hidden unless the
+  // storefront is open (Pro ON + billing enabled) or the buyer returns from a gateway.
+  const aiBrand = aiBrandLabelsForUser(user);
+  const aiStorefrontQuery = useQuery({
+    queryKey: ['ai-billing-storefront'],
+    queryFn: aiBillingApi.storefront,
+    enabled: canBuyAiCredits(user),
+    retry: false,
+    staleTime: 60_000,
+  });
+  const aiStorefront = aiStorefrontQuery.data;
+  const showAiTab = Boolean(aiStorefront && (aiStorefront.available || searchParams.get('order')));
+  const aiTabUnavailable = activeTab === 'softlogic-ai' && !showAiTab && !aiStorefrontQuery.isLoading;
+  useEffect(() => {
+    if (!aiTabUnavailable) return;
+    const timer = window.setTimeout(() => setActiveTab('all'), 0);
+    return () => window.clearTimeout(timer);
+  }, [aiTabUnavailable]);
 
   const {
     register: registerPassword,
@@ -672,6 +697,20 @@ export function SettingsPage() {
             <Cloud className="h-3.5 w-3.5" />
             Storage & Workspace
           </button>
+          {showAiTab && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('softlogic-ai')}
+              className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition-all ${
+                activeTab === 'softlogic-ai'
+                  ? 'bg-brand-primary text-white shadow-sm'
+                  : 'text-ink-600 hover:bg-surface-variant hover:text-ink-900'
+              }`}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              {aiStorefront?.brand.product ?? aiBrand.product}
+            </button>
+          )}
         </div>
       </div>
 
@@ -720,6 +759,8 @@ export function SettingsPage() {
           <div className="lg:col-span-4">{organizationSection}</div>
         </div>
       )}
+
+      {activeTab === 'softlogic-ai' && aiStorefront && showAiTab && <SoftLogicAiTab storefront={aiStorefront} />}
 
       <ConfirmationDialog
         open={confirmLogout}

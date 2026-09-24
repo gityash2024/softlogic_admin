@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { usersApi, type UpdateUserPayload } from '@/services/users.api';
 import { organizationsApi } from '@/services/organizations.api';
 import { aiApi } from '@/services/ai.api';
+import { AiTierFormFields } from '@/features/ai/components/AiTierFormFields';
 import { useAuthStore } from '@/lib/auth-store';
 import { manageableRoles } from '@/lib/role-access';
 import {
@@ -749,6 +750,9 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
               </div>
             </div>
           )}
+          {canAssignAiCredits && isEdit && userId ? (
+            <AiTierFormFields scope="USER" targetId={userId} sourceOrganizationId={(organizationId !== 'NONE' ? organizationId : ownOrganizationId) ?? null} />
+          ) : null}
           {(role === 'STUDENT' || role === 'PARENT') && (
             <p className="rounded-lg border border-line bg-surface-variant px-3 py-2.5 text-xs text-ink-500">
               Students and parents cannot run AI tools on the whiteboard, so no AI credits are assigned.
