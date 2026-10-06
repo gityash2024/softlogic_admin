@@ -55,8 +55,8 @@
     "semantic_hash": ""
   },
   "src/components/layout/Topbar.tsx": {
-    "mtime": 1790667903.436504,
-    "ast_hash": "f72bffc4e182992ae06593ad03a4e28d",
+    "mtime": 1783930019.6269095,
+    "ast_hash": "d1b1683c2943a4c35b7729f71ab6c442",
     "semantic_hash": ""
   },
   "src/components/license/ActivationKeyLabelDialog.tsx": {
@@ -165,8 +165,8 @@
     "semantic_hash": "86da4036b97cda98dd5486e0ac2f3960"
   },
   "src/features/ai/AiPage.tsx": {
-    "mtime": 1790667903.4413733,
-    "ast_hash": "f63f1e244c2e137d7d90812e40ccef91",
+    "mtime": 1783941103.2374475,
+    "ast_hash": "c14d21c7185bbc7106a9fd0efc490714",
     "semantic_hash": ""
   },
   "src/features/auth/ForbiddenScreen.tsx": {
@@ -255,8 +255,8 @@
     "semantic_hash": "bfdd959d9e077c37855dc7aee7ec6e36"
   },
   "src/features/organizations/OrganizationFormPage.tsx": {
-    "mtime": 1790667903.4723504,
-    "ast_hash": "799e76bb8e28c18de6d4a226e1d88b2e",
+    "mtime": 1784015799.011127,
+    "ast_hash": "efb7a80bcf09d82cbf103639ef3b7589",
     "semantic_hash": ""
   },
   "src/features/organizations/OrganizationsPage.tsx": {
@@ -275,8 +275,8 @@
     "semantic_hash": "12650f52adc45a1d7975584e72f1e126"
   },
   "src/features/settings/SettingsPage.tsx": {
-    "mtime": 1790667903.4723504,
-    "ast_hash": "c6cfd70bb5516ada9e02baa95d549d36",
+    "mtime": 1783936602.2583516,
+    "ast_hash": "4ac0106e2ae7372eb735c22ba2f41bc6",
     "semantic_hash": ""
   },
   "src/features/settings/StorageIntegrationsCard.tsx": {
@@ -330,8 +330,8 @@
     "semantic_hash": "ce85ab896d9d9eaa43d1d6119c8d9504"
   },
   "src/features/users/UserFormPage.tsx": {
-    "mtime": 1791263651.657014,
-    "ast_hash": "a9b5d26f623ba80b5010dfb3d02cd13e",
+    "mtime": 1784015805.686624,
+    "ast_hash": "5092c874a50a9416ec3bf25b8bd349b9",
     "semantic_hash": ""
   },
   "src/features/users/UsersPage.tsx": {
@@ -577,141 +577,6 @@
   "src/services/assessment.api.ts": {
     "mtime": 1784916423.3150907,
     "ast_hash": "f6f85d33356ffb698317ed2262e40e63",
-    "semantic_hash": ""
-  },
-  "src/components/layout/AiAlertsBell.tsx": {
-    "mtime": 1790667903.435494,
-    "ast_hash": "957178adb7df06f6cc0a493669aeefec",
-    "semantic_hash": ""
-  },
-  "src/features/ai/components/AiTierFormFields.tsx": {
-    "mtime": 1790667903.4447124,
-    "ast_hash": "c9deee0b60bc27f94e2008d9e149d657",
-    "semantic_hash": ""
-  },
-  "src/features/ai/components/BulkAllocateDialog.tsx": {
-    "mtime": 1790667903.4455652,
-    "ast_hash": "84a6b26d096c89d50e7dfc5fc5e872d8",
-    "semantic_hash": ""
-  },
-  "src/features/ai/components/ai-billing-utils.ts": {
-    "mtime": 1790667903.4469671,
-    "ast_hash": "4a152d2f864b8157a8fb73ee72b3ac42",
-    "semantic_hash": ""
-  },
-  "src/features/ai/components/ai-format.ts": {
-    "mtime": 1790667903.4509895,
-    "ast_hash": "b920a811b5a4d98d46b7580aebb84dfd",
-    "semantic_hash": ""
-  },
-  "src/features/ai/components/ai-ui.tsx": {
-    "mtime": 1790667903.4532118,
-    "ast_hash": "06afdeaffd538a223ec61d0d0062f636",
-    "semantic_hash": ""
-  },
-  "src/features/ai/components/useAiListParams.ts": {
-    "mtime": 1790667903.4532118,
-    "ast_hash": "c471b29faa3230914e01bf1b99c3f71e",
-    "semantic_hash": ""
-  },
-  "src/features/ai/tabs/AiCreditsTab.tsx": {
-    "mtime": 1790667903.4564888,
-    "ast_hash": "ed158f70881c6125ddf9c74661d18e2e",
-    "semantic_hash": ""
-  },
-  "src/features/ai/tabs/AiFreeHealthTab.tsx": {
-    "mtime": 1790667903.458499,
-    "ast_hash": "be60c78a73d35fc746ade1ec9eb24b70",
-    "semantic_hash": ""
-  },
-  "src/features/ai/tabs/AiLedgerTab.tsx": {
-    "mtime": 1790667903.4605384,
-    "ast_hash": "129e1b25a03f0b6581a2ebebe67f0482",
-    "semantic_hash": ""
-  },
-  "src/features/ai/tabs/AiOrdersPanel.tsx": {
-    "mtime": 1790667903.461599,
-    "ast_hash": "c38bf4635d792e1f57b5e93140e552a4",
-    "semantic_hash": ""
-  },
-  "src/features/ai/tabs/AiOrganizationsTab.tsx": {
-    "mtime": 1790667903.461599,
-    "ast_hash": "821c1f826372b600c06a46a8438245b0",
-    "semantic_hash": ""
-  },
-  "src/features/ai/tabs/AiPlansTab.tsx": {
-    "mtime": 1790667903.461599,
-    "ast_hash": "a4e169f32ecbd9fdb42e38552d021768",
-    "semantic_hash": ""
-  },
-  "src/features/ai/tabs/AiTiersTab.tsx": {
-    "mtime": 1790667903.4659166,
-    "ast_hash": "8912643122bb5c0de547cb5893688429",
-    "semantic_hash": ""
-  },
-  "src/features/ai/tabs/AiUsageOverview.tsx": {
-    "mtime": 1790667903.4659166,
-    "ast_hash": "4f526380ef0590f7ccebf6c031929346",
-    "semantic_hash": ""
-  },
-  "src/features/ai/tabs/AiUsersTab.tsx": {
-    "mtime": 1790667903.4708328,
-    "ast_hash": "abaad24f319f3cd80dd1a8ebe4c031d7",
-    "semantic_hash": ""
-  },
-  "src/features/settings/softlogic-ai/CheckoutReturn.tsx": {
-    "mtime": 1790667903.4765599,
-    "ast_hash": "7b777ddfcec9317b4343cd76f0c094f9",
-    "semantic_hash": ""
-  },
-  "src/features/settings/softlogic-ai/CustomCreditsCard.tsx": {
-    "mtime": 1790667903.4765599,
-    "ast_hash": "1abfdeeb4b03db3c756467dba040e380",
-    "semantic_hash": ""
-  },
-  "src/features/settings/softlogic-ai/OrderHistoryTable.tsx": {
-    "mtime": 1790667903.4806976,
-    "ast_hash": "cdc136f3994c30e9d3253b1a64349c69",
-    "semantic_hash": ""
-  },
-  "src/features/settings/softlogic-ai/OrderSummaryDialog.tsx": {
-    "mtime": 1790667903.4806976,
-    "ast_hash": "392af0d66a98b0a5c6327695cb022132",
-    "semantic_hash": ""
-  },
-  "src/features/settings/softlogic-ai/PlanCards.tsx": {
-    "mtime": 1790667903.4830701,
-    "ast_hash": "8cecad25afc2ae60a313bcfa1bb85150",
-    "semantic_hash": ""
-  },
-  "src/features/settings/softlogic-ai/SoftLogicAiTab.tsx": {
-    "mtime": 1790667903.485092,
-    "ast_hash": "4c6c83c157fb180ddb5002c01159446c",
-    "semantic_hash": ""
-  },
-  "src/features/settings/softlogic-ai/checkout.ts": {
-    "mtime": 1790667903.485092,
-    "ast_hash": "b4673b2707a24d9fff5fbcbc5fa5af5e",
-    "semantic_hash": ""
-  },
-  "src/lib/ai-branding.ts": {
-    "mtime": 1790667903.4891055,
-    "ast_hash": "3fb2bcd5673577892316d03ca6873e31",
-    "semantic_hash": ""
-  },
-  "src/services/ai-admin.api.ts": {
-    "mtime": 1790667903.4906168,
-    "ast_hash": "3dd9775ca1d900e005b7a64029e44ec6",
-    "semantic_hash": ""
-  },
-  "src/services/ai-billing.api.ts": {
-    "mtime": 1790667903.4906168,
-    "ast_hash": "5b38afb73b4bad74e24a3ff05e312362",
-    "semantic_hash": ""
-  },
-  "src/types/ai.ts": {
-    "mtime": 1790667903.492496,
-    "ast_hash": "e5d6b96e27d8131d8a561ebee6817016",
     "semantic_hash": ""
   }
 }

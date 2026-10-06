@@ -1,16 +1,16 @@
-# Graph Report - admin_panel_softlogic  (2026-10-06)
+# Graph Report - admin_panel_softlogic  (2026-09-03)
 
 ## Corpus Check
-- 143 files · ~127,763 words
+- 116 files · ~106,085 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1131 nodes · 1550 edges · 106 communities (80 shown, 26 thin omitted)
+- 952 nodes · 1151 edges · 95 communities (69 shown, 26 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 15 edges (avg confidence: 0.54)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `3d4fab5d`
+- Built from commit: `757ed941`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -99,46 +99,35 @@
 - [[_COMMUNITY_AssessmentCreatePage.tsx|AssessmentCreatePage.tsx]]
 - [[_COMMUNITY_tour-steps.ts|tour-steps.ts]]
 - [[_COMMUNITY_textarea.tsx|textarea.tsx]]
-- [[_COMMUNITY_ai.ts|ai.ts]]
-- [[_COMMUNITY_SoftLogicAiTab.tsx|SoftLogicAiTab.tsx]]
-- [[_COMMUNITY_formatCredits|formatCredits]]
-- [[_COMMUNITY_AiOrganizationsTab.tsx|AiOrganizationsTab.tsx]]
-- [[_COMMUNITY_AiTiersTab.tsx|AiTiersTab.tsx]]
-- [[_COMMUNITY_ai-ui.tsx|ai-ui.tsx]]
-- [[_COMMUNITY_AiOrdersPanel.tsx|AiOrdersPanel.tsx]]
-- [[_COMMUNITY_AiPlansTab.tsx|AiPlansTab.tsx]]
-- [[_COMMUNITY_downloadAdminExport|downloadAdminExport]]
-- [[_COMMUNITY_AiUsageOverview.tsx|AiUsageOverview.tsx]]
-- [[_COMMUNITY_ai-branding.ts|ai-branding.ts]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `formatCredits()` - 27 edges
-2. `compilerOptions` - 23 edges
-3. `formatDateTime()` - 20 edges
-4. `compilerOptions` - 16 edges
-5. `LicensePage()` - 15 edges
-6. `AdminExportFormat` - 14 edges
-7. `SuperAdminDownloadsPage()` - 11 edges
-8. `SectionHeader()` - 10 edges
-9. `getAdminList()` - 10 edges
-10. `downloadAdminExport()` - 10 edges
+1. `compilerOptions` - 23 edges
+2. `compilerOptions` - 16 edges
+3. `LicensePage()` - 15 edges
+4. `AdminExportFormat` - 12 edges
+5. `SuperAdminDownloadsPage()` - 11 edges
+6. `AiPage()` - 8 edges
+7. `LiveSessionDetailPage()` - 8 edges
+8. `WhiteboardSlidePreview()` - 8 edges
+9. `MaintenancePage()` - 8 edges
+10. `WhiteboardSlidePreview()` - 8 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `QrLoginScannerCard()` --references--> `html5-qrcode`  [EXTRACTED]
   src/features/settings/QrLoginScannerCard.tsx → package.json
+- `LiveSessionDetailPage()` --indirect_call--> `isStudyMaterial()`  [INFERRED]
+  src/features/content/LiveSessionDetailPage.tsx → src/components/MaterialPreviewDialog.tsx
 - `QrLoginPanel()` --references--> `qrcode`  [EXTRACTED]
   src/features/auth/QrLoginPanel.tsx → package.json
 - `textFromChildren()` --references--> `react`  [EXTRACTED]
   src/components/ui/select.tsx → package.json
-- `LiveSessionDetailPage()` --indirect_call--> `isStudyMaterial()`  [INFERRED]
-  src/features/content/LiveSessionDetailPage.tsx → src/components/MaterialPreviewDialog.tsx
-- `orderStatusVariant()` --references--> `AiOrderStatus`  [EXTRACTED]
-  src/features/ai/components/ai-billing-utils.ts → src/types/ai.ts
+- `ActivityPage()` --references--> `AdminExportFormat`  [EXTRACTED]
+  src/features/activity/ActivityPage.tsx → src/services/admin-api.ts
 
 ## Import Cycles
 - None detected.
 
-## Communities (106 total, 26 thin omitted)
+## Communities (95 total, 26 thin omitted)
 
 ### Community 0 - "api.ts"
 Cohesion: 0.03
@@ -157,8 +146,8 @@ Cohesion: 0.08
 Nodes (29): asNumber(), asRecord(), BoardPreviewTile(), colorFrom(), combinedBounds(), DashboardModule(), defaultPathForRole(), extractPreviewImage() (+21 more)
 
 ### Community 4 - "ContentPage.tsx"
-Cohesion: 0.14
-Nodes (13): compactPath(), ContentPage(), ContentTab, EXPORT_FORMATS, ExportsTable(), exportStatusVariant(), formatBytes(), ImportsTable() (+5 more)
+Cohesion: 0.15
+Nodes (12): compactPath(), ContentTab, EXPORT_FORMATS, ExportsTable(), exportStatusVariant(), formatBytes(), ImportsTable(), importStatusVariant() (+4 more)
 
 ### Community 5 - "devDependencies"
 Cohesion: 0.07
@@ -166,11 +155,11 @@ Nodes (28): devDependencies, autoprefixer, eslint, @eslint/js, eslint-plugin-rea
 
 ### Community 6 - "QrLoginScannerCard.tsx"
 Cohesion: 0.10
-Nodes (25): html5-qrcode, buildCameraTargets(), CameraDevice, cameraErrorMessage(), cameraLabel(), CameraStartTarget, isRearCamera(), ParsedQrLoginPayload (+17 more)
+Nodes (24): html5-qrcode, buildCameraTargets(), CameraDevice, cameraErrorMessage(), cameraLabel(), CameraStartTarget, isRearCamera(), ParsedQrLoginPayload (+16 more)
 
 ### Community 7 - "LiveSessionDetailPage.tsx"
-Cohesion: 0.09
-Nodes (30): isStudyMaterial(), AssessmentSubmissionsModal(), AssessmentSubmissionsModalProps, backPathForRole(), durationLabel(), LiveSessionDetailPage(), LiveSessionEvent, LiveSessionRecording (+22 more)
+Cohesion: 0.10
+Nodes (29): AssessmentSubmissionsModal(), AssessmentSubmissionsModalProps, backPathForRole(), durationLabel(), LiveSessionDetailPage(), LiveSessionEvent, LiveSessionRecording, payloadList() (+21 more)
 
 ### Community 8 - "DownloadsPage.tsx"
 Cohesion: 0.11
@@ -181,8 +170,8 @@ Cohesion: 0.11
 Nodes (18): actionLabel(), ActivationKeysTable(), ActivityTable(), ExportsTable(), exportStatusVariant(), formatBytes(), HubTab, keyStatusVariant() (+10 more)
 
 ### Community 10 - "CommandPalette.tsx"
-Cohesion: 0.09
-Nodes (21): AiAlertsBell(), ALERT_ROLES, LEVEL_LABEL, BASE_NAV_ITEMS, Command, CommandPalette(), getNavCommands(), HELP_ITEM (+13 more)
+Cohesion: 0.10
+Nodes (18): BASE_NAV_ITEMS, Command, CommandPalette(), getNavCommands(), HELP_ITEM, matches(), NavCommand, RecordCommand (+10 more)
 
 ### Community 11 - "compilerOptions"
 Cohesion: 0.08
@@ -193,8 +182,8 @@ Cohesion: 0.13
 Nodes (18): acceptedStudyMaterialTypes, fileExtension(), fileExtensionWithDot(), formatBytes(), isOfficeDocument(), isPdf(), isTextDocument(), LiveSessionMediaAsset (+10 more)
 
 ### Community 13 - "AiPage.tsx"
-Cohesion: 0.21
-Nodes (11): accountForOrg(), accountForUser(), AI_TABS, AiPage(), AiTab, formatTokens(), formatUsd(), inputValueToMicros() (+3 more)
+Cohesion: 0.13
+Nodes (16): accountForOrg(), accountForUser(), accountName(), AiOverviewOrganization, AiPage(), CreditRow(), formatTokens(), formatUsd() (+8 more)
 
 ### Community 14 - "LicensePage.tsx"
 Cohesion: 0.17
@@ -337,12 +326,12 @@ Cohesion: 0.12
 Nodes (9): Assessment, assessmentApi, AssessmentSubmission, AssessmentType, CreateAssessmentPayload, GradeSubmissionPayload, MCQAnswerBreakdown, MCQQuestion (+1 more)
 
 ### Community 83 - "subscriptions.api.ts"
-Cohesion: 0.29
-Nodes (6): CreateSubscriptionPayload, RenewSubscriptionPayload, SubscriptionPaymentRecord, SubscriptionPaymentsResponse, subscriptionsApi, UpdateSubscriptionPayload
+Cohesion: 0.19
+Nodes (11): activityApi, AdminListQuery, cleanQuery(), downloadAdminExport(), getAdminList(), CreateSubscriptionPayload, RenewSubscriptionPayload, SubscriptionPaymentRecord (+3 more)
 
 ### Community 84 - "MaterialPreviewDialog.tsx"
-Cohesion: 0.33
-Nodes (9): assetExtension(), downloadMediaAsset(), isOfficeAsset(), isPdfAsset(), isTextAsset(), LiveSessionMediaAsset, MaterialPreviewDialog(), mediaAssetUrl() (+1 more)
+Cohesion: 0.29
+Nodes (10): assetExtension(), downloadMediaAsset(), isOfficeAsset(), isPdfAsset(), isStudyMaterial(), isTextAsset(), LiveSessionMediaAsset, MaterialPreviewDialog() (+2 more)
 
 ### Community 85 - "TourProvider.tsx"
 Cohesion: 0.24
@@ -361,77 +350,33 @@ Cohesion: 0.39
 Nodes (6): downloadAdminFile(), fetchAdminFile(), filenameFromDisposition(), getAdminItem(), openAdminFile(), contentApi
 
 ### Community 89 - "AdminExportFormat"
-Cohesion: 0.83
-Nodes (3): statusVariant(), subscriptionScopeLabel(), SubscriptionsPage()
+Cohesion: 0.47
+Nodes (5): ContentPage(), statusVariant(), subscriptionScopeLabel(), SubscriptionsPage(), AdminExportFormat
 
 ### Community 90 - "ActivityPage.tsx"
-Cohesion: 0.40
-Nodes (5): actionLabel(), ActivityPage(), COMMON_ACTIONS, TARGET_TYPES, AdminExportFormat
+Cohesion: 0.50
+Nodes (4): actionLabel(), ActivityPage(), COMMON_ACTIONS, TARGET_TYPES
 
 ### Community 91 - "AssessmentCreatePage.tsx"
 Cohesion: 0.67
 Nodes (3): AssessmentCreatePage(), formatBytes(), LiveSessionMediaAsset
 
-### Community 95 - "ai.ts"
-Cohesion: 0.06
-Nodes (35): AiAccountSearchResult, AiBalanceAlert, AiBillingConfig, AiBrandLabels, AiBulkAllocationResult, AiCheckout, AiCreditStatus, AiFreeHealth (+27 more)
-
-### Community 96 - "SoftLogicAiTab.tsx"
-Cohesion: 0.10
-Nodes (21): CashfreeFactory, CheckoutOutcome, clearIdempotencyKey(), idempotencyKeyFor(), launchCheckout(), loaded, loadScript(), RazorpayCtor (+13 more)
-
-### Community 97 - "formatCredits"
-Cohesion: 0.18
-Nodes (16): formatCredits(), AsyncAccountSelect(), TierBadge(), TierToggle(), WalletCells(), AiTierFormFields(), BulkAllocateDialog(), BulkTarget (+8 more)
-
-### Community 98 - "AiOrganizationsTab.tsx"
-Cohesion: 0.17
-Nodes (16): formatUsdMicros(), DetailDrawer(), JsonBlock(), KeyValueGrid(), useAiListParams(), accountLabel(), AiLedgerTab(), KEYS (+8 more)
-
-### Community 99 - "AiTiersTab.tsx"
-Cohesion: 0.17
-Nodes (14): AiTiersTab(), CapInput(), CHAIN, ConversionPreview, ConversionPreviewCard(), FreePricingCard(), FreePricingForm, inputToMicros() (+6 more)
-
-### Community 100 - "ai-ui.tsx"
-Cohesion: 0.22
-Nodes (13): useDebouncedValue(), DebouncedSearchInput(), EmptyRow(), HealthBadge(), healthClass(), healthLabel, LoadingBlock(), SectionHeader() (+5 more)
-
-### Community 101 - "AiOrdersPanel.tsx"
-Cohesion: 0.35
-Nodes (10): openReceipt(), orderStatusVariant(), formatDate(), formatDateTime(), formatMinor(), AiOrdersPanel(), KEYS, OrderDetailDrawer() (+2 more)
-
-### Community 102 - "AiPlansTab.tsx"
-Cohesion: 0.27
-Nodes (11): previewCredits(), AiPlansTab(), BillingConfigCard(), ConfigForm, GatewayCard(), majorToMinor(), minorToMajor(), PlanForm (+3 more)
-
-### Community 103 - "downloadAdminExport"
-Cohesion: 0.26
-Nodes (9): activityApi, AdminListQuery, cleanQuery(), downloadAdminExport(), getAdminList(), aiAdminApi, aiBillingApi, CreateOrderPayload (+1 more)
-
-### Community 104 - "AiUsageOverview.tsx"
-Cohesion: 0.47
-Nodes (4): AiUsageOverview(), isoDay(), PALETTE, pivot()
-
-### Community 105 - "ai-branding.ts"
-Cohesion: 0.60
-Nodes (4): AI_BUYER_ROLES, aiBrandLabelsForOrganization(), aiBrandLabelsForUser(), canBuyAiCredits()
-
 ## Knowledge Gaps
-- **491 isolated node(s):** `name`, `private`, `version`, `type`, `dev` (+486 more)
+- **433 isolated node(s):** `name`, `private`, `version`, `type`, `dev` (+428 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **26 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `AdminExportFormat` connect `ActivityPage.tsx` to `licensing.api.ts`, `ContentPage.tsx`, `downloadAdminExport`, `OrganizationsPage`, `SubscriptionFormPage.tsx`, `subscriptions.api.ts`, `organizations.api.ts`, `users.api.ts`, `admin-api.ts`, `AdminExportFormat`?**
-  _High betweenness centrality (0.027) - this node is a cross-community bridge._
-- **Why does `ContentPage()` connect `ContentPage.tsx` to `ActivityPage.tsx`?**
-  _High betweenness centrality (0.020) - this node is a cross-community bridge._
-- **Why does `UsersPage()` connect `SubscriptionFormPage.tsx` to `ActivityPage.tsx`?**
-  _High betweenness centrality (0.008) - this node is a cross-community bridge._
+- **Why does `AdminExportFormat` connect `AdminExportFormat` to `licensing.api.ts`, `OrganizationsPage`, `SubscriptionFormPage.tsx`, `subscriptions.api.ts`, `organizations.api.ts`, `users.api.ts`, `admin-api.ts`, `ActivityPage.tsx`?**
+  _High betweenness centrality (0.029) - this node is a cross-community bridge._
+- **Why does `ContentPage()` connect `AdminExportFormat` to `ContentPage.tsx`?**
+  _High betweenness centrality (0.023) - this node is a cross-community bridge._
+- **Why does `dependencies` connect `dependencies` to `devDependencies`, `QrLoginScannerCard.tsx`?**
+  _High betweenness centrality (0.010) - this node is a cross-community bridge._
 - **What connects `name`, `private`, `version` to the rest of the system?**
-  _491 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _433 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `api.ts` be split into smaller, more focused modules?**
   _Cohesion score 0.02631578947368421 - nodes in this community are weakly interconnected._
 - **Should `dependencies` be split into smaller, more focused modules?**

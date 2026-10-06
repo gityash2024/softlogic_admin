@@ -116,6 +116,12 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
   const defaultRole = allowedRoles.includes('TEACHER')
     ? 'TEACHER'
     : (allowedRoles[0] ?? 'TEACHER');
+  const preservesExistingAdminRole = Boolean(
+    isEdit && userData && !USER_MODULE_ROLES.includes(userData.role),
+  );
+  const roleOptions = preservesExistingAdminRole && userData
+    ? [userData.role]
+    : allowedRoles;
   const isSuperAdmin = actor?.role === 'SUPER_ADMIN';
   const ownOrganizationId = actor?.primaryOrganization?.id ?? null;
   // Org/customer admins manage a single workspace, so their own org is
@@ -149,7 +155,7 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
       return {
         email: userData.email,
         name: userData.name ?? '',
-        role: USER_MODULE_ROLES.includes(userData.role) ? userData.role : defaultRole,
+        role: userData.role,
         organizationId: userData.primaryOrganizationId ?? 'NONE',
         status: userData.status,
         timezone: userData.timezone,
@@ -428,7 +434,7 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
         userId,
         payload: {
           name: payload.name,
-          role: payload.role,
+          ...(preservesExistingAdminRole ? {} : { role: payload.role }),
           status: payload.status,
           organizationId: payload.organizationId,
           timezone: payload.timezone,
@@ -576,11 +582,11 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
                   <Select
                     value={field.value}
                     onValueChange={field.onChange}
-                    disabled={organizationId === 'NONE'}
+                    disabled={organizationId === 'NONE' || preservesExistingAdminRole}
                   >
                     <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
                     <SelectContent>
-                      {allowedRoles.map((allowedRole) => {
+                      {roleOptions.map((allowedRole) => {
                         const disabledReason = roleDisabledReason(allowedRole);
                         return (
                           <SelectItem
