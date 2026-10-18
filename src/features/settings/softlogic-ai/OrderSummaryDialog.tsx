@@ -12,7 +12,7 @@ import { formatCredits, formatDate } from '@/features/ai/components/ai-format';
 import { extractApiError } from '@/lib/api';
 import { aiBillingApi } from '@/services/ai-billing.api';
 import type { AiOrder, AiPaymentGateway, AiPlan, AiStorefront, BillingCurrency } from '@/types/ai';
-import { clearIdempotencyKey, idempotencyKeyFor, launchCheckout } from './checkout';
+import { bindCheckoutToOrder, clearCheckoutForOrder, idempotencyKeyFor, isCheckoutTerminal, launchCheckout } from './checkout';
 import type { CustomSelection } from './CustomCreditsCard';
 
 export type PurchaseSelection = { kind: 'plan'; plan: AiPlan } | { kind: 'custom'; custom: CustomSelection };
@@ -101,8 +101,10 @@ export function OrderSummaryDialog({
         },
         idempotencyKeyFor(selectionKey),
       );
-      if (!checkout) {
-        // Existing order for the same key that is already settled.
+      bindCheckoutToOrder(selectionKey, order.id);
+      if (isCheckoutTerminal(order.status) || !checkout) {
+        if (isCheckoutTerminal(order.status)) clearCheckoutForOrder(order.id);
+        // Track existing orders without reopening a completed payment window.
         return { order, outcome: { kind: 'completed' as const, order } };
       }
       const outcome = await launchCheckout(order, checkout, storefront.brand.pro);
@@ -110,12 +112,13 @@ export function OrderSummaryDialog({
     },
     onSuccess: ({ outcome }) => {
       if (outcome.kind === 'redirected') return;
-      clearIdempotencyKey(selectionKey);
-      if (outcome.kind === 'completed') onCompleted(outcome.order);
+      if (outcome.kind === 'completed') {
+        if (isCheckoutTerminal(outcome.order.status)) clearCheckoutForOrder(outcome.order.id);
+        onCompleted(outcome.order);
+      }
       else toast.message('Payment window closed. You can try again any time.');
     },
     onError: (error) => {
-      clearIdempotencyKey(selectionKey);
       toast.error(extractApiError(error));
     },
   });

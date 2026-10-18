@@ -120,7 +120,10 @@ export function AiCreditsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
           description="Every organization and user has separate Free and Pro wallets. Allocations always come from the parent wallet of the same tier."
           actions={
             <>
-              <TierToggle value={tier} onChange={(value) => setTier(value as AiTier)} />
+              <TierToggle value={tier} onChange={(value) => {
+                setTier(value as AiTier);
+                setReclaim((current) => ({ ...current, target: null, amount: '' }));
+              }} />
               <Button type="button" variant="outline" onClick={() => setBulkOpen(true)}>
                 <Layers className="h-4 w-4" />
                 Bulk allocate

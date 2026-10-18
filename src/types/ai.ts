@@ -274,7 +274,7 @@ export interface AiBulkAllocationResult {
 }
 
 // ------------------------------------------------------------------ billing
-export type AiPaymentGateway = 'RAZORPAY' | 'STRIPE' | 'PAYPAL' | 'CASHFREE' | 'PHONEPE';
+export type AiPaymentGateway = 'RAZORPAY' | 'STRIPE';
 export type AiGatewayMode = 'TEST' | 'LIVE';
 export type BillingCurrency = 'INR' | 'USD';
 export type AiOrderStatus =
@@ -332,6 +332,8 @@ export interface AiBillingConfig {
 }
 
 export interface AiGatewayConfig {
+  effectiveMode?: AiGatewayMode | null;
+  modeLocked?: boolean;
   id: string;
   gateway: AiPaymentGateway;
   displayName: string;

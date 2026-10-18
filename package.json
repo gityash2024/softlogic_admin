@@ -9,6 +9,7 @@
     "local:env": "node scripts/ensure-local-env.cjs",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "test:phase2": "node --test scripts/test-phase2-ai-regressions.cjs",
     "preview": "vite preview"
   },
   "dependencies": {

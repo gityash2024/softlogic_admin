@@ -81,7 +81,7 @@ export const aiBillingApi = {
   adminOrder: async (id: string) => (await api.get<ApiResponse<AiOrder>>(`/admin/ai/billing/orders/${id}`)).data.data,
   exportOrders: (query: AdminListQuery, format: AdminExportFormat) =>
     downloadAdminExport('/admin/ai/billing/orders/export', query, format),
-  refund: async (id: string, payload: { amountMinor?: number | null; reason?: string | null; recordOnly?: boolean }) =>
-    (await api.post<ApiResponse<AiOrder>>(`/admin/ai/billing/orders/${id}/refund`, payload)).data.data,
+  refund: async (id: string, payload: { amountMinor?: number | null; reason?: string | null; recordOnly?: boolean; gatewayRefundId?: string }, operationKey?: string) =>
+    (await api.post<ApiResponse<AiOrder>>(`/admin/ai/billing/orders/${id}/refund`, payload, { headers: { 'Idempotency-Key': operationKey ?? crypto.randomUUID() } })).data.data,
   reconcile: async (id: string) => (await api.post<ApiResponse<AiOrder>>(`/admin/ai/billing/orders/${id}/reconcile`)).data.data,
 };

@@ -73,7 +73,7 @@ export function AiOrdersPanel() {
           value={values.gateway}
           onChange={(value) => set('gateway', value)}
           placeholder="All gateways"
-          options={[['RAZORPAY', 'Razorpay'], ['STRIPE', 'Stripe'], ['PAYPAL', 'PayPal'], ['CASHFREE', 'Cashfree'], ['PHONEPE', 'PhonePe']]}
+          options={[['RAZORPAY', 'Razorpay'], ['STRIPE', 'Stripe']]}
         />
         <FilterSelect value={values.mode} onChange={(value) => set('mode', value)} placeholder="Test and live" options={[['TEST', 'Test'], ['LIVE', 'Live']]} />
         <div className="grid grid-cols-2 gap-2">
@@ -146,6 +146,8 @@ function OrderDetailDrawer({ id, onClose }: { id: string | null; onClose: () => 
   const [refundAmount, setRefundAmount] = useState('');
   const [refundReason, setRefundReason] = useState('');
   const [recordOnly, setRecordOnly] = useState(false);
+  const [gatewayRefundId, setGatewayRefundId] = useState('');
+  const [refundKey, setRefundKey] = useState(() => crypto.randomUUID());
   const order = detailQuery.data;
 
   const refresh = () => {
@@ -168,11 +170,14 @@ function OrderDetailDrawer({ id, onClose }: { id: string | null; onClose: () => 
         amountMinor: refundAmount.trim() ? Math.round(Number(refundAmount) * 100) : null,
         reason: refundReason.trim() || null,
         recordOnly,
-      }),
+        ...(recordOnly ? { gatewayRefundId: gatewayRefundId.trim() } : {}),
+      }, refundKey),
     onSuccess: () => {
       toast.success('Refund recorded. Only unused credits were reversed.');
       setRefundAmount('');
       setRefundReason('');
+      setGatewayRefundId('');
+      setRefundKey(crypto.randomUUID());
       refresh();
     },
     onError: (error) => toast.error(extractApiError(error)),
@@ -224,7 +229,8 @@ function OrderDetailDrawer({ id, onClose }: { id: string | null; onClose: () => 
                 <input type="checkbox" checked={recordOnly} onChange={(event) => setRecordOnly(event.target.checked)} />
                 Already refunded in the gateway dashboard (record only)
               </label>
-              <Button type="button" variant="destructive" size="sm" disabled={refundMutation.isPending} onClick={() => refundMutation.mutate()}>
+              {recordOnly ? <Input placeholder="Gateway refund ID" value={gatewayRefundId} onChange={(event) => setGatewayRefundId(event.target.value)} /> : null}
+              <Button type="button" variant="destructive" size="sm" disabled={refundMutation.isPending || (recordOnly && !gatewayRefundId.trim())} onClick={() => refundMutation.mutate()}>
                 {refundMutation.isPending ? <Spinner className="h-4 w-4" /> : <Undo2 className="h-4 w-4" />}
                 Refund
               </Button>

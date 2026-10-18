@@ -5,8 +5,8 @@
     "semantic_hash": "75a0286de267d5393020e4439ed72f6a"
   },
   "package.json": {
-    "mtime": 1783940355.0247061,
-    "ast_hash": "08f9ccf5bcb4855dd378894e9f08ab9b",
+    "mtime": 1792339725.8479578,
+    "ast_hash": "5b3660b26f07c3facb4569b466392b49",
     "semantic_hash": ""
   },
   "postcss.config.js": {
@@ -590,8 +590,8 @@
     "semantic_hash": ""
   },
   "src/features/ai/components/BulkAllocateDialog.tsx": {
-    "mtime": 1790667903.4455652,
-    "ast_hash": "84a6b26d096c89d50e7dfc5fc5e872d8",
+    "mtime": 1792320674.986089,
+    "ast_hash": "7485d17db046c367024a1215e9d11b85",
     "semantic_hash": ""
   },
   "src/features/ai/components/ai-billing-utils.ts": {
@@ -615,8 +615,8 @@
     "semantic_hash": ""
   },
   "src/features/ai/tabs/AiCreditsTab.tsx": {
-    "mtime": 1790667903.4564888,
-    "ast_hash": "ed158f70881c6125ddf9c74661d18e2e",
+    "mtime": 1792320675.023533,
+    "ast_hash": "f155dbdcc3ee921cb638ba928ccf6572",
     "semantic_hash": ""
   },
   "src/features/ai/tabs/AiFreeHealthTab.tsx": {
@@ -630,8 +630,8 @@
     "semantic_hash": ""
   },
   "src/features/ai/tabs/AiOrdersPanel.tsx": {
-    "mtime": 1790667903.461599,
-    "ast_hash": "c38bf4635d792e1f57b5e93140e552a4",
+    "mtime": 1792321824.9055836,
+    "ast_hash": "3297a1ad5aea49586a38497cc2c53a53",
     "semantic_hash": ""
   },
   "src/features/ai/tabs/AiOrganizationsTab.tsx": {
@@ -640,8 +640,8 @@
     "semantic_hash": ""
   },
   "src/features/ai/tabs/AiPlansTab.tsx": {
-    "mtime": 1790667903.461599,
-    "ast_hash": "a4e169f32ecbd9fdb42e38552d021768",
+    "mtime": 1792321977.699288,
+    "ast_hash": "2847ba8bb5591d301a9c7acef3dec08a",
     "semantic_hash": ""
   },
   "src/features/ai/tabs/AiTiersTab.tsx": {
@@ -660,8 +660,8 @@
     "semantic_hash": ""
   },
   "src/features/settings/softlogic-ai/CheckoutReturn.tsx": {
-    "mtime": 1790667903.4765599,
-    "ast_hash": "7b777ddfcec9317b4343cd76f0c094f9",
+    "mtime": 1792323009.4193053,
+    "ast_hash": "5e75118c80d2bcec19286973b1283507",
     "semantic_hash": ""
   },
   "src/features/settings/softlogic-ai/CustomCreditsCard.tsx": {
@@ -675,8 +675,8 @@
     "semantic_hash": ""
   },
   "src/features/settings/softlogic-ai/OrderSummaryDialog.tsx": {
-    "mtime": 1790667903.4806976,
-    "ast_hash": "392af0d66a98b0a5c6327695cb022132",
+    "mtime": 1792320777.2995129,
+    "ast_hash": "58b578a55e27d695833c0103941efd84",
     "semantic_hash": ""
   },
   "src/features/settings/softlogic-ai/PlanCards.tsx": {
@@ -690,13 +690,13 @@
     "semantic_hash": ""
   },
   "src/features/settings/softlogic-ai/checkout.ts": {
-    "mtime": 1790667903.485092,
-    "ast_hash": "b4673b2707a24d9fff5fbcbc5fa5af5e",
+    "mtime": 1792320777.2662663,
+    "ast_hash": "f2ce85168b4461d54aefdf92c6756656",
     "semantic_hash": ""
   },
   "src/lib/ai-branding.ts": {
-    "mtime": 1790667903.4891055,
-    "ast_hash": "3fb2bcd5673577892316d03ca6873e31",
+    "mtime": 1792339726.5829363,
+    "ast_hash": "70c1f6be9c4b3e2f1cd569ff7d4c26d8",
     "semantic_hash": ""
   },
   "src/services/ai-admin.api.ts": {
@@ -705,13 +705,13 @@
     "semantic_hash": ""
   },
   "src/services/ai-billing.api.ts": {
-    "mtime": 1790667903.4906168,
-    "ast_hash": "5b38afb73b4bad74e24a3ff05e312362",
+    "mtime": 1792321824.9045851,
+    "ast_hash": "2218fee8d3564d9c4ea3edddf400638d",
     "semantic_hash": ""
   },
   "src/types/ai.ts": {
-    "mtime": 1790667903.492496,
-    "ast_hash": "e5d6b96e27d8131d8a561ebee6817016",
+    "mtime": 1792321977.7012932,
+    "ast_hash": "6981580417e3bd5f3de4d998733343ce",
     "semantic_hash": ""
   }
 }

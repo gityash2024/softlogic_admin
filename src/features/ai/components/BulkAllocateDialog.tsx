@@ -75,12 +75,18 @@ export function BulkAllocateDialog({
 
   const mutation = useMutation({
     mutationFn: () => {
-      const items = rows.map((row) => ({
-        scope: row.scope,
-        organizationId: row.scope === 'ORGANIZATION' ? row.organizationId : null,
-        userId: row.scope === 'USER' ? row.userId : null,
-        amountTokens: Math.max(0, Math.round(Number(row.amount || defaultAmount || 0))),
-      }));
+      const items = rows.map((row) => {
+        const amount = row.amount.trim() || defaultAmount.trim();
+        if (!amount) throw new Error('Enter credits for every row');
+        const value = Number(amount);
+        if (value < 0 || !Number.isSafeInteger(Math.round(value))) throw new Error('Enter a valid credit amount');
+        return {
+          scope: row.scope,
+          organizationId: row.scope === 'ORGANIZATION' ? row.organizationId : null,
+          userId: row.scope === 'USER' ? row.userId : null,
+          amountTokens: Math.round(value),
+        };
+      });
       if (!items.length) throw new Error('Add at least one organization or user');
       if (mode === 'ADD' && items.some((item) => item.amountTokens < 1)) throw new Error('Enter credits for every row');
       return aiAdminApi.bulkAllocate({ tier, mode, reason: reason.trim() || undefined, items });

@@ -480,7 +480,7 @@ function GatewayCard({ gateway }: { gateway: AiGatewayConfig }) {
             type="button"
             size="sm"
             variant={gateway.mode === mode ? 'primary' : 'outline'}
-            disabled={updateMutation.isPending || gateway.mode === mode}
+            disabled={gateway.modeLocked || updateMutation.isPending || gateway.mode === mode}
             onClick={() => {
               if (mode === 'LIVE' && !window.confirm(`Switch ${gateway.displayName} to LIVE? Real payments will be taken.`)) return;
               updateMutation.mutate({ mode });
@@ -500,6 +500,7 @@ function GatewayCard({ gateway }: { gateway: AiGatewayConfig }) {
                 key={mode}
                 type="button"
                 className={`rounded px-2 py-1 text-[11px] font-bold ${credentialsMode === mode ? 'bg-brand-navy text-white' : 'text-ink-500'}`}
+                disabled={gateway.modeLocked && mode !== gateway.mode}
                 onClick={() => {
                   setCredentialsMode(mode);
                   setCredentials({});

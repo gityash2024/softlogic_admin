@@ -1,9 +1,8 @@
 import { aiBillingApi } from '@/services/ai-billing.api';
-import type { AiCheckout, AiOrder, AiPaymentGateway } from '@/types/ai';
+import type { AiCheckout, AiOrder, AiOrderStatus, AiPaymentGateway } from '@/types/ai';
 
 const SDK_URLS: Partial<Record<AiPaymentGateway, string>> = {
   RAZORPAY: 'https://checkout.razorpay.com/v1/checkout.js',
-  CASHFREE: 'https://sdk.cashfree.com/js/v3/cashfree.js',
 };
 
 const loaded = new Map<string, Promise<void>>();
@@ -52,10 +51,38 @@ export function clearIdempotencyKey(selection: string) {
   }
 }
 
+export function bindCheckoutToOrder(selection: string, orderId: string) {
+  try {
+    window.sessionStorage.setItem(`softlogic-ai-checkout-order:${orderId}`, JSON.stringify({
+      selection,
+      key: window.sessionStorage.getItem(`softlogic-ai-checkout:${selection}`),
+    }));
+  } catch {
+    // Checkout still works when browser storage is unavailable.
+  }
+}
+
+export function clearCheckoutForOrder(orderId: string) {
+  try {
+    const storageKey = `softlogic-ai-checkout-order:${orderId}`;
+    const stored = window.sessionStorage.getItem(storageKey);
+    if (!stored) return;
+    const binding = JSON.parse(stored) as { selection: string; key: string | null };
+    if (binding.key && window.sessionStorage.getItem(`softlogic-ai-checkout:${binding.selection}`) === binding.key) {
+      clearIdempotencyKey(binding.selection);
+    }
+    window.sessionStorage.removeItem(storageKey);
+  } catch {
+    // Ignore inaccessible or stale browser storage.
+  }
+}
+
+export const isCheckoutTerminal = (status: AiOrderStatus) =>
+  ['FULFILLED', 'FAILED', 'CANCELLED', 'EXPIRED', 'REFUNDED', 'PARTIALLY_REFUNDED'].includes(status);
+
 type RazorpayResponse = { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string };
 type RazorpayInstance = { open: () => void; on: (event: string, handler: (response: unknown) => void) => void };
 type RazorpayCtor = new (options: Record<string, unknown>) => RazorpayInstance;
-type CashfreeFactory = (options: { mode: string }) => { checkout: (options: Record<string, unknown>) => Promise<{ error?: { message?: string } } | undefined> };
 
 export type CheckoutOutcome =
   | { kind: 'redirected' }
@@ -98,15 +125,6 @@ export async function launchCheckout(order: AiOrder, checkout: AiCheckout, brand
       });
       instance.open();
     });
-  }
-  if (order.gateway === 'CASHFREE') {
-    await loadScript(SDK_URLS.CASHFREE!);
-    const Cashfree = (window as unknown as { Cashfree?: CashfreeFactory }).Cashfree;
-    if (!Cashfree) throw new Error('Cashfree checkout is unavailable.');
-    const cashfree = Cashfree({ mode: String(payload.mode ?? 'sandbox') });
-    const result = await cashfree.checkout({ paymentSessionId: payload.paymentSessionId, redirectTarget: '_self', returnUrl: payload.returnUrl });
-    if (result?.error) throw new Error(result.error.message ?? 'Cashfree checkout failed.');
-    return { kind: 'redirected' };
   }
   throw new Error('Unsupported payment method.');
 }

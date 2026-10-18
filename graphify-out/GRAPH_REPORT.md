@@ -1,16 +1,16 @@
-# Graph Report - admin_panel_softlogic  (2026-10-06)
+# Graph Report - admin_panel_softlogic  (2026-10-18)
 
 ## Corpus Check
-- 143 files · ~127,763 words
+- 143 files · ~127,929 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1131 nodes · 1550 edges · 106 communities (80 shown, 26 thin omitted)
+- 1134 nodes · 1563 edges · 106 communities (80 shown, 26 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 15 edges (avg confidence: 0.54)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `3d4fab5d`
+- Built from commit: `c284ce01`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -126,12 +126,12 @@
 ## Surprising Connections (you probably didn't know these)
 - `QrLoginScannerCard()` --references--> `html5-qrcode`  [EXTRACTED]
   src/features/settings/QrLoginScannerCard.tsx → package.json
+- `LiveSessionDetailPage()` --indirect_call--> `isStudyMaterial()`  [INFERRED]
+  src/features/content/LiveSessionDetailPage.tsx → src/components/MaterialPreviewDialog.tsx
 - `QrLoginPanel()` --references--> `qrcode`  [EXTRACTED]
   src/features/auth/QrLoginPanel.tsx → package.json
 - `textFromChildren()` --references--> `react`  [EXTRACTED]
   src/components/ui/select.tsx → package.json
-- `LiveSessionDetailPage()` --indirect_call--> `isStudyMaterial()`  [INFERRED]
-  src/features/content/LiveSessionDetailPage.tsx → src/components/MaterialPreviewDialog.tsx
 - `orderStatusVariant()` --references--> `AiOrderStatus`  [EXTRACTED]
   src/features/ai/components/ai-billing-utils.ts → src/types/ai.ts
 
@@ -154,7 +154,7 @@ Nodes (45): dependencies, axios, class-variance-authority, clsx, date-fns, @font
 
 ### Community 3 - "RolePortalPage.tsx"
 Cohesion: 0.08
-Nodes (29): asNumber(), asRecord(), BoardPreviewTile(), colorFrom(), combinedBounds(), DashboardModule(), defaultPathForRole(), extractPreviewImage() (+21 more)
+Nodes (31): StudentAssessmentSubmitModal(), StudentAssessmentSubmitModalProps, asNumber(), asRecord(), BoardPreviewTile(), colorFrom(), combinedBounds(), DashboardModule() (+23 more)
 
 ### Community 4 - "ContentPage.tsx"
 Cohesion: 0.14
@@ -162,15 +162,15 @@ Nodes (13): compactPath(), ContentPage(), ContentTab, EXPORT_FORMATS, ExportsTab
 
 ### Community 5 - "devDependencies"
 Cohesion: 0.07
-Nodes (28): devDependencies, autoprefixer, eslint, @eslint/js, eslint-plugin-react-hooks, eslint-plugin-react-refresh, globals, postcss (+20 more)
+Nodes (29): devDependencies, autoprefixer, eslint, @eslint/js, eslint-plugin-react-hooks, eslint-plugin-react-refresh, globals, postcss (+21 more)
 
 ### Community 6 - "QrLoginScannerCard.tsx"
 Cohesion: 0.10
-Nodes (25): html5-qrcode, buildCameraTargets(), CameraDevice, cameraErrorMessage(), cameraLabel(), CameraStartTarget, isRearCamera(), ParsedQrLoginPayload (+17 more)
+Nodes (24): html5-qrcode, buildCameraTargets(), CameraDevice, cameraErrorMessage(), cameraLabel(), CameraStartTarget, isRearCamera(), ParsedQrLoginPayload (+16 more)
 
 ### Community 7 - "LiveSessionDetailPage.tsx"
-Cohesion: 0.09
-Nodes (30): isStudyMaterial(), AssessmentSubmissionsModal(), AssessmentSubmissionsModalProps, backPathForRole(), durationLabel(), LiveSessionDetailPage(), LiveSessionEvent, LiveSessionRecording (+22 more)
+Cohesion: 0.11
+Nodes (27): AssessmentSubmissionsModal(), AssessmentSubmissionsModalProps, backPathForRole(), durationLabel(), LiveSessionDetailPage(), LiveSessionEvent, LiveSessionRecording, payloadList() (+19 more)
 
 ### Community 8 - "DownloadsPage.tsx"
 Cohesion: 0.11
@@ -341,8 +341,8 @@ Cohesion: 0.29
 Nodes (6): CreateSubscriptionPayload, RenewSubscriptionPayload, SubscriptionPaymentRecord, SubscriptionPaymentsResponse, subscriptionsApi, UpdateSubscriptionPayload
 
 ### Community 84 - "MaterialPreviewDialog.tsx"
-Cohesion: 0.33
-Nodes (9): assetExtension(), downloadMediaAsset(), isOfficeAsset(), isPdfAsset(), isTextAsset(), LiveSessionMediaAsset, MaterialPreviewDialog(), mediaAssetUrl() (+1 more)
+Cohesion: 0.29
+Nodes (10): assetExtension(), downloadMediaAsset(), isOfficeAsset(), isPdfAsset(), isStudyMaterial(), isTextAsset(), LiveSessionMediaAsset, MaterialPreviewDialog() (+2 more)
 
 ### Community 85 - "TourProvider.tsx"
 Cohesion: 0.24
@@ -377,8 +377,8 @@ Cohesion: 0.06
 Nodes (35): AiAccountSearchResult, AiBalanceAlert, AiBillingConfig, AiBrandLabels, AiBulkAllocationResult, AiCheckout, AiCreditStatus, AiFreeHealth (+27 more)
 
 ### Community 96 - "SoftLogicAiTab.tsx"
-Cohesion: 0.10
-Nodes (21): CashfreeFactory, CheckoutOutcome, clearIdempotencyKey(), idempotencyKeyFor(), launchCheckout(), loaded, loadScript(), RazorpayCtor (+13 more)
+Cohesion: 0.11
+Nodes (24): bindCheckoutToOrder(), CheckoutOutcome, clearCheckoutForOrder(), clearIdempotencyKey(), idempotencyKeyFor(), isCheckoutTerminal(), launchCheckout(), loaded (+16 more)
 
 ### Community 97 - "formatCredits"
 Cohesion: 0.18
@@ -425,11 +425,11 @@ Nodes (4): AI_BUYER_ROLES, aiBrandLabelsForOrganization(), aiBrandLabelsForUser(
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `AdminExportFormat` connect `ActivityPage.tsx` to `licensing.api.ts`, `ContentPage.tsx`, `downloadAdminExport`, `OrganizationsPage`, `SubscriptionFormPage.tsx`, `subscriptions.api.ts`, `organizations.api.ts`, `users.api.ts`, `admin-api.ts`, `AdminExportFormat`?**
-  _High betweenness centrality (0.027) - this node is a cross-community bridge._
+  _High betweenness centrality (0.025) - this node is a cross-community bridge._
 - **Why does `ContentPage()` connect `ContentPage.tsx` to `ActivityPage.tsx`?**
-  _High betweenness centrality (0.020) - this node is a cross-community bridge._
+  _High betweenness centrality (0.019) - this node is a cross-community bridge._
 - **Why does `UsersPage()` connect `SubscriptionFormPage.tsx` to `ActivityPage.tsx`?**
-  _High betweenness centrality (0.008) - this node is a cross-community bridge._
+  _High betweenness centrality (0.010) - this node is a cross-community bridge._
 - **What connects `name`, `private`, `version` to the rest of the system?**
   _491 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `api.ts` be split into smaller, more focused modules?**
@@ -437,4 +437,4 @@ _Questions this graph is uniquely positioned to answer:_
 - **Should `dependencies` be split into smaller, more focused modules?**
   _Cohesion score 0.04343971631205674 - nodes in this community are weakly interconnected._
 - **Should `RolePortalPage.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.08246225319396051 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.07575757575757576 - nodes in this community are weakly interconnected._

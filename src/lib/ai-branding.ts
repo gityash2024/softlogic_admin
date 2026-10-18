@@ -3,11 +3,11 @@ import type { AiBrandLabels } from '@/types/ai';
 
 /**
  * User-facing AI product names. Mirrors the backend `aiBrandLabels`:
- * white-label (SmartBoard) organizations see "SmartBoard AI", everyone else
+ * white-label organizations see "AI Smart Board AI", everyone else
  * "SoftLogic AI". Provider names (Gemini) stay only in Super Admin config.
  */
 export function aiBrandLabelsForOrganization(organization?: Pick<OrganizationSummary, 'brandingMode'> | null): AiBrandLabels {
-  const product = organization?.brandingMode === 'WHITE_LABEL' ? 'SmartBoard AI' : 'SoftLogic AI';
+  const product = organization?.brandingMode === 'WHITE_LABEL' ? 'AI Smart Board AI' : 'SoftLogic AI';
   return { product, free: `${product} Free`, pro: `${product} Pro` };
 }
 
