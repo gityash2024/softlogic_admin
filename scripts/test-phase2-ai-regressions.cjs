@@ -138,6 +138,17 @@ test('only settled payment statuses end a checkout attempt', () => {
   for (const status of ['FULFILLED', 'FAILED', 'CANCELLED', 'EXPIRED', 'REFUNDED', 'PARTIALLY_REFUNDED']) assert.equal(checkout.isCheckoutTerminal(status), true, status);
 });
 
+test('payment handoff releases the dialog focus and pointer lock until checkout finishes', () => {
+  const dialog = findNode(summaryPath, (item) => ts.isJsxOpeningElement(item) && item.tagName.getText() === 'Dialog');
+  const modal = dialog.attributes.properties.find((item) => item.name?.getText() === 'modal');
+  const value = (isPending) => modal
+    ? vm.runInNewContext(transpile(modal.initializer.expression.getText()), { payMutation: { isPending } })
+    : true;
+  assert.equal(value(false), true);
+  assert.equal(value(true), false, 'Third-party checkout must receive pointer and keyboard input');
+  assert.equal(value(false), true);
+});
+
 test('bulk SET requires an explicit amount while allowing an explicit zero', () => {
   const relative = 'src/features/ai/components/BulkAllocateDialog.tsx';
   function allocate(amount, defaultAmount = '', mode = 'SET') {
@@ -206,5 +217,20 @@ test('refunded checkout returns render a settled state and acknowledge the bound
     assert.ok(cleanup);
     cleanup();
     assert.deepEqual(cleared, [order.id]);
+  }
+});
+
+test('every terminal checkout refreshes buyer history and balances', () => {
+  const { checkout } = checkoutFixture();
+  const relative = 'src/features/settings/softlogic-ai/CheckoutReturn.tsx';
+  const effect = findNode(relative, item => ts.isCallExpression(item) && item.expression.getText() === 'useEffect'
+    && item.arguments[0]?.getText().includes("['ai-billing-storefront']"));
+  for (const status of ['FULFILLED', 'CANCELLED', 'FAILED', 'EXPIRED', 'REFUNDED', 'PARTIALLY_REFUNDED', 'PENDING']) {
+    const keys = [];
+    vm.runInNewContext(transpile(`(${effect.arguments[0].getText()})()`), {
+      order: { id: 'qa-order', status }, isCheckoutTerminal: checkout.isCheckoutTerminal,
+      queryClient: { invalidateQueries: ({ queryKey }) => keys.push(queryKey.join(':')) },
+    });
+    assert.deepEqual(keys, status === 'PENDING' ? [] : ['ai-billing-storefront', 'ai-billing-buyer-orders'], status);
   }
 });

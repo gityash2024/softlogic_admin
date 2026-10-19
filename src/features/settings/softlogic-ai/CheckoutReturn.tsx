@@ -54,7 +54,7 @@ export function CheckoutReturn({ orderId, cancelled, onDone }: { orderId: string
     if (order && isCheckoutTerminal(order.status)) clearCheckoutForOrder(order.id);
   }, [order]);
   useEffect(() => {
-    if (order?.status === 'FULFILLED') {
+    if (order && isCheckoutTerminal(order.status)) {
       queryClient.invalidateQueries({ queryKey: ['ai-billing-storefront'] });
       queryClient.invalidateQueries({ queryKey: ['ai-billing-buyer-orders'] });
     }

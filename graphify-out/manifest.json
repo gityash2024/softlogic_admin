@@ -660,8 +660,8 @@
     "semantic_hash": ""
   },
   "src/features/settings/softlogic-ai/CheckoutReturn.tsx": {
-    "mtime": 1792323009.4193053,
-    "ast_hash": "5e75118c80d2bcec19286973b1283507",
+    "mtime": 1792378497.906463,
+    "ast_hash": "94027a3bc2b7a21df263abd9202b9776",
     "semantic_hash": ""
   },
   "src/features/settings/softlogic-ai/CustomCreditsCard.tsx": {
@@ -675,8 +675,8 @@
     "semantic_hash": ""
   },
   "src/features/settings/softlogic-ai/OrderSummaryDialog.tsx": {
-    "mtime": 1792320777.2995129,
-    "ast_hash": "58b578a55e27d695833c0103941efd84",
+    "mtime": 1792378158.9116461,
+    "ast_hash": "44caca24e5408036e84ad4269f365d89",
     "semantic_hash": ""
   },
   "src/features/settings/softlogic-ai/PlanCards.tsx": {

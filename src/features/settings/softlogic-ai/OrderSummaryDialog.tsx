@@ -127,7 +127,7 @@ export function OrderSummaryDialog({
   const title = selection?.kind === 'plan' ? `${selection.plan.name} plan` : 'Custom credits';
 
   return (
-    <Dialog open={open} onOpenChange={(value) => !value && !payMutation.isPending && onClose()}>
+    <Dialog open={open} modal={!payMutation.isPending} onOpenChange={(value) => !value && !payMutation.isPending && onClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Order summary</DialogTitle>
