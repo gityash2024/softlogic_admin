@@ -162,7 +162,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
               <h1 className="truncate text-lg font-bold text-ink-900 sm:text-xl">
                 {displayMeta.title}
               </h1>
-              {location.pathname !== '/ai' && <span className="hidden rounded-full border border-brand-primary/15 bg-brand-primary/10 px-2 py-0.5 text-xs font-semibold text-brand-primary sm:inline-flex">Live</span>}
+              {location.pathname !== '/ai' && !(location.pathname === '/settings' && new URLSearchParams(location.search).get('tab') === 'softlogic-ai') && <span className="hidden rounded-full border border-brand-primary/15 bg-brand-primary/10 px-2 py-0.5 text-xs font-semibold text-brand-primary sm:inline-flex">Live</span>}
             </div>
             <p className="truncate text-xs text-ink-500 sm:text-sm">
               {displayMeta.subtitle}

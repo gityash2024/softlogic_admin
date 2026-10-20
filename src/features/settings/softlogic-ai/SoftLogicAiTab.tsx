@@ -71,7 +71,7 @@ export function SoftLogicAiTab({ storefront }: { storefront: AiStorefront }) {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="ai-eyebrow">PLANS & CREDITS</p><h3 className="mt-2 text-2xl font-bold text-ink-900">A plan for every classroom</h3>
+          <div className="flex flex-wrap items-center gap-3"><p className="ai-eyebrow">PLANS & CREDITS</p>{storefront.gateways.length > 0 && storefront.gateways.every(gateway => gateway.mode === 'TEST') && <span className="ai-mode-pill">Test payments · no real charge</span>}</div><h3 className="mt-2 text-2xl font-bold text-ink-900">A plan for every classroom</h3>
           <p className="text-sm text-ink-500">
             Credits are added to {storefront.organization?.name ?? 'your organization'} and can then be allocated to your users or child organizations.
           </p>
