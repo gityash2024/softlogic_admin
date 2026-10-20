@@ -67,7 +67,7 @@ export function AiAlertsBell() {
           ) : null}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[340px] p-0">
+      <DropdownMenuContent align="end" className="ai-workspace w-[min(360px,calc(100vw-24px))] p-0">
         <div className="flex items-center justify-between border-b border-line px-3 py-2">
           <p className="text-sm font-bold text-ink-900">{brand.product} credit alerts</p>
           {unread ? (

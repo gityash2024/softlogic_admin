@@ -1,3 +1,4 @@
+import '@/features/ai/ai-workspace.css';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
@@ -42,10 +43,10 @@ export function SoftLogicAiTab({ storefront }: { storefront: AiStorefront }) {
   const free = storefront.balances.FREE;
 
   return (
-    <div className="space-y-6">
+    <div data-ai-page className="ai-workspace space-y-6">
       {trackedOrder ? <CheckoutReturn key={trackedOrder} orderId={trackedOrder} cancelled={!completedOrder && cancelled} onDone={clearReturn} /> : null}
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="ai-stats-grid grid gap-4 lg:grid-cols-3">
         <BalanceCard title={storefront.brand.pro} icon={<Zap className="h-5 w-5" />} status={pro} tone="pro" />
         <BalanceCard title={storefront.brand.free} icon={<Sparkles className="h-5 w-5" />} status={free} tone="free" />
         <Card className="px-5 py-4">
@@ -70,7 +71,7 @@ export function SoftLogicAiTab({ storefront }: { storefront: AiStorefront }) {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h3 className="text-xl font-black text-ink-900">Buy {storefront.brand.pro} credits</h3>
+          <p className="ai-eyebrow">PLANS & CREDITS</p><h3 className="mt-2 text-2xl font-bold text-ink-900">A plan for every classroom</h3>
           <p className="text-sm text-ink-500">
             Credits are added to {storefront.organization?.name ?? 'your organization'} and can then be allocated to your users or child organizations.
           </p>
@@ -80,7 +81,7 @@ export function SoftLogicAiTab({ storefront }: { storefront: AiStorefront }) {
             {storefront.currencies.map((option) => (
               <button
                 key={option}
-                type="button"
+                type="button" aria-pressed={currency === option}
                 onClick={() => setCurrency(option)}
                 className={`rounded-md px-3 py-1.5 text-xs font-bold ${currency === option ? 'bg-brand-navy text-white' : 'text-ink-500'}`}
               >
@@ -112,7 +113,7 @@ function BalanceCard({ title, icon, status, tone }: { title: string; icon: React
         {icon}
         <p className="text-sm font-bold text-ink-900">{title}</p>
       </div>
-      <p className="mt-2 text-2xl font-black text-ink-900">{formatCredits(status?.availableTokens)}</p>
+      <p className="ai-metric-value mt-3">{formatCredits(status?.availableTokens)}</p>
       <p className="text-xs text-ink-500">
         available of {formatCredits(status?.allocatedTokens)} · {formatCredits(status?.usedTokens)} used
       </p>

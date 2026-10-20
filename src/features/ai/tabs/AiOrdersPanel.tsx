@@ -1,3 +1,5 @@
+import { AiField } from '@/features/ai/components/ai-ui';
+import { AiFilters } from '../components/ai-ui';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileText, RefreshCw, Undo2 } from 'lucide-react';
@@ -66,7 +68,7 @@ export function AiOrdersPanel() {
   return (
     <Card className="space-y-4 px-4 py-5 sm:px-6">
       <SectionHeader title="Orders" description="All Pro credit purchases. Open an order to reconcile it with the gateway or refund unused credits." actions={<ExportButtons onExport={onExport} loading={exporting} />} />
-      <div className="grid gap-3 rounded-lg border border-line bg-surface-variant p-3 md:grid-cols-3 xl:grid-cols-6">
+      <AiFilters labels={["Search orders", "Status", "Gateway", "Payment mode", "Date range"]}>
         <DebouncedSearchInput className="xl:col-span-2" value={values.search} onChange={(value) => set('search', value)} placeholder="Order number, organization, buyer" />
         <FilterSelect value={values.status} onChange={(value) => set('status', value)} placeholder="All statuses" options={STATUS_OPTIONS} />
         <FilterSelect
@@ -80,7 +82,7 @@ export function AiOrdersPanel() {
           <Input type="date" aria-label="From date" value={values.from} onChange={(event) => set('from', event.target.value)} />
           <Input type="date" aria-label="To date" value={values.to} onChange={(event) => set('to', event.target.value)} />
         </div>
-      </div>
+      </AiFilters>
       <ActiveFilterChips
         filters={chips({ search: 'Search', status: 'Status', gateway: 'Gateway', mode: 'Mode', from: 'From', to: 'To' })}
         onRemove={(key) => set(key as (typeof KEYS)[number], null)}
@@ -108,7 +110,7 @@ export function AiOrdersPanel() {
                 rows.map((order) => (
                   <tr key={order.id} className="cursor-pointer border-t border-line hover:bg-surface-variant/50" onClick={() => setDetailId(order.id)}>
                     <td className="px-3 py-2">
-                      <p className="font-mono text-xs font-semibold text-ink-900">{order.orderNumber}</p>
+                      <button type="button" className="text-left font-mono text-xs font-semibold text-brand-primary underline underline-offset-4" onClick={() => setDetailId(order.id)}>{order.orderNumber}</button>
                       <p className="text-xs text-ink-500">{formatDateTime(order.createdAt)}</p>
                     </td>
                     <td className="px-3 py-2">
@@ -216,25 +218,25 @@ function OrderDetailDrawer({ id, onClose }: { id: string | null; onClose: () => 
           </div>
 
           {canRefund ? (
-            <div className="space-y-2 rounded-lg border border-line px-3 py-3">
+            <fieldset disabled={refundMutation.isPending} className="min-w-0 space-y-2 rounded-lg border border-line px-3 py-3">
               <p className="text-sm font-bold text-ink-900">Refund</p>
               <p className="text-xs text-ink-500">
                 Up to {formatMinor(order.currency, refundable)}. Credits are reversed in proportion, only from unused balances; any shortfall is flagged and never makes a balance negative.
               </p>
               <div className="grid gap-2 sm:grid-cols-2">
-                <Input type="number" min={0} step="0.01" placeholder={`Amount (full: ${refundable / 100})`} value={refundAmount} onChange={(event) => setRefundAmount(event.target.value)} />
-                <Input placeholder="Reason" value={refundReason} onChange={(event) => setRefundReason(event.target.value)} />
+                <AiField label={`Amount (full: ${refundable / 100})`}><Input type="number" min={0} step="0.01" placeholder={`Amount (full: ${refundable / 100})`} value={refundAmount} onChange={(event) => setRefundAmount(event.target.value)} /></AiField>
+                <AiField label="Reason"><Input placeholder="Reason" value={refundReason} onChange={(event) => setRefundReason(event.target.value)} /></AiField>
               </div>
               <label className="flex items-center gap-2 text-xs text-ink-600">
                 <input type="checkbox" checked={recordOnly} onChange={(event) => setRecordOnly(event.target.checked)} />
                 Already refunded in the gateway dashboard (record only)
               </label>
-              {recordOnly ? <Input placeholder="Gateway refund ID" value={gatewayRefundId} onChange={(event) => setGatewayRefundId(event.target.value)} /> : null}
+              {recordOnly ? <AiField label="Gateway refund ID"><Input placeholder="Gateway refund ID" value={gatewayRefundId} onChange={(event) => setGatewayRefundId(event.target.value)} /></AiField> : null}
               <Button type="button" variant="destructive" size="sm" disabled={refundMutation.isPending || (recordOnly && !gatewayRefundId.trim())} onClick={() => refundMutation.mutate()}>
                 {refundMutation.isPending ? <Spinner className="h-4 w-4" /> : <Undo2 className="h-4 w-4" />}
                 Refund
               </Button>
-            </div>
+            </fieldset>
           ) : null}
 
           {order.refunds?.length ? (

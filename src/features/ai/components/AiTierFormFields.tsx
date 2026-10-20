@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import '../ai-workspace.css';
+import { useAiDraft } from './ai-drafts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Save } from 'lucide-react';
 import { toast } from 'sonner';
@@ -56,23 +57,12 @@ export function AiTierFormFields({
   const currentAllocated = current?.allocatedTokens ?? 0;
   const assignable = sameWallet ? 0 : (source?.availableTokens ?? 0) + currentAllocated;
 
-  const [freeCredits, setFreeCredits] = useState('');
-  const [proAccess, setProAccess] = useState<'INHERIT' | 'ON' | 'OFF'>('INHERIT');
   const policy = policyQuery.data?.data?.[0] ?? null;
-
-  useEffect(() => {
-    if (!overviewQuery.data) return;
-    const timer = window.setTimeout(() => setFreeCredits(String(currentAllocated)), 0);
-    return () => window.clearTimeout(timer);
-  }, [overviewQuery.data, currentAllocated]);
-  useEffect(() => {
-    if (!policyQuery.data) return;
-    const value = policy?.proEnabled === true ? 'ON' : policy?.proEnabled === false ? 'OFF' : 'INHERIT';
-    const timer = window.setTimeout(() => setProAccess(value), 0);
-    return () => window.clearTimeout(timer);
-  }, [policyQuery.data, policy?.proEnabled]);
+  const [freeCredits, setFreeCredits, creditsSaved] = useAiDraft(String(currentAllocated), `${scope}:${targetId}`);
+  const [proAccess, setProAccess, policySaved] = useAiDraft<'INHERIT' | 'ON' | 'OFF'>(policy?.proEnabled === true ? 'ON' : policy?.proEnabled === false ? 'OFF' : 'INHERIT', `${scope}:${targetId}`);
 
   const freeMutation = useMutation({
+    onMutate: () => ({ draft: freeCredits, identity: `${scope}:${targetId}` }),
     mutationFn: () => {
       const amount = Math.max(0, Math.round(Number(freeCredits || 0)));
       if (amount > assignable) throw new Error(`Only ${formatCredits(assignable)} Free credits are assignable`);
@@ -86,13 +76,14 @@ export function AiTierFormFields({
         reason: scope === 'USER' ? 'User edit Free allocation' : 'Organization edit Free allocation',
       });
     },
-    onSuccess: () => {
-      toast.success('Free credits saved');
+    onSuccess: (_data, _variables, submitted) => {
+      toast.success('Free credits saved'); creditsSaved(submitted.draft, submitted.identity);
       queryClient.invalidateQueries({ queryKey: ['ai-allocation-overview'] });
     },
     onError: (error) => toast.error(extractApiError(error)),
   });
   const policyMutation = useMutation({
+    onMutate: () => ({ draft: proAccess, identity: `${scope}:${targetId}` }),
     mutationFn: () =>
       aiAdminApi.savePolicy({
         scope,
@@ -103,8 +94,8 @@ export function AiTierFormFields({
         freeDailyCredits: policy?.freeDailyCredits ?? null,
         note: policy?.note ?? null,
       }),
-    onSuccess: () => {
-      toast.success('Pro access saved');
+    onSuccess: (_data, _variables, submitted) => {
+      toast.success('Pro access saved'); policySaved(submitted.draft, submitted.identity);
       queryClient.invalidateQueries({ queryKey: ['ai-tier-policies'] });
     },
     onError: (error) => toast.error(extractApiError(error)),
@@ -114,14 +105,14 @@ export function AiTierFormFields({
   const brand = tierQuery.data!.brand;
 
   return (
-    <div className="space-y-3 rounded-xl border border-line bg-gradient-to-r from-sky-50/60 via-white to-sky-50/30 p-4 shadow-2xs">
+    <div className="ai-workspace space-y-4 rounded-xl border border-line bg-slate-50/60 p-5">
       <div className="flex items-center justify-between gap-2">
         <h4 className="text-sm font-bold text-ink-900">{brand.free} credits</h4>
         <span className="text-[11px] font-semibold text-ink-500">{formatCredits(currentAllocated)} assigned</span>
       </div>
       <p className="text-xs text-ink-500">The allocation above is {brand.pro}. Free credits are allocated separately and saved immediately.</p>
       <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-        <Input type="number" min={0} max={assignable} className="h-9 bg-white font-semibold" value={freeCredits} disabled={sameWallet || !overviewQuery.data} onChange={(event) => setFreeCredits(event.target.value)} />
+        <Input aria-label="Free credits to assign" type="number" min={0} max={assignable} className="h-9 bg-white font-semibold" value={freeCredits} disabled={freeMutation.isPending || sameWallet || !overviewQuery.data} onChange={(event) => setFreeCredits(event.target.value)} />
         <Button type="button" variant="outline" size="sm" disabled={freeMutation.isPending || sameWallet || !overviewQuery.data} onClick={() => freeMutation.mutate()}>
           {freeMutation.isPending ? <Spinner className="h-4 w-4" /> : <Save className="h-4 w-4" />}
           Save Free credits
@@ -135,7 +126,7 @@ export function AiTierFormFields({
         <div className="grid gap-2 border-t border-line pt-3 sm:grid-cols-[1fr_auto] sm:items-end">
           <div className="space-y-1">
             <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">{brand.pro} access</label>
-            <Select value={proAccess} onValueChange={(value) => setProAccess(value as 'INHERIT' | 'ON' | 'OFF')}>
+            <Select disabled={policyMutation.isPending} value={proAccess} onValueChange={(value) => setProAccess(value as 'INHERIT' | 'ON' | 'OFF')}>
               <SelectTrigger className="h-9 bg-white">
                 <SelectValue />
               </SelectTrigger>

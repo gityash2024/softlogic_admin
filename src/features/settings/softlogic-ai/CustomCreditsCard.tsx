@@ -1,3 +1,4 @@
+import { AiField } from '@/features/ai/components/ai-ui';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { SlidersHorizontal } from 'lucide-react';
@@ -68,6 +69,7 @@ export function CustomCreditsCard({
             <button
               key={option}
               type="button"
+              aria-pressed={mode === option}
               className={`rounded-md px-3 py-1.5 text-xs font-bold ${mode === option ? 'bg-brand-navy text-white' : 'text-ink-500'}`}
               onClick={() => {
                 setMode(option);
@@ -82,7 +84,7 @@ export function CustomCreditsCard({
 
       <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_1.2fr]">
         <div className="space-y-2">
-          <Input
+          <AiField label={mode === 'amount' ? `Purchase amount (${currency})` : 'Pro credits to purchase'}><Input
             type="number"
             min={0}
             step={mode === 'amount' ? '0.01' : '1'}
@@ -90,7 +92,7 @@ export function CustomCreditsCard({
             placeholder={mode === 'amount' ? `e.g. ${limits.minMinor / 100}` : 'e.g. 500000'}
             value={value}
             onChange={(event) => setValue(event.target.value)}
-          />
+          /></AiField>
           {outOfRange ? (
             <p className="text-xs font-semibold text-red-700">
               Enter between {formatMinor(currency, limits.minMinor)} and {formatMinor(currency, limits.maxMinor)}.
@@ -98,7 +100,7 @@ export function CustomCreditsCard({
           ) : quoteQuery.isError ? (
             <p className="text-xs font-semibold text-red-700">{extractApiError(quoteQuery.error)}</p>
           ) : (
-            <p className="text-xs text-ink-500">Prices are calculated by SoftLogic; the total below is what you pay.</p>
+            <p className="text-xs text-ink-500">The total below includes any applicable tax.</p>
           )}
         </div>
         <div className="rounded-xl bg-surface-variant px-4 py-3 text-sm">

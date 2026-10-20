@@ -25,32 +25,31 @@ export function PlanCards({
     );
   }
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="ai-plan-grid" aria-label="Available Pro credit plans">
       {priced.map((plan) => {
         const price = plan.prices[currency]!;
         return (
           <div
             key={plan.id}
-            className={cn(
-              'relative flex flex-col rounded-2xl border bg-white px-5 py-5 shadow-xs transition hover:shadow-card',
-              plan.isPopular ? 'border-brand-primary ring-2 ring-brand-primary/15' : 'border-line',
-            )}
+            data-popular={plan.isPopular}
+            className={cn('ai-plan-card relative', plan.isPopular && 'border-brand-primary')}
           >
             {plan.isPopular ? (
-              <span className="absolute -top-3 left-5 inline-flex items-center gap-1 rounded-full bg-brand-primary px-2.5 py-0.5 text-[11px] font-bold text-white">
+              <span className="mb-3 inline-flex w-fit items-center gap-1 rounded-md bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-brand-primary">
                 <Sparkles className="h-3 w-3" />
                 Most popular
               </span>
             ) : null}
-            <p className="text-lg font-black text-ink-900">{plan.name}</p>
-            {plan.description ? <p className="mt-0.5 text-xs text-ink-500">{plan.description}</p> : null}
-            <p className="mt-4 text-3xl font-black text-ink-900">{formatMinor(currency, price.amountMinor)}</p>
+            <h4 className="text-ink-900">{plan.name}</h4>
+            <p className="ai-plan-description">{plan.description || 'Flexible Pro AI credits for your organization.'}</p>
+            <p className="ai-plan-price text-ink-900">{formatMinor(currency, price.amountMinor)}</p>
             <p className="text-xs text-ink-500">
-              {currency === 'INR' && gstPercent ? `+ ${gstPercent}% GST · ${formatMinor(currency, price.totalMinor)} total` : 'No tax added'}
+              {currency === 'INR' && gstPercent ? `+ ${gstPercent}% GST · ${formatMinor(currency, price.totalMinor)} total` : 'One-time credit purchase · no tax added'}
             </p>
-            <div className="mt-4 rounded-xl bg-surface-variant px-3 py-3">
-              <p className="text-2xl font-black text-brand-primary">{formatCredits(price.credits)}</p>
-              <p className="text-xs font-semibold text-ink-600">Pro credits · valid {plan.validityMonths} months</p>
+            <div className="ai-plan-credits">
+              <p className="text-xs font-medium text-ink-500">Pro AI credits included</p>
+              <p className="my-1 break-words text-xl font-semibold text-brand-primary">{formatCredits(price.credits)}</p>
+              <p className="text-xs text-ink-600">Valid for {plan.validityMonths} months</p>
             </div>
             {plan.features.length ? (
               <ul className="mt-4 space-y-1.5 text-sm text-ink-700">

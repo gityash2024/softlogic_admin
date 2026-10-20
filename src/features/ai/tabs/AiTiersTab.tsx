@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { AiField } from '@/features/ai/components/ai-ui';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download, Plus, Save, ShieldCheck, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
+import { useAiDirty, useAiDraft } from '../components/ai-drafts';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -35,8 +37,7 @@ export function AiTiersTab() {
     <div className="space-y-5">
       <TierSwitchCard />
       <TierPolicyCard />
-      <FreePricingCard />
-      <ConversionPreviewCard />
+      <details className="ai-advanced-panel"><summary>Release conversion checks</summary><ConversionPreviewCard /></details>
     </div>
   );
 }
@@ -44,14 +45,8 @@ export function AiTiersTab() {
 function TierSwitchCard() {
   const queryClient = useQueryClient();
   const configQuery = useQuery({ queryKey: ['ai-tier-config'], queryFn: aiAdminApi.tierConfig });
-  const [form, setForm] = useState<AiTierConfig | null>(null);
+  const [form, setForm, formSaved] = useAiDraft<AiTierConfig | null>(configQuery.data ?? null);
   const [confirmOff, setConfirmOff] = useState(false);
-
-  useEffect(() => {
-    if (!configQuery.data) return;
-    const timer = window.setTimeout(() => setForm(configQuery.data), 0);
-    return () => window.clearTimeout(timer);
-  }, [configQuery.data]);
 
   const saveMutation = useMutation({
     mutationFn: (payload: AiTierConfig) =>
@@ -67,8 +62,9 @@ function TierSwitchCard() {
         freePlatformDailyRequests: payload.freePlatformDailyRequests,
         freeProviderChain: payload.freeProviderChain,
       }),
-    onSuccess: () => {
+    onSuccess: (_data, submitted) => {
       toast.success('Tier settings saved');
+      formSaved(submitted);
       queryClient.invalidateQueries({ queryKey: ['ai-tier-config'] });
       queryClient.invalidateQueries({ queryKey: ['ai-summary'] });
     },
@@ -204,7 +200,7 @@ function CapInput({ label, value, onChange }: { label: string; value: number | n
   return (
     <div className="space-y-1">
       <label className="text-[11px] font-semibold uppercase tracking-wide text-ink-500">{label}</label>
-      <Input type="number" min={0} placeholder="No cap" value={toInput(value)} onChange={(event) => onChange(numberOrNull(event.target.value))} />
+      <Input aria-label={label} type="number" min={0} placeholder="No cap" value={toInput(value)} onChange={(event) => onChange(numberOrNull(event.target.value))} />
     </div>
   );
 }
@@ -224,6 +220,8 @@ function TierPolicyCard() {
     freeDailyCredits: string;
     note: string;
   }>({ scope: 'ORGANIZATION', target: null, proEnabled: 'ON', freeDailyRequests: '', freeDailyCredits: '', note: '' });
+
+  useAiDirty(Boolean(draft.target || draft.note || draft.freeDailyRequests || draft.freeDailyCredits), () => setDraft(current => ({ ...current, target: null, note: '', freeDailyRequests: '', freeDailyCredits: '' })));
 
   const policiesQuery = useQuery({
     queryKey: ['ai-tier-policies', page, scopeFilter, search],
@@ -274,8 +272,8 @@ function TierPolicyCard() {
         title="Pro access policies"
         description="Turn Pro on or off for selected partners, organizations or users, and set Free daily caps. Precedence: user → organization → parent partner chain → global default."
       />
-      <div className="grid gap-3 rounded-lg border border-line bg-surface-variant p-3 lg:grid-cols-[140px_1.4fr_140px_1fr_1fr_auto]">
-        <Select value={draft.scope} onValueChange={(value) => setDraft((current) => ({ ...current, scope: value as 'ORGANIZATION' | 'USER', target: null }))}>
+      <fieldset disabled={saveMutation.isPending} className="ai-policy-editor grid min-w-0 gap-3 rounded-lg border border-line bg-surface-variant p-3 lg:grid-cols-[140px_1.4fr_140px_1fr_1fr_auto]">
+        <AiField label="Policy target type"><Select value={draft.scope} onValueChange={(value) => setDraft((current) => ({ ...current, scope: value as 'ORGANIZATION' | 'USER', target: null }))}>
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
@@ -283,9 +281,9 @@ function TierPolicyCard() {
             <SelectItem value="ORGANIZATION">Organization</SelectItem>
             <SelectItem value="USER">User</SelectItem>
           </SelectContent>
-        </Select>
+        </Select></AiField>
         <AsyncAccountSelect scope={draft.scope} tier="PRO" value={draft.target} onChange={(target) => setDraft((current) => ({ ...current, target }))} />
-        <Select value={draft.proEnabled} onValueChange={(value) => setDraft((current) => ({ ...current, proEnabled: value as 'INHERIT' | 'ON' | 'OFF' }))}>
+        <AiField label="Pro access"><Select value={draft.proEnabled} onValueChange={(value) => setDraft((current) => ({ ...current, proEnabled: value as 'INHERIT' | 'ON' | 'OFF' }))}>
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
@@ -294,23 +292,23 @@ function TierPolicyCard() {
             <SelectItem value="OFF">Pro OFF</SelectItem>
             <SelectItem value="INHERIT">Inherit</SelectItem>
           </SelectContent>
-        </Select>
-        <Input type="number" min={0} placeholder="Free requests / day" value={draft.freeDailyRequests} onChange={(event) => setDraft((current) => ({ ...current, freeDailyRequests: event.target.value }))} />
-        <Input type="number" min={0} placeholder="Free credits / day" value={draft.freeDailyCredits} onChange={(event) => setDraft((current) => ({ ...current, freeDailyCredits: event.target.value }))} />
+        </Select></AiField>
+        <AiField label="Free requests / day"><Input type="number" min={0} placeholder="Free requests / day" value={draft.freeDailyRequests} onChange={(event) => setDraft((current) => ({ ...current, freeDailyRequests: event.target.value }))} /></AiField>
+        <AiField label="Free credits / day"><Input type="number" min={0} placeholder="Free credits / day" value={draft.freeDailyCredits} onChange={(event) => setDraft((current) => ({ ...current, freeDailyCredits: event.target.value }))} /></AiField>
         <Button type="button" variant="primary" disabled={saveMutation.isPending} onClick={() => saveMutation.mutate()}>
           {saveMutation.isPending ? <Spinner className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
           Save policy
         </Button>
-        <Input
+        <AiField label="Note (optional, e.g. contract reference)" className="lg:col-span-6"><Input
           className="lg:col-span-6"
           placeholder="Note (optional, e.g. contract reference)"
           value={draft.note}
           onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))}
-        />
-      </div>
+        /></AiField>
+      </fieldset>
 
       <div className="flex flex-col gap-2 sm:flex-row">
-        <Input placeholder="Search policies by organization or user" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} />
+        <AiField label="Search policies by organization or user"><Input placeholder="Search policies by organization or user" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} /></AiField>
         <Select value={scopeFilter} onValueChange={(value) => { setScopeFilter(value as typeof scopeFilter); setPage(1); }}>
           <SelectTrigger className="sm:w-[200px]">
             <SelectValue />
@@ -398,37 +396,19 @@ type FreePricingForm = Omit<AiFreePricingRow, 'inputUsdMicrosPerMillion' | 'outp
   search: string;
 };
 
-function FreePricingCard() {
+export function FreePricingCard() {
   const queryClient = useQueryClient();
   const pricingQuery = useQuery({ queryKey: ['ai-free-pricing'], queryFn: aiAdminApi.freePricing });
-  const [rows, setRows] = useState<FreePricingForm[]>([]);
-
-  useEffect(() => {
-    if (!pricingQuery.data) return;
-    const timer = window.setTimeout(
-      () =>
-        setRows(
-          pricingQuery.data.map((row) => ({
-            id: row.id,
-            modelId: row.modelId,
-            billingType: row.billingType,
-            enabled: row.enabled,
-            input: microsToInput(row.inputUsdMicrosPerMillion),
-            output: microsToInput(row.outputUsdMicrosPerMillion),
-            image: microsToInput(row.imageUsdMicrosEach),
-            audio: microsToInput(row.audioUsdMicrosEach),
-            search: microsToInput(row.searchUsdMicrosPerThousand),
-          })),
-        ),
-      0,
-    );
-    return () => window.clearTimeout(timer);
-  }, [pricingQuery.data]);
+  const [rows, setRows, pricingSaved] = useAiDraft<FreePricingForm[]>((pricingQuery.data ?? []).map(row => ({
+    id: row.id, modelId: row.modelId, billingType: row.billingType, enabled: row.enabled,
+    input: microsToInput(row.inputUsdMicrosPerMillion), output: microsToInput(row.outputUsdMicrosPerMillion),
+    image: microsToInput(row.imageUsdMicrosEach), audio: microsToInput(row.audioUsdMicrosEach), search: microsToInput(row.searchUsdMicrosPerThousand),
+  })));
 
   const saveMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (submitted: FreePricingForm[]) =>
       aiAdminApi.updateFreePricing(
-        rows.map((row) => ({
+        submitted.map((row) => ({
           modelId: row.modelId,
           billingType: row.billingType,
           enabled: row.enabled,
@@ -439,8 +419,9 @@ function FreePricingCard() {
           searchUsdMicrosPerThousand: inputToMicros(row.search),
         })),
       ),
-    onSuccess: () => {
+    onSuccess: (_data, submitted) => {
       toast.success('Free AI pricing saved');
+      pricingSaved(submitted);
       queryClient.invalidateQueries({ queryKey: ['ai-free-pricing'] });
     },
     onError: (error) => toast.error(extractApiError(error)),
@@ -453,9 +434,9 @@ function FreePricingCard() {
     <Card className="space-y-4 px-4 py-5 sm:px-6">
       <SectionHeader
         title="Free AI pricing"
-        description="Free credits charged per request (USD rates at $0.000001 per credit). Separate from the Pro model pricing on the Overview tab."
+        description="Free credits charged per request (USD rates at $0.000001 per credit). Rates are separate from the Pro model pricing above."
         actions={
-          <Button type="button" variant="outline" size="sm" disabled={saveMutation.isPending || !rows.length} onClick={() => saveMutation.mutate()}>
+          <Button type="button" variant="outline" size="sm" disabled={saveMutation.isPending || !rows.length} onClick={() => saveMutation.mutate(rows)}>
             {saveMutation.isPending ? <Spinner className="h-4 w-4" /> : <Save className="h-4 w-4" />}
             Save pricing
           </Button>
@@ -486,7 +467,7 @@ function FreePricingCard() {
                   </td>
                   <td className="py-2 pr-3">
                     <Select value={row.billingType} onValueChange={(value) => setField(row.modelId, 'billingType', value)}>
-                      <SelectTrigger className="h-9 min-w-[96px]">
+                      <SelectTrigger aria-label={`Billing type · ${row.modelId}`} className="h-9 min-w-[96px]">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -499,11 +480,11 @@ function FreePricingCard() {
                   </td>
                   {(['input', 'output', 'image', 'audio', 'search'] as const).map((field) => (
                     <td key={field} className="py-2 pr-3">
-                      <Input className="h-9 min-w-[90px]" type="number" min={0} step="0.000001" value={row[field]} onChange={(event) => setField(row.modelId, field, event.target.value)} />
+                      <Input className="h-9 min-w-[90px]" type="number" min={0} step="0.000001" aria-label={`${field} price · ${row.modelId}`} value={row[field]} onChange={(event) => setField(row.modelId, field, event.target.value)} />
                     </td>
                   ))}
                   <td className="py-2 pr-3">
-                    <input type="checkbox" checked={row.enabled} onChange={(event) => setField(row.modelId, 'enabled', event.target.checked)} />
+                    <input type="checkbox" aria-label={`Enable pricing · ${row.modelId}`} checked={row.enabled} onChange={(event) => setField(row.modelId, 'enabled', event.target.checked)} />
                   </td>
                 </tr>
               ))}

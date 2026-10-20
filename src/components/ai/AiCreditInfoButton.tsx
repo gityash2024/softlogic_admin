@@ -33,7 +33,7 @@ export function AiCreditInfoButton() {
         <Info className="h-4 w-4" />
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="ai-workspace ai-dialog max-w-xl">
           <DialogHeader>
             <DialogTitle>SoftLogic AI credit calculation</DialogTitle>
             <DialogDescription>

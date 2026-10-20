@@ -1,3 +1,4 @@
+import { AiFilters } from '../components/ai-ui';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, ChevronRight, Layers } from 'lucide-react';
@@ -85,7 +86,7 @@ export function AiOrganizationsTab() {
           </>
         }
       />
-      <div className="grid gap-3 rounded-lg border border-line bg-surface-variant p-3 md:grid-cols-3 xl:grid-cols-6">
+      <AiFilters labels={["Search organizations", "Organization kind", "Status", "Wallet tier", "Wallet health", "Pro policy"]}>
         <DebouncedSearchInput className="xl:col-span-2" value={values.search} onChange={(value) => set('search', value)} placeholder="Search name or slug" />
         <FilterSelect value={values.kind} onChange={(value) => set('kind', value)} placeholder="All kinds" options={[['PARTNER', 'Partner'], ['CUSTOMER', 'Customer'], ['INTERNAL', 'Internal']]} />
         <FilterSelect value={values.status} onChange={(value) => set('status', value)} placeholder="All statuses" options={[['ACTIVE', 'Active'], ['INACTIVE', 'Inactive']]} />
@@ -97,7 +98,7 @@ export function AiOrganizationsTab() {
           options={[['HEALTHY', 'Healthy'], ['LOW_20', '≤ 20%'], ['LOW_10', '≤ 10%'], ['LOW_5', '≤ 5%'], ['EXHAUSTED', 'Exhausted'], ['NO_POOL', 'No pool'], ['UNLIMITED', 'Unlimited']]}
         />
         <FilterSelect value={values.proPolicy} onChange={(value) => set('proPolicy', value)} placeholder="Any Pro policy" options={[['ON', 'Pro ON'], ['OFF', 'Pro OFF'], ['INHERIT', 'Inherit']]} />
-      </div>
+      </AiFilters>
       <ActiveFilterChips
         filters={chips({ search: 'Search', kind: 'Kind', status: 'Status', tier: 'Tier', health: 'Health', proPolicy: 'Pro' })}
         onRemove={(key) => set(key as (typeof KEYS)[number], null)}
@@ -256,11 +257,13 @@ function ChildRows({
 }
 
 export function FilterSelect({
+  id,
   value,
   onChange,
   placeholder,
   options,
 }: {
+  id?: string;
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
@@ -268,7 +271,7 @@ export function FilterSelect({
 }) {
   return (
     <Select value={value || 'ALL'} onValueChange={onChange}>
-      <SelectTrigger>
+      <SelectTrigger id={id} aria-label={placeholder}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>

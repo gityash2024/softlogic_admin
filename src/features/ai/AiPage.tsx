@@ -1,3 +1,4 @@
+import { AiField } from '@/features/ai/components/ai-ui';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -19,6 +20,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import './ai-workspace.css';
+import { AI_NAVIGATION, aiTab, aiGroup } from './components/ai-navigation';
+import { AiUnsavedBoundary, useAiDraft } from './components/ai-drafts';
+import { aiAdminApi } from '@/services/ai-admin.api';
+import { aiBillingApi } from '@/services/ai-billing.api';
+import { FreePricingCard } from './tabs/AiTiersTab';
 import { aiApi } from '@/services/ai.api';
 import { extractApiError } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
@@ -66,9 +73,6 @@ type PricingFormRow = {
   enabled: boolean;
 };
 
-const AI_TABS = ['overview', 'tiers', 'credits', 'plans', 'organizations', 'users', 'ledger', 'free-health', 'google-billing'] as const;
-type AiTab = (typeof AI_TABS)[number];
-
 const pricingRowFromSummary = (row: AiModelPricingSummary): PricingFormRow => ({
   modelId: row.modelId,
   provider: row.provider,
@@ -88,14 +92,23 @@ function accountForUser(data: AiOverview | undefined, userId: string) {
   return data?.accounts.find((account) => account.scope === 'USER' && account.userId === userId);
 }
 
-export function AiPage() {
+export function AiPage() { return <AiUnsavedBoundary><AiPageContent /></AiUnsavedBoundary>; }
+
+function AiPageContent() {
   const queryClient = useQueryClient();
   const { tokens, user } = useAuthStore();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
-  const [configForm, setConfigForm] = useState({
+  const overviewQuery = useQuery({
+    queryKey: ['ai-overview'],
+    queryFn: aiApi.overview,
+    refetchInterval: 30000,
+  });
+  const tierSummaryQuery = useQuery({ queryKey: ['ai-summary'], queryFn: aiAdminApi.summary });
+  const billingModeQuery = useQuery({ queryKey: ['ai-billing-gateways'], queryFn: aiBillingApi.gateways, enabled: isSuperAdmin });
+  const [configForm, setConfigForm, configSaved] = useAiDraft({
     geminiApiKey: '',
-    enabled: true,
-    googleSearchGroundingEnabled: false,
+    enabled: overviewQuery.data?.config.enabled ?? true,
+    googleSearchGroundingEnabled: overviewQuery.data?.config.googleSearchGroundingEnabled ?? false,
   });
   const [topUpTokens, setTopUpTokens] = useState('');
   const [allocation, setAllocation] = useState({
@@ -110,18 +123,19 @@ export function AiPage() {
     userId: '',
     amountTokens: '',
   });
-  const [pricingForm, setPricingForm] = useState<PricingFormRow[]>([]);
-  const [billingForm, setBillingForm] = useState({
-    enabled: false,
-    projectId: 'softlogic-496310',
-    billingTableProjectId: '',
-    billingDatasetId: '',
-    billingTableName: '',
-    monthlyCapUsd: '50',
+  const [pricingForm, setPricingForm, pricingSaved] = useAiDraft<PricingFormRow[]>((overviewQuery.data?.pricing ?? []).map(pricingRowFromSummary));
+  const billing = overviewQuery.data?.googleBilling?.config;
+  const [billingForm, setBillingForm, billingSaved] = useAiDraft({
+    enabled: billing?.enabled ?? false,
+    projectId: billing?.projectId ?? '',
+    billingTableProjectId: billing?.billingTableProjectId ?? '',
+    billingDatasetId: billing?.billingDatasetId ?? '',
+    billingTableName: billing?.billingTableName ?? '',
+    monthlyCapUsd: String((billing?.monthlyCapMicros ?? 50_000_000) / 1_000_000),
   });
   const [searchParams, setSearchParams] = useSearchParams();
-  const requestedTab = searchParams.get('tab') as AiTab | null;
-  const activeTab: AiTab = requestedTab && AI_TABS.includes(requestedTab) ? requestedTab : 'overview';
+  const activeTab = aiTab(searchParams.get('tab'));
+  const activeGroup = aiGroup(activeTab);
   const changeTab = (value: string) => {
     const next = new URLSearchParams(searchParams);
     if (value === 'overview') next.delete('tab');
@@ -129,11 +143,7 @@ export function AiPage() {
     setSearchParams(next, { replace: true });
   };
 
-  const overviewQuery = useQuery({
-    queryKey: ['ai-overview'],
-    queryFn: aiApi.overview,
-    refetchInterval: 30000,
-  });
+
 
   useEffect(() => {
     if (!tokens?.accessToken) return;
@@ -158,56 +168,19 @@ export function AiPage() {
     };
   }, [queryClient, tokens?.accessToken]);
 
-  useEffect(() => {
-    const config = overviewQuery.data?.config;
-    if (!config) return;
-    const timer = window.setTimeout(() => {
-      setConfigForm((current) => ({
-        ...current,
-        enabled: config.enabled,
-        googleSearchGroundingEnabled: config.googleSearchGroundingEnabled,
-      }));
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [overviewQuery.data?.config]);
-
-  useEffect(() => {
-    if (!overviewQuery.data?.pricing) return;
-    const timer = window.setTimeout(() => {
-      setPricingForm(overviewQuery.data.pricing.map(pricingRowFromSummary));
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [overviewQuery.data?.pricing]);
-
-  useEffect(() => {
-    const billing = overviewQuery.data?.googleBilling?.config;
-    if (!billing) return;
-    const timer = window.setTimeout(() => {
-      setBillingForm({
-        enabled: billing.enabled,
-        projectId: billing.projectId,
-        billingTableProjectId: billing.billingTableProjectId ?? '',
-        billingDatasetId: billing.billingDatasetId ?? '',
-        billingTableName: billing.billingTableName ?? '',
-        monthlyCapUsd: String((billing.monthlyCapMicros ?? 50_000_000) / 1_000_000),
-      });
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [overviewQuery.data?.googleBilling?.config]);
-
   const configMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (submitted: typeof configForm) =>
       aiApi.updateConfig({
-        geminiApiKey: configForm.geminiApiKey.trim() || undefined,
+        geminiApiKey: submitted.geminiApiKey.trim() || undefined,
         geminiTextModel: TEXT_MODEL,
         geminiImageModel: IMAGE_MODEL,
         geminiTtsModel: TTS_MODEL,
-        googleSearchGroundingEnabled: configForm.googleSearchGroundingEnabled,
-        enabled: configForm.enabled,
+        googleSearchGroundingEnabled: submitted.googleSearchGroundingEnabled,
+        enabled: submitted.enabled,
       }),
-    onSuccess: () => {
+    onSuccess: (_data, submitted) => {
       toast.success('AI configuration saved');
-      setConfigForm((current) => ({ ...current, geminiApiKey: '' }));
+      configSaved(submitted);
       queryClient.invalidateQueries({ queryKey: ['ai-overview'] });
     },
     onError: (error) => toast.error(extractApiError(error)),
@@ -225,9 +198,9 @@ export function AiPage() {
   });
 
   const pricingMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (submitted: PricingFormRow[]) =>
       aiApi.updatePricing({
-        pricing: pricingForm.map((row) => ({
+        pricing: submitted.map((row) => ({
           modelId: row.modelId,
           provider: row.provider || 'gemini',
           billingType: row.billingType,
@@ -238,25 +211,27 @@ export function AiPage() {
           enabled: row.enabled,
         })),
       }),
-    onSuccess: () => {
+    onSuccess: (_data, submitted) => {
       toast.success('AI pricing saved');
+      pricingSaved(submitted);
       queryClient.invalidateQueries({ queryKey: ['ai-overview'] });
     },
     onError: (error) => toast.error(extractApiError(error)),
   });
 
   const billingMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (submitted: typeof billingForm) =>
       aiApi.updateGoogleBilling({
-        enabled: billingForm.enabled,
-        projectId: billingForm.projectId.trim(),
-        billingTableProjectId: billingForm.billingTableProjectId.trim() || null,
-        billingDatasetId: billingForm.billingDatasetId.trim() || null,
-        billingTableName: billingForm.billingTableName.trim() || null,
-        monthlyCapMicros: inputValueToMicros(billingForm.monthlyCapUsd),
+        enabled: submitted.enabled,
+        projectId: submitted.projectId.trim(),
+        billingTableProjectId: submitted.billingTableProjectId.trim() || null,
+        billingDatasetId: submitted.billingDatasetId.trim() || null,
+        billingTableName: submitted.billingTableName.trim() || null,
+        monthlyCapMicros: inputValueToMicros(submitted.monthlyCapUsd),
       }),
-    onSuccess: () => {
+    onSuccess: (_data, submitted) => {
       toast.success('Google billing verification saved');
+      billingSaved(submitted);
       queryClient.invalidateQueries({ queryKey: ['ai-overview'] });
     },
     onError: (error) => toast.error(extractApiError(error)),
@@ -368,7 +343,7 @@ export function AiPage() {
 
   const submitConfig = (event: FormEvent) => {
     event.preventDefault();
-    configMutation.mutate();
+    configMutation.mutate(configForm);
   };
 
   const submitTopUp = (event: FormEvent) => {
@@ -423,48 +398,43 @@ export function AiPage() {
     return (
       <Card className="px-4 py-6 sm:px-6">
         <p className="font-semibold text-ink-900">AI module unavailable</p>
-        <p className="mt-1 text-sm text-ink-500">{extractApiError(overviewQuery.error)}</p>
+        <p className="mt-1 text-sm text-ink-500">{extractApiError(overviewQuery.error)}</p><Button className="mt-4" variant="outline" onClick={() => overviewQuery.refetch()}>Retry</Button>
       </Card>
     );
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div data-ai-page className="ai-workspace space-y-6">
+      <div className="ai-page-heading">
         <div>
-          <h2 className="text-2xl font-black text-ink-900">AI</h2>
+          <p className="ai-eyebrow">AI WORKSPACE</p><h2 className="text-2xl font-bold text-ink-900">{activeGroup.tabs.find(tab => tab.id === activeTab)?.label}</h2>
           <p className="text-sm text-ink-500">
-            Central Gemini key, AI credits, live usage, and hierarchy allocations.
+            Manage access, monitor usage and keep every AI credit accounted for.
           </p>
         </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="ai-service-pill">{data.config.enabled ? 'Service enabled' : 'Service disabled'}</span>
+          {billingModeQuery.data?.[0]?.effectiveMode && <span className="ai-mode-pill">{billingModeQuery.data[0].effectiveMode === 'TEST' ? 'Test payments' : 'Live payments'}</span>}
         <Button variant="outline" onClick={() => overviewQuery.refetch()}>
           <RefreshCw className="h-4 w-4" />
           Refresh
-        </Button>
+        </Button></div>
       </div>
 
       <Tabs value={activeTab} onValueChange={changeTab}>
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="tiers">Free &amp; Pro tiers</TabsTrigger>
-          <TabsTrigger value="credits">Free &amp; Pro credits</TabsTrigger>
-          <TabsTrigger value="plans">Plans &amp; payments</TabsTrigger>
-          <TabsTrigger value="organizations">Organizations</TabsTrigger>
-          <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="ledger">Ledger</TabsTrigger>
-          <TabsTrigger value="free-health">Free AI health</TabsTrigger>
-          {isSuperAdmin && data.googleBilling ? <TabsTrigger value="google-billing">Google billing</TabsTrigger> : null}
+        <nav className="ai-primary-nav" aria-label="AI workspace">
+          {AI_NAVIGATION.map(group => <button key={group.label} type="button" aria-current={activeGroup.label === group.label ? 'page' : undefined} onClick={() => changeTab(group.tabs[0].id)}>{group.label}</button>)}
+        </nav>
+        <TabsList className="ai-secondary-nav" aria-label={activeGroup.label}>
+          {activeGroup.tabs.filter(tab => tab.id !== 'google-billing' || (isSuperAdmin && data.googleBilling)).map(tab => <TabsTrigger key={tab.id} value={tab.id}>{tab.label}</TabsTrigger>)}
         </TabsList>
 
-      <TabsContent value="overview" className="space-y-5">
-      <div className="grid gap-4 xl:grid-cols-4">
-        <MetricCard icon={Wallet} label="Master available" value={formatTokens(data.master.availableTokens)} detail={`${formatTokens(data.master.allocatedTokens)} total`} />
-        <MetricCard icon={BrainCircuit} label="AI credits used" value={formatTokens(data.master.usedTokens)} detail={`${formatTokens(data.master.reservedTokens)} reserved`} />
-        <MetricCard icon={KeyRound} label="Gemini key" value={data.config.hasGeminiApiKey ? 'Configured' : 'Missing'} detail={data.config.maskedGeminiApiKey ?? 'No master key'} />
-        <MetricCard icon={CheckCircle2} label="Status" value={data.config.enabled ? 'Enabled' : 'Disabled'} detail={data.config.lastTestStatus ?? 'Not tested'} />
-      </div>
-
-      <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+      <TabsContent value="overview"><AiUsageOverview /></TabsContent>
+      <TabsContent value="configuration" className="space-y-5">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <MetricCard icon={KeyRound} label="Pro provider key" value={data.config.hasGeminiApiKey ? 'Configured' : 'Missing'} detail={data.config.maskedGeminiApiKey ?? 'No master key'} />
+          <MetricCard icon={CheckCircle2} label="AI service" value={data.config.enabled ? 'Enabled' : 'Disabled'} detail={data.config.lastTestStatus ?? 'Not tested'} />
+        </div>
         <Card data-tour="tour-ai-credits" className="space-y-4 px-4 py-5 sm:px-6">
           <div>
             <h3 className="text-base font-bold text-ink-900">Master AI Configuration</h3>
@@ -474,8 +444,8 @@ export function AiPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5 sm:col-span-2">
                 <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Gemini API key</label>
-                <Input
-                  type="password"
+                <Input aria-label="Gemini API key"
+                  type="password" autoComplete="new-password" data-lpignore="true" name="ai_provider_secret"
                   placeholder={data.config.maskedGeminiApiKey ?? 'AIzaSy...'}
                   value={configForm.geminiApiKey}
                   disabled={!isSuperAdmin}
@@ -523,14 +493,17 @@ export function AiPage() {
               </div>
             )}
           </form>
-          <div className="space-y-3 border-t border-line pt-4">
+        </Card>
+      </TabsContent>
+      <TabsContent value="pricing" className="space-y-5">
+        <Card className="space-y-4 px-4 py-5 sm:px-6">          <div className="space-y-3 border-t border-line pt-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h4 className="text-sm font-bold text-ink-900">Model Pricing</h4>
                 <p className="text-xs text-ink-500">USD rates converted to SoftLogic AI credits at $0.000001 per credit.</p>
               </div>
               {isSuperAdmin && (
-                <Button type="button" variant="outline" size="sm" disabled={pricingMutation.isPending} onClick={() => pricingMutation.mutate()}>
+                <Button type="button" variant="outline" size="sm" disabled={pricingMutation.isPending} onClick={() => pricingMutation.mutate(pricingForm)}>
                   {pricingMutation.isPending ? <Spinner className="h-4 w-4" /> : <Save className="h-4 w-4" />}
                   Save pricing
                 </Button>
@@ -561,7 +534,7 @@ export function AiPage() {
                           disabled={!isSuperAdmin}
                           onValueChange={(value) => updatePricingRow(row.modelId, 'billingType', value)}
                         >
-                          <SelectTrigger className="h-9 min-w-[96px]"><SelectValue /></SelectTrigger>
+                          <SelectTrigger aria-label={`Billing type · ${row.modelId}`} className="h-9 min-w-[96px]"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="token">Token</SelectItem>
                             <SelectItem value="image">Image</SelectItem>
@@ -571,21 +544,21 @@ export function AiPage() {
                         </Select>
                       </td>
                       <td className="py-2 pr-3">
-                        <Input className="h-9 min-w-[96px]" type="number" min={0} step="0.000001" disabled={!isSuperAdmin} value={row.inputUsdPerMillion} onChange={(event) => updatePricingRow(row.modelId, 'inputUsdPerMillion', event.target.value)} />
+                        <Input className="h-9 min-w-[96px]" type="number" min={0} step="0.000001" disabled={!isSuperAdmin} aria-label={`Input USD per million · ${row.modelId}`} value={row.inputUsdPerMillion} onChange={(event) => updatePricingRow(row.modelId, 'inputUsdPerMillion', event.target.value)} />
                       </td>
                       <td className="py-2 pr-3">
-                        <Input className="h-9 min-w-[96px]" type="number" min={0} step="0.000001" disabled={!isSuperAdmin} value={row.outputUsdPerMillion} onChange={(event) => updatePricingRow(row.modelId, 'outputUsdPerMillion', event.target.value)} />
+                        <Input className="h-9 min-w-[96px]" type="number" min={0} step="0.000001" disabled={!isSuperAdmin} aria-label={`Output USD per million · ${row.modelId}`} value={row.outputUsdPerMillion} onChange={(event) => updatePricingRow(row.modelId, 'outputUsdPerMillion', event.target.value)} />
                       </td>
                       <td className="py-2 pr-3">
-                        <Input className="h-9 min-w-[96px]" type="number" min={0} step="0.000001" disabled={!isSuperAdmin} value={row.imageUsdEach} onChange={(event) => updatePricingRow(row.modelId, 'imageUsdEach', event.target.value)} />
+                        <Input className="h-9 min-w-[96px]" type="number" min={0} step="0.000001" disabled={!isSuperAdmin} aria-label={`USD per image · ${row.modelId}`} value={row.imageUsdEach} onChange={(event) => updatePricingRow(row.modelId, 'imageUsdEach', event.target.value)} />
                       </td>
                       <td className="py-2 pr-3">
-                        <Input className="h-9 min-w-[96px]" type="number" min={0} step="0.000001" disabled={!isSuperAdmin} value={row.searchUsdPerThousand} onChange={(event) => updatePricingRow(row.modelId, 'searchUsdPerThousand', event.target.value)} />
+                        <Input className="h-9 min-w-[96px]" type="number" min={0} step="0.000001" disabled={!isSuperAdmin} aria-label={`Search USD per thousand · ${row.modelId}`} value={row.searchUsdPerThousand} onChange={(event) => updatePricingRow(row.modelId, 'searchUsdPerThousand', event.target.value)} />
                       </td>
                       <td className="py-2 pr-3">
                         <input
                           type="checkbox"
-                          checked={row.enabled}
+                          aria-label={`Enable pricing · ${row.modelId}`} checked={row.enabled}
                           disabled={!isSuperAdmin}
                           onChange={(event) => updatePricingRow(row.modelId, 'enabled', event.target.checked)}
                         />
@@ -596,9 +569,14 @@ export function AiPage() {
               </table>
             </div>
           </div>
-        </Card>
-
-        <Card className="space-y-4 px-4 py-5 sm:px-6">
+</Card>
+        <FreePricingCard />
+      </TabsContent>
+      <TabsContent value="tiers">
+        <AiTiersTab />
+      </TabsContent>
+      <TabsContent value="credits">
+        {tierSummaryQuery.data?.tiersActive === false ? (<>        <Card className="space-y-4 px-4 py-5 sm:px-6">
           <div>
             <div className="flex items-center gap-1">
               <h3 className="text-base font-bold text-ink-900">Credits</h3>
@@ -615,13 +593,13 @@ export function AiPage() {
                 </p>
               </div>
               <form onSubmit={submitTopUp} className="grid gap-3 sm:grid-cols-[1fr_auto]">
-                <Input
+                <AiField label="AI credits to add to master pool"><Input
                   type="number"
                   min={1}
                   placeholder="AI credits to add to master pool"
                   value={topUpTokens}
                   onChange={(event) => setTopUpTokens(event.target.value)}
-                />
+                /></AiField>
                 <Button type="submit" variant="primary" disabled={topUpMutation.isPending}>
                   {topUpMutation.isPending ? <Spinner className="h-4 w-4" /> : <Wallet className="h-4 w-4" />}
                   Add
@@ -648,14 +626,14 @@ export function AiPage() {
                   <SelectItem value="USER">User</SelectItem>
                 </SelectContent>
               </Select>
-              <Input
+              <AiField label="AI credits to allocate"><Input
                 data-tour="tour-ai-allocate-amount"
                 type="number"
                 min={1}
                 placeholder="AI credits to allocate"
                 value={allocation.amountTokens}
                 onChange={(event) => setAllocation((current) => ({ ...current, amountTokens: event.target.value }))}
-              />
+              /></AiField>
             </div>
             {selectedAllocationAccount && (
               <div className="grid gap-2 rounded-lg bg-surface-variant px-3 py-3 text-xs text-ink-600 sm:grid-cols-3">
@@ -786,7 +764,7 @@ export function AiPage() {
                   </div>
                 )}
                 <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
-                  <Input
+                  <AiField label="AI credits to reclaim"><Input
                     type="number"
                     min={1}
                     max={reclaimableTokens || undefined}
@@ -798,7 +776,7 @@ export function AiPage() {
                         amountTokens: event.target.value,
                       }))
                     }
-                  />
+                  /></AiField>
                   <Button
                     type="button"
                     variant="outline"
@@ -828,21 +806,14 @@ export function AiPage() {
               </form>
             </section>
           )}
-        </Card>
-      </div>
-
-      <AiUsageOverview />
-      </TabsContent>
-
-      <TabsContent value="tiers">
-        <AiTiersTab />
-      </TabsContent>
-      <TabsContent value="credits">
-        <AiCreditsTab isSuperAdmin={isSuperAdmin} />
+        </Card></>) : <AiCreditsTab isSuperAdmin={isSuperAdmin} />}
       </TabsContent>
       <TabsContent value="plans">
-        <AiPlansTab />
+        <AiPlansTab view="plans" />
       </TabsContent>
+      <TabsContent value="billing-settings"><AiPlansTab view="billing-settings" /></TabsContent>
+      <TabsContent value="gateways"><AiPlansTab view="gateways" /></TabsContent>
+      <TabsContent value="orders"><AiPlansTab view="orders" /></TabsContent>
       <TabsContent value="organizations">
         <AiOrganizationsTab />
       </TabsContent>
@@ -883,38 +854,38 @@ export function AiPage() {
           <form
             onSubmit={(event) => {
               event.preventDefault();
-              billingMutation.mutate();
+              billingMutation.mutate(billingForm);
             }}
             className="grid gap-3 lg:grid-cols-[0.8fr_0.8fr_0.8fr_0.8fr_0.6fr_auto]"
           >
-            <Input
+            <AiField label="Project ID"><Input
               placeholder="Project ID"
               value={billingForm.projectId}
               onChange={(event) => setBillingForm((current) => ({ ...current, projectId: event.target.value }))}
-            />
-            <Input
+            /></AiField>
+            <AiField label="Table project"><Input
               placeholder="Table project"
               value={billingForm.billingTableProjectId}
               onChange={(event) => setBillingForm((current) => ({ ...current, billingTableProjectId: event.target.value }))}
-            />
-            <Input
+            /></AiField>
+            <AiField label="Dataset ID"><Input
               placeholder="Dataset ID"
               value={billingForm.billingDatasetId}
               onChange={(event) => setBillingForm((current) => ({ ...current, billingDatasetId: event.target.value }))}
-            />
-            <Input
+            /></AiField>
+            <AiField label="Table name"><Input
               placeholder="Table name"
               value={billingForm.billingTableName}
               onChange={(event) => setBillingForm((current) => ({ ...current, billingTableName: event.target.value }))}
-            />
-            <Input
+            /></AiField>
+            <AiField label="Monthly cap"><Input
               type="number"
               min={1}
               step="0.01"
               placeholder="Monthly cap"
               value={billingForm.monthlyCapUsd}
               onChange={(event) => setBillingForm((current) => ({ ...current, monthlyCapUsd: event.target.value }))}
-            />
+            /></AiField>
             <div className="flex gap-2">
               <label className="flex h-11 items-center gap-2 rounded-lg border border-line px-3 text-sm text-ink-700">
                 <input
@@ -985,8 +956,8 @@ function MetricCard({ icon: Icon, label, value, detail }: { icon: LucideIcon; la
         </span>
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">{label}</p>
-          <p className="truncate text-lg font-black text-ink-900">{value}</p>
-          <p className="truncate text-xs text-ink-500">{detail}</p>
+          <p className="ai-metric-value" title={value}>{value}</p>
+          <p className="break-words text-xs text-ink-500">{detail}</p>
         </div>
       </div>
     </Card>
@@ -1013,7 +984,7 @@ function ModelField({ label, value }: { label: string; value: string }) {
   return (
     <div className="space-y-1.5">
       <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">{label}</label>
-      <Input value={value} disabled readOnly />
+      <Input aria-label={label} value={value} disabled readOnly />
     </div>
   );
 }

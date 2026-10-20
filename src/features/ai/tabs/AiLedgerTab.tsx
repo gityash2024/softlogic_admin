@@ -1,3 +1,4 @@
+import { AiFilters } from '../components/ai-ui';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -76,7 +77,7 @@ export function AiLedgerTab() {
   return (
     <Card className="space-y-4 px-4 py-5 sm:px-6">
       <SectionHeader title="Live Ledger" description="Every credit movement, paginated on the server with no row cap. Click an entry for full details." actions={<ExportButtons onExport={onExport} loading={exporting} />} />
-      <div className="grid gap-3 rounded-lg border border-line bg-surface-variant p-3 md:grid-cols-2 lg:grid-cols-4">
+      <AiFilters labels={["Search ledger", "Transaction type", "Direction", "Tier", "Model", "Feature or tool", "Provider", "Credit range", "From date", "To date"]}>
         <DebouncedSearchInput value={values.search} onChange={(value) => set('search', value)} placeholder="Search actor, user, org, reason" />
         <FilterSelect value={values.types} onChange={(value) => set('types', value)} placeholder="All types" options={LEDGER_TYPES} />
         <FilterSelect value={values.direction} onChange={(value) => set('direction', value)} placeholder="Debit and credit" options={[['DEBIT', 'Debits only'], ['CREDIT', 'Credits only']]} />
@@ -85,12 +86,12 @@ export function AiLedgerTab() {
         <DebouncedSearchInput value={values.feature} onChange={(value) => set('feature', value)} placeholder="Feature / tool" />
         <DebouncedSearchInput value={values.provider} onChange={(value) => set('provider', value)} placeholder="Provider" />
         <div className="grid grid-cols-2 gap-2">
-          <Input key={`min-${values.minCredits}`} type="number" min={0} placeholder="Min credits" defaultValue={values.minCredits} onBlur={(event) => set('minCredits', event.target.value)} />
-          <Input key={`max-${values.maxCredits}`} type="number" min={0} placeholder="Max credits" defaultValue={values.maxCredits} onBlur={(event) => set('maxCredits', event.target.value)} />
+          <Input key={`min-${values.minCredits}`} type="number" min={0} aria-label="Minimum credits" placeholder="Min credits" defaultValue={values.minCredits} onBlur={(event) => set('minCredits', event.target.value)} />
+          <Input key={`max-${values.maxCredits}`} type="number" min={0} aria-label="Maximum credits" placeholder="Max credits" defaultValue={values.maxCredits} onBlur={(event) => set('maxCredits', event.target.value)} />
         </div>
         <Input type="date" value={values.from} onChange={(event) => set('from', event.target.value)} aria-label="From date" />
         <Input type="date" value={values.to} onChange={(event) => set('to', event.target.value)} aria-label="To date" />
-      </div>
+      </AiFilters>
       <ActiveFilterChips
         filters={chips({
           search: 'Search',
@@ -130,7 +131,7 @@ export function AiLedgerTab() {
               ) : rows.length ? (
                 rows.map((entry) => (
                   <tr key={entry.id} className="cursor-pointer border-t border-line hover:bg-surface-variant/50" onClick={() => setDetailId(entry.id)}>
-                    <td className="whitespace-nowrap px-3 py-2 text-xs text-ink-500">{formatDateTime(entry.createdAt)}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-xs text-ink-500"><button type="button" className="text-left underline decoration-line underline-offset-4" aria-label={`View ledger entry from ${formatDateTime(entry.createdAt)}`} onClick={() => setDetailId(entry.id)}>{formatDateTime(entry.createdAt)}</button></td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs font-semibold text-ink-900">{entry.type}</span>

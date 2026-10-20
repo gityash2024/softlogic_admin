@@ -1,3 +1,5 @@
+import { useAiDirty } from '../components/ai-drafts';
+import { AiField } from '@/features/ai/components/ai-ui';
 import { FormEvent, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Layers, Send, Undo2, Wallet } from 'lucide-react';
@@ -8,7 +10,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
-import { StatCard } from '@/features/admin/admin-list-ui';
+import { AiMetricCard as StatCard } from '../components/ai-ui';
 import { extractApiError } from '@/lib/api';
 import { aiAdminApi } from '@/services/ai-admin.api';
 import type { AiAccountSearchResult, AiTier } from '@/types/ai';
@@ -70,6 +72,7 @@ export function AiCreditsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
     onError: (error) => toast.error(extractApiError(error)),
   });
 
+  useAiDirty(Boolean(topUp || allocation.amount || reclaim.amount), () => { setTopUp(''); setAllocation(current => ({ ...current, target: null, amount: '' })); setReclaim(current => ({ ...current, target: null, amount: '' })); });
   const reclaimWallet = reclaim.target?.wallet ?? null;
   const reclaimable = reclaimWallet && !reclaimWallet.unlimited ? Math.max(reclaimWallet.availableTokens, 0) : 0;
 
@@ -113,7 +116,7 @@ export function AiCreditsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
   };
 
   return (
-    <div className="space-y-5">
+    <fieldset disabled={topUpMutation.isPending || allocateMutation.isPending || reclaimMutation.isPending} className="min-w-0 space-y-5">
       <Card className="space-y-4 px-4 py-5 sm:px-6">
         <SectionHeader
           title="Free & Pro credits"
@@ -131,7 +134,7 @@ export function AiCreditsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
             </>
           }
         />
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="ai-stats-grid grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard label={`${tier === 'PRO' ? 'Pro' : 'Free'} master available`} value={formatCredits(master?.availableTokens)} detail={`${formatCredits(master?.allocatedTokens)} total`} tone={tier === 'PRO' ? 'purple' : 'blue'} />
           <StatCard label="Assigned to children" value={formatCredits(master?.childAllocatedTokens)} tone="gray" />
           <StatCard label="Used" value={formatCredits(summaryQuery.data?.[tier].usedTokens)} detail={`${formatCredits(summaryQuery.data?.[tier].reservedTokens)} reserved`} tone="orange" />
@@ -139,7 +142,7 @@ export function AiCreditsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
         </div>
       </Card>
 
-      <div className="grid gap-5 xl:grid-cols-3">
+      <div className="ai-credit-actions grid gap-5 xl:grid-cols-3">
         {isSuperAdmin ? (
           <Card className="space-y-3 px-4 py-5 sm:px-6">
             <div className="flex items-center gap-2">
@@ -148,7 +151,7 @@ export function AiCreditsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
             </div>
             <p className="text-xs text-ink-500">Add credits to the central {tier === 'PRO' ? 'Pro' : 'Free'} wallet.</p>
             <form onSubmit={submitTopUp} className="grid gap-3">
-              <Input type="number" min={1} placeholder="AI credits to add" value={topUp} onChange={(event) => setTopUp(event.target.value)} />
+              <AiField label="AI credits to add"><Input type="number" min={1} placeholder="AI credits to add" value={topUp} onChange={(event) => setTopUp(event.target.value)} /></AiField>
               <Button type="submit" variant="primary" disabled={topUpMutation.isPending}>
                 {topUpMutation.isPending ? <Spinner className="h-4 w-4" /> : <Wallet className="h-4 w-4" />}
                 Add
@@ -164,7 +167,7 @@ export function AiCreditsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
           </div>
           <form onSubmit={submitAllocation} className="grid gap-3">
             <div className="grid gap-3 sm:grid-cols-2">
-              <Select value={allocation.scope} onValueChange={(value) => setAllocation({ scope: value as 'ORGANIZATION' | 'USER', target: null, amount: allocation.amount })}>
+              <AiField label="Recipient type"><Select value={allocation.scope} onValueChange={(value) => setAllocation({ scope: value as 'ORGANIZATION' | 'USER', target: null, amount: allocation.amount })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -172,8 +175,8 @@ export function AiCreditsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
                   <SelectItem value="ORGANIZATION">Organization</SelectItem>
                   <SelectItem value="USER">User</SelectItem>
                 </SelectContent>
-              </Select>
-              <Input type="number" min={1} placeholder="AI credits to allocate" value={allocation.amount} onChange={(event) => setAllocation((current) => ({ ...current, amount: event.target.value }))} />
+              </Select></AiField>
+              <AiField label="AI credits to allocate"><Input type="number" min={1} placeholder="AI credits to allocate" value={allocation.amount} onChange={(event) => setAllocation((current) => ({ ...current, amount: event.target.value }))} /></AiField>
             </div>
             <AsyncAccountSelect scope={allocation.scope} tier={tier} value={allocation.target} onChange={(target) => setAllocation((current) => ({ ...current, target }))} />
             {allocation.target?.wallet ? <WalletStrip wallet={allocation.target.wallet} /> : null}
@@ -191,7 +194,7 @@ export function AiCreditsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
           </div>
           <p className="text-xs text-ink-500">Return unused assigned credits to the wallet they came from.</p>
           <form onSubmit={submitReclaim} className="grid gap-3">
-            <Select value={reclaim.scope} onValueChange={(value) => setReclaim({ scope: value as 'ORGANIZATION' | 'USER', target: null, amount: '' })}>
+            <AiField label="Account type"><Select value={reclaim.scope} onValueChange={(value) => setReclaim({ scope: value as 'ORGANIZATION' | 'USER', target: null, amount: '' })}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -199,7 +202,7 @@ export function AiCreditsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
                 <SelectItem value="ORGANIZATION">Organization</SelectItem>
                 <SelectItem value="USER">User</SelectItem>
               </SelectContent>
-            </Select>
+            </Select></AiField>
             <AsyncAccountSelect scope={reclaim.scope} tier={tier} value={reclaim.target} onChange={(target) => setReclaim((current) => ({ ...current, target, amount: '' }))} />
             {reclaimWallet ? (
               <div className="grid gap-2 rounded-lg bg-surface-variant px-3 py-3 text-xs text-ink-600 sm:grid-cols-2">
@@ -208,7 +211,7 @@ export function AiCreditsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
               </div>
             ) : null}
             <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-              <Input type="number" min={1} max={reclaimable || undefined} placeholder="AI credits to reclaim" value={reclaim.amount} onChange={(event) => setReclaim((current) => ({ ...current, amount: event.target.value }))} />
+              <AiField label="AI credits to reclaim"><Input type="number" min={1} max={reclaimable || undefined} placeholder="AI credits to reclaim" value={reclaim.amount} onChange={(event) => setReclaim((current) => ({ ...current, amount: event.target.value }))} /></AiField>
               <Button type="submit" variant="destructive" disabled={reclaimMutation.isPending || !reclaimable}>
                 {reclaimMutation.isPending ? <Spinner className="h-4 w-4" /> : <Undo2 className="h-4 w-4" />}
                 Reclaim
@@ -222,7 +225,7 @@ export function AiCreditsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
       </div>
 
       <BulkAllocateDialog open={bulkOpen} onOpenChange={setBulkOpen} initialTier={tier} />
-    </div>
+    </fieldset>
   );
 }
 

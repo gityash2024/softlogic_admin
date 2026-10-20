@@ -67,7 +67,7 @@ export function CheckoutReturn({ orderId, cancelled, onDone }: { orderId: string
   const waitedTooLong = !completed && !failed && timedOut;
 
   return (
-    <div
+    <div role="status" aria-live="polite"
       className={`rounded-2xl border px-5 py-5 ${
         completed ? 'border-emerald-200 bg-emerald-50' : failed ? 'border-red-200 bg-red-50' : 'border-brand-primary/20 bg-brand-primary/5'
       }`}
@@ -107,6 +107,7 @@ export function CheckoutReturn({ orderId, cancelled, onDone }: { orderId: string
               If you were charged, the credits are added automatically as soon as the gateway notifies us. You can safely leave this page.
             </p>
           ) : null}
+          {orderQuery.isError && <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-red-700"><span>{extractApiError(orderQuery.error)}</span><Button type="button" variant="outline" size="sm" onClick={() => orderQuery.refetch()}>Retry status</Button></div>}
           {confirmError && !completed ? <p className="mt-1 text-xs text-ink-500">{confirmError}</p> : null}
           <div className="mt-3 flex flex-wrap gap-2">
             {completed ? (

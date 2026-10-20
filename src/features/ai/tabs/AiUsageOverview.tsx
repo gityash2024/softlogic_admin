@@ -4,7 +4,7 @@ import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContai
 
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { StatCard } from '@/features/admin/admin-list-ui';
+import { AiMetricCard as StatCard } from '../components/ai-ui';
 import { extractApiError } from '@/lib/api';
 import { aiAdminApi } from '@/services/ai-admin.api';
 import type { AiTimeseries } from '@/types/ai';
@@ -43,7 +43,7 @@ function pivot(points: AiTimeseries['points'], metric: 'credits' | 'requests') {
   return { rows, series };
 }
 
-/** Phase 2 overview: per-tier KPIs and usage charts (additive, below the existing cards). */
+/** Phase 2 overview: per-tier KPIs and usage charts. */
 export function AiUsageOverview() {
   const [days, setDays] = useState('30');
   const [groupBy, setGroupBy] = useState<AiTimeseries['groupBy']>('tier');
@@ -72,12 +72,12 @@ export function AiUsageOverview() {
   return (
     <Card className="space-y-5 px-4 py-5 sm:px-6">
       <SectionHeader
-        title="Free & Pro usage"
+        title="Usage at a glance"
         description={
           summary
             ? summary.tiersActive
               ? summary.proGloballyEnabled
-                ? 'Tiers are active. Pro is switched ON.'
+                ? 'Online Free, Pro and on-device activity in one place.'
                 : 'Tiers are active. Pro is switched OFF: everyone runs on Free.'
               : 'Tiers are not active yet. All usage runs on the existing paid path (Pro).'
             : 'Usage by tier, feature and provider.'
@@ -85,7 +85,7 @@ export function AiUsageOverview() {
         actions={
           <>
             <Select value={groupBy} onValueChange={(value) => setGroupBy(value as AiTimeseries['groupBy'])}>
-              <SelectTrigger className="h-9 w-[150px]">
+              <SelectTrigger aria-label="Group usage by" className="h-9 w-[150px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -96,7 +96,7 @@ export function AiUsageOverview() {
               </SelectContent>
             </Select>
             <Select value={days} onValueChange={setDays}>
-              <SelectTrigger className="h-9 w-[130px]">
+              <SelectTrigger aria-label="Usage period" className="h-9 w-[130px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -113,9 +113,9 @@ export function AiUsageOverview() {
       {summaryQuery.isError ? (
         <p className="text-sm text-red-700">{extractApiError(summaryQuery.error)}</p>
       ) : summary ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-          <StatCard label="Pro master available" value={formatCredits(summary.PRO.master?.availableTokens)} detail={`${formatCredits(summary.PRO.usedTokens)} used overall`} tone="purple" />
-          <StatCard label="Free master available" value={formatCredits(summary.FREE.master?.availableTokens)} detail={`${formatCredits(summary.FREE.usedTokens)} used overall`} tone="blue" />
+        <div className="ai-stats-grid grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {summary.PRO.master && <StatCard label="Pro master available" value={formatCredits(summary.PRO.master?.availableTokens)} detail={`${formatCredits(summary.PRO.usedTokens)} used overall`} tone="purple" />}
+          {summary.FREE.master && <StatCard label="Free master available" value={formatCredits(summary.FREE.master?.availableTokens)} detail={`${formatCredits(summary.FREE.usedTokens)} used overall`} tone="blue" />}
           <StatCard label="Pro requests today" value={formatCredits(summary.PRO.today.requests)} detail={`${formatCredits(summary.PRO.today.credits)} credits`} tone="purple" />
           <StatCard label="Free requests today" value={formatCredits(summary.FREE.today.requests)} detail={`${formatCredits(summary.FREE.today.credits)} credits`} tone="blue" />
           <StatCard
@@ -145,7 +145,7 @@ export function AiUsageOverview() {
                 <Tooltip formatter={(value) => formatCredits(Number(value))} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
                 {credits.series.map((series, index) => (
-                  <Bar key={series} dataKey={series} stackId="credits" fill={PALETTE[index % PALETTE.length]} />
+                  <Bar key={series} dataKey={series} stackId="credits" fill={series === 'FREE' ? '#1149B5' : series === 'PRO' ? '#7C3AED' : PALETTE[index % PALETTE.length]} />
                 ))}
               </BarChart>
             ) : null}
@@ -159,7 +159,7 @@ export function AiUsageOverview() {
                 <Tooltip formatter={(value) => formatCredits(Number(value))} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
                 {requests.series.map((series, index) => (
-                  <Line key={series} type="monotone" dataKey={series} dot={false} strokeWidth={2} stroke={PALETTE[index % PALETTE.length]} />
+                  <Line key={series} type="monotone" dataKey={series} dot={false} strokeWidth={2} stroke={series === 'FREE' ? '#1149B5' : series === 'PRO' ? '#7C3AED' : PALETTE[index % PALETTE.length]} />
                 ))}
               </LineChart>
             ) : null}
@@ -183,9 +183,9 @@ export function AiUsageOverview() {
 
 function ChartCard({ title, children }: { title: string; children: React.ReactElement | null }) {
   return (
-    <div className="rounded-lg border border-line bg-white px-3 py-3">
+    <div className="min-w-0 rounded-xl border border-line bg-white p-5">
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-500">{title}</p>
-      <div className="h-64">
+      <div className={children ? "h-64" : "h-28"}>
         {children ? (
           <ResponsiveContainer width="100%" height="100%">
             {children}

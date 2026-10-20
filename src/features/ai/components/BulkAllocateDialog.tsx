@@ -1,3 +1,4 @@
+import { AiField } from '@/features/ai/components/ai-ui';
 import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Send, Trash2 } from 'lucide-react';
@@ -101,7 +102,7 @@ export function BulkAllocateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="ai-workspace ai-dialog max-w-3xl">
         <DialogHeader>
           <DialogTitle>Bulk allocate credits</DialogTitle>
           <DialogDescription>
@@ -120,7 +121,7 @@ export function BulkAllocateDialog({
               <SelectItem value="SET">Set each assignment to</SelectItem>
             </SelectContent>
           </Select>
-          <Input className="h-9 w-[180px]" type="number" min={0} placeholder="Default credits" value={defaultAmount} onChange={(event) => setDefaultAmount(event.target.value)} />
+          <AiField label="Default credits"><Input className="h-9 w-[180px]" type="number" min={0} placeholder="Default credits" value={defaultAmount} onChange={(event) => setDefaultAmount(event.target.value)} /></AiField>
         </div>
 
         <div className="grid gap-2 sm:grid-cols-[150px_1fr]">
@@ -157,7 +158,7 @@ export function BulkAllocateDialog({
                         <p className="text-xs text-ink-500">{row.sublabel ?? row.scope}</p>
                       </td>
                       <td className="px-3 py-2">
-                        <Input
+                        <AiField label={defaultAmount ? formatCredits(Number(defaultAmount)) : 'Credits'}><Input
                           className="h-9 w-[150px]"
                           type="number"
                           min={0}
@@ -166,7 +167,7 @@ export function BulkAllocateDialog({
                           onChange={(event) =>
                             setRows((current) => current.map((item, i) => (i === index ? { ...item, amount: event.target.value } : item)))
                           }
-                        />
+                        /></AiField>
                       </td>
                       <td className="px-3 py-2 text-xs">
                         {outcome ? (
@@ -198,7 +199,7 @@ export function BulkAllocateDialog({
           </table>
         </div>
 
-        <Input placeholder="Reason (shown in the ledger)" value={reason} onChange={(event) => setReason(event.target.value)} />
+        <AiField label="Reason (shown in the ledger)"><Input placeholder="Reason (shown in the ledger)" value={reason} onChange={(event) => setReason(event.target.value)} /></AiField>
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

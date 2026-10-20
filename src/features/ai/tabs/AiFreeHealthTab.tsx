@@ -1,3 +1,4 @@
+import { AiField } from '@/features/ai/components/ai-ui';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Activity, KeyRound, Pencil, Plus, RefreshCw, Send, Trash2 } from 'lucide-react';
@@ -16,6 +17,7 @@ import { aiAdminApi } from '@/services/ai-admin.api';
 import type { AiFreeKey, AiFreeProvider } from '@/types/ai';
 import { EmptyRow, LoadingBlock, SectionHeader } from '../components/ai-ui';
 import { formatCredits, formatDateTime } from '../components/ai-format';
+import { useAiDirty } from '../components/ai-drafts';
 
 const PROVIDERS: Array<{ value: AiFreeProvider; label: string; hint: string; cap: number; rpm: number }> = [
   { value: 'gemini', label: 'Gemini free tier', hint: 'One key per Google Cloud project (quota is per project).', cap: 900, rpm: 12 },
@@ -48,6 +50,10 @@ export function AiFreeHealthTab() {
   const healthQuery = useQuery({ queryKey: ['ai-free-health'], queryFn: aiAdminApi.freeHealth, refetchInterval: 15_000 });
   const keysQuery = useQuery({ queryKey: ['ai-free-keys'], queryFn: aiAdminApi.freeKeys });
   const [form, setForm] = useState<KeyForm | null>(null);
+  const [originalForm, setOriginalForm] = useState('');
+  const openForm = (next: KeyForm) => { setOriginalForm(JSON.stringify(next)); setForm(next); };
+  const formDirty = form !== null && JSON.stringify(form) !== originalForm;
+  useAiDirty(formDirty, () => setForm(null));
   const [deleting, setDeleting] = useState<AiFreeKey | null>(null);
 
   const refresh = () => {
@@ -107,6 +113,10 @@ export function AiFreeHealthTab() {
 
   const health = healthQuery.data;
   const liveKeys = new Map((health?.keys ?? []).map((key) => [key.id, key]));
+  const closeForm = () => {
+    if (saveMutation.isPending) return;
+    if (!formDirty || window.confirm('Discard the unsaved provider key changes?')) setForm(null);
+  };
 
   return (
     <div className="space-y-5">
@@ -129,6 +139,11 @@ export function AiFreeHealthTab() {
         />
         {healthQuery.isLoading ? (
           <LoadingBlock />
+        ) : healthQuery.isError ? (
+          <div role="alert" className="space-y-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <p>Could not load gateway health. {extractApiError(healthQuery.error)}</p>
+            <Button type="button" variant="outline" size="sm" disabled={healthQuery.isFetching} onClick={() => healthQuery.refetch()}>Retry gateway health</Button>
+          </div>
         ) : !health?.reachable ? (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             Gateway unreachable{health?.message ? `: ${health.message}` : ''}. Free requests fail with a "busy" message until it is back.
@@ -181,7 +196,7 @@ export function AiFreeHealthTab() {
           title="Provider keys"
           description="Keys are encrypted in the backend and pushed to the gateway. Add 4–5 accounts per provider for about 200 users."
           actions={
-            <Button type="button" variant="primary" size="sm" onClick={() => setForm(emptyForm())}>
+            <Button type="button" variant="primary" size="sm" onClick={() => openForm(emptyForm())}>
               <Plus className="h-4 w-4" />
               Add key
             </Button>
@@ -203,6 +218,11 @@ export function AiFreeHealthTab() {
             <tbody>
               {keysQuery.isLoading ? (
                 <EmptyRow colSpan={7} message="Loading…" />
+              ) : keysQuery.isError ? (
+                <tr><td colSpan={7}><div role="alert" className="space-y-3 py-3 text-sm text-red-700">
+                  <p>Could not load provider keys. {extractApiError(keysQuery.error)}</p>
+                  <Button type="button" variant="outline" size="sm" disabled={keysQuery.isFetching} onClick={() => keysQuery.refetch()}>Retry provider keys</Button>
+                </div></td></tr>
               ) : (keysQuery.data ?? []).length ? (
                 (keysQuery.data ?? []).map((key) => {
                   const live = liveKeys.get(key.id);
@@ -269,7 +289,7 @@ export function AiFreeHealthTab() {
                             size="icon"
                             aria-label="Edit key"
                             onClick={() =>
-                              setForm({
+                              openForm({
                                 id: key.id,
                                 provider: key.provider,
                                 label: key.label,
@@ -315,16 +335,16 @@ export function AiFreeHealthTab() {
         </Card>
       ) : null}
 
-      <Dialog open={Boolean(form)} onOpenChange={(open) => !open && setForm(null)}>
-        <DialogContent>
+      <Dialog open={Boolean(form)} onOpenChange={(open) => !open && closeForm()}>
+        <DialogContent className="ai-workspace ai-dialog">
           <DialogHeader>
             <DialogTitle>{form?.id ? 'Edit provider key' : 'Add provider key'}</DialogTitle>
             <DialogDescription>{PROVIDERS.find((item) => item.value === form?.provider)?.hint}</DialogDescription>
           </DialogHeader>
           {form ? (
-            <div className="grid gap-3">
-              <Select value={form.provider} disabled={Boolean(form.id)} onValueChange={(value) => setForm({ ...emptyForm(value as AiFreeProvider), label: form.label, apiKey: form.apiKey })}>
-                <SelectTrigger>
+            <fieldset disabled={saveMutation.isPending} className="grid min-w-0 gap-3">
+              <AiField label="Provider"><Select value={form.provider} disabled={Boolean(form.id) || saveMutation.isPending} onValueChange={(value) => setForm({ ...emptyForm(value as AiFreeProvider), label: form.label, apiKey: form.apiKey })}>
+                <SelectTrigger aria-label="Provider">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -334,38 +354,39 @@ export function AiFreeHealthTab() {
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </Select>
-              <Input placeholder="Label (e.g. Gemini project 3)" value={form.label} onChange={(event) => setForm({ ...form, label: event.target.value })} />
-              <Input placeholder="Project / account reference (optional)" value={form.projectRef} onChange={(event) => setForm({ ...form, projectRef: event.target.value })} />
+              </Select></AiField>
+              <AiField label="Label (e.g. Gemini project 3)"><Input placeholder="Label (e.g. Gemini project 3)" value={form.label} onChange={(event) => setForm({ ...form, label: event.target.value })} /></AiField>
+              <AiField label="Project / account reference (optional)"><Input placeholder="Project / account reference (optional)" value={form.projectRef} onChange={(event) => setForm({ ...form, projectRef: event.target.value })} /></AiField>
               <div className="relative">
-                <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                <Input
+                <KeyRound className="pointer-events-none absolute bottom-3.5 left-3 h-4 w-4 text-ink-400" />
+                <AiField label={form.id ? 'Leave empty to keep the current key' : 'API key'}><Input
                   className="pl-9"
                   type="password"
-                  autoComplete="off"
+                  name={`ai_free_provider_${form.provider}_api_key`}
+                  autoComplete="new-password" data-lpignore="true" data-1p-ignore="true"
                   placeholder={form.id ? 'Leave empty to keep the current key' : 'API key'}
                   value={form.apiKey}
                   onChange={(event) => setForm({ ...form, apiKey: event.target.value })}
-                />
+                /></AiField>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[11px] font-semibold uppercase tracking-wide text-ink-500">Requests / day</label>
-                  <Input type="number" min={0} value={form.dailyRequestCap} onChange={(event) => setForm({ ...form, dailyRequestCap: event.target.value })} />
+                  <Input aria-label="Requests / day" type="number" min={0} value={form.dailyRequestCap} onChange={(event) => setForm({ ...form, dailyRequestCap: event.target.value })} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[11px] font-semibold uppercase tracking-wide text-ink-500">Requests / minute</label>
-                  <Input type="number" min={0} value={form.rpmCap} onChange={(event) => setForm({ ...form, rpmCap: event.target.value })} />
+                  <Input aria-label="Requests / minute" type="number" min={0} value={form.rpmCap} onChange={(event) => setForm({ ...form, rpmCap: event.target.value })} />
                 </div>
               </div>
               <label className="flex items-center gap-2 text-sm text-ink-700">
                 <input type="checkbox" checked={form.enabled} onChange={(event) => setForm({ ...form, enabled: event.target.checked })} />
                 Enabled
               </label>
-            </div>
+            </fieldset>
           ) : null}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setForm(null)}>
+            <Button type="button" variant="outline" disabled={saveMutation.isPending} onClick={closeForm}>
               Cancel
             </Button>
             <Button

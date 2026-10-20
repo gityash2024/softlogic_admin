@@ -24,7 +24,10 @@ export function OrderHistoryTable() {
         <p className="text-base font-bold text-ink-900">Purchase history</p>
         <p className="text-xs text-ink-500">Receipts are available once a payment is confirmed.</p>
       </div>
-      {ordersQuery.isError ? <p className="px-5 pb-4 text-sm text-red-700">{extractApiError(ordersQuery.error)}</p> : null}
+      {ordersQuery.isError ? <div role="alert" className="space-y-3 px-5 pb-4 text-sm text-red-700">
+        <p>Could not load purchase history. {extractApiError(ordersQuery.error)}</p>
+        <Button type="button" variant="outline" size="sm" disabled={ordersQuery.isFetching} onClick={() => ordersQuery.refetch()}>Retry purchase history</Button>
+      </div> : null}
       <div className="overflow-x-auto scrollbar-thin">
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="bg-surface-variant text-xs uppercase tracking-wide text-ink-500">
@@ -44,7 +47,7 @@ export function OrderHistoryTable() {
                   Loading…
                 </td>
               </tr>
-            ) : rows.length ? (
+            ) : ordersQuery.isError ? null : rows.length ? (
               rows.map((order) => (
                 <tr key={order.id} className="border-t border-line">
                   <td className="px-5 py-2">
@@ -78,7 +81,7 @@ export function OrderHistoryTable() {
           </tbody>
         </table>
       </div>
-      <PaginationFooter meta={ordersQuery.data?.meta} onPageChange={setPage} />
+      {!ordersQuery.isError && <PaginationFooter meta={ordersQuery.data?.meta} onPageChange={setPage} />}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { AiField } from '@/features/ai/components/ai-ui';
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Lock, ShieldCheck } from 'lucide-react';
@@ -128,7 +129,7 @@ export function OrderSummaryDialog({
 
   return (
     <Dialog open={open} modal={!payMutation.isPending} onOpenChange={(value) => !value && !payMutation.isPending && onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="ai-workspace ai-dialog max-w-lg">
         <DialogHeader>
           <DialogTitle>Order summary</DialogTitle>
           <DialogDescription>
@@ -183,12 +184,12 @@ export function OrderSummaryDialog({
               </button>
               {showDetails ? (
                 <div className="mt-2 grid gap-2">
-                  <Input placeholder="Legal name on invoice" value={details.legalName} onChange={(event) => setDetails({ ...details, legalName: event.target.value })} />
+                  <AiField label="Legal name on invoice"><Input placeholder="Legal name on invoice" value={details.legalName} onChange={(event) => setDetails({ ...details, legalName: event.target.value })} /></AiField>
                   {currency === 'INR' ? (
                     <>
-                      <Input placeholder="GSTIN (15 characters)" maxLength={15} value={details.gstin} onChange={(event) => setDetails({ ...details, gstin: event.target.value })} />
-                      <Input placeholder="State (for CGST/SGST vs IGST)" value={details.state} onChange={(event) => setDetails({ ...details, state: event.target.value })} />
-                      <Input placeholder="Billing address" value={details.address} onChange={(event) => setDetails({ ...details, address: event.target.value })} />
+                      <AiField label="GSTIN (15 characters)"><Input placeholder="GSTIN (15 characters)" maxLength={15} value={details.gstin} onChange={(event) => setDetails({ ...details, gstin: event.target.value })} /></AiField>
+                      <AiField label="State (for CGST/SGST vs IGST)"><Input placeholder="State (for CGST/SGST vs IGST)" value={details.state} onChange={(event) => setDetails({ ...details, state: event.target.value })} /></AiField>
+                      <AiField label="Billing address"><Input placeholder="Billing address" value={details.address} onChange={(event) => setDetails({ ...details, address: event.target.value })} /></AiField>
                     </>
                   ) : null}
                 </div>

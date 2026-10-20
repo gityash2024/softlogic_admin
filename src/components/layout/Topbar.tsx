@@ -30,7 +30,7 @@ const PATH_TO_TITLE: Record<string, { title: string; subtitle: string }> = {
   },
   '/ai': {
     title: 'AI',
-    subtitle: 'Master key, AI credits, and live usage',
+    subtitle: 'Access, credits and AI operations',
   },
   '/maintenance': {
     title: 'Maintenance',
@@ -162,9 +162,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
               <h1 className="truncate text-lg font-bold text-ink-900 sm:text-xl">
                 {displayMeta.title}
               </h1>
-              <span className="hidden rounded-full border border-brand-primary/15 bg-brand-primary/10 px-2 py-0.5 text-xs font-semibold text-brand-primary sm:inline-flex">
-                Live
-              </span>
+              {location.pathname !== '/ai' && <span className="hidden rounded-full border border-brand-primary/15 bg-brand-primary/10 px-2 py-0.5 text-xs font-semibold text-brand-primary sm:inline-flex">Live</span>}
             </div>
             <p className="truncate text-xs text-ink-500 sm:text-sm">
               {displayMeta.subtitle}

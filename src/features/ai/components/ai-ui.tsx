@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { Children, cloneElement, isValidElement, ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Search, X } from 'lucide-react';
 
@@ -10,6 +10,41 @@ import { cn } from '@/lib/utils';
 import { aiAdminApi } from '@/services/ai-admin.api';
 import type { AiAccountSearchResult, AiHealth, AiTier, AiWalletSummary } from '@/types/ai';
 import { formatCredits, useDebouncedValue } from './ai-format';
+
+export function AiField({ label, children, className = '' }: { label: ReactNode; children: ReactNode; className?: string }) {
+  const id = useId();
+  const control = isValidElement<{ id?: string }>(children) ? cloneElement(children, { id: children.props.id ?? id }) : children;
+  return <label className={`ai-field ${className}`} htmlFor={isValidElement<{ id?: string }>(control) ? control.props.id : undefined}><span>{label}</span>{control}</label>;
+}
+
+export function AiMetricCard({ label, value, detail, tone = 'blue' }: {
+  label: string; value: ReactNode; detail?: ReactNode; tone?: 'blue' | 'orange' | 'green' | 'purple' | 'gray';
+}) {
+  const exact = typeof value === 'string' || typeof value === 'number' ? String(value) : null;
+  const numeric = exact && /^[\d,.]+$/.test(exact) ? Number(exact.replaceAll(',', '')) : null;
+  const compact = numeric !== null && Number.isFinite(numeric) && numeric >= 1_000_000
+    ? new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 }).format(numeric) : null;
+  const colors = { blue: '#1149b5', purple: '#6d40c5', orange: '#b45309', green: '#047857', gray: '#172b4d' };
+  return <div className="ai-metric-card">
+    <p className="ai-metric-label">{label}</p>
+    <p className="ai-metric-value" style={{ color: colors[tone] }} title={exact ?? undefined}>{compact ?? value}</p>
+    {compact && <span className="ai-exact-number">{exact}</span>}
+    {detail && <div className="ai-metric-detail">{detail}</div>}
+  </div>;
+}
+
+export function AiFilters({ labels, children }: { labels: string[]; children: ReactNode }) {
+  const controls = Children.toArray(children);
+  const field = (control: ReactNode, index: number) => isValidElement<{ children?: ReactNode }>(control) && control.type === 'div'
+    ? <div className="ai-field" role="group" aria-label={labels[index]} key={index}><span>{labels[index]}</span>{control}</div>
+    : <AiField label={labels[index]} key={index}>{control}</AiField>;
+  return <div className="ai-filter-bar">
+    <div className="ai-filter-primary">{controls.slice(0, 2).map(field)}</div>
+    {controls.length > 2 && <details className="ai-filter-more"><summary>More filters <span className="text-ink-400">{controls.length - 2}</span></summary>
+      <div className="ai-filter-advanced">{controls.slice(2).map((control, i) => field(control, i + 2))}</div>
+    </details>}
+  </div>;
+}
 
 export function TierBadge({ tier, className }: { tier: AiTier | null | undefined; className?: string }) {
   if (!tier) return null;
@@ -87,7 +122,7 @@ export function WalletCells({ wallet }: { wallet: AiWalletSummary | null | undef
   if (wallet.unlimited) return <span className="text-xs font-semibold text-indigo-700">Unlimited</span>;
   return (
     <span className="block text-xs leading-5 text-ink-600">
-      <strong className="text-sm text-ink-900">{formatCredits(wallet.availableTokens)}</strong> available
+      <strong className="ai-wallet-number text-sm text-ink-900">{formatCredits(wallet.availableTokens)}</strong> available
       <span className="block text-ink-400">
         {formatCredits(wallet.allocatedTokens)} assigned · {formatCredits(wallet.usedTokens)} used
       </span>
@@ -119,7 +154,7 @@ export function EmptyRow({ colSpan, message }: { colSpan: number; message: strin
 
 export function LoadingBlock() {
   return (
-    <div className="flex h-40 items-center justify-center">
+    <div role="status" aria-label="Loading AI data" className="flex h-40 items-center justify-center">
       <Spinner className="h-6 w-6 text-brand-primary" />
     </div>
   );
@@ -141,7 +176,7 @@ export function DetailDrawer({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="left-auto right-0 top-0 h-dvh max-h-dvh w-full max-w-xl translate-x-0 translate-y-0 content-start rounded-none rounded-l-xl sm:w-full">
+      <DialogContent className="ai-workspace ai-dialog ai-drawer left-auto right-0 top-0 h-dvh max-h-dvh w-full max-w-xl translate-x-0 translate-y-0 content-start rounded-none rounded-l-xl sm:w-full">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description ? <DialogDescription>{description}</DialogDescription> : null}
@@ -219,10 +254,10 @@ export function AsyncAccountSelect({
 
   if (value) {
     return (
-      <div className="flex h-11 items-center justify-between gap-2 rounded-lg border border-line bg-white px-3 text-sm">
+      <div className="ai-field"><span>{scope === 'USER' ? 'Selected user' : 'Selected organization'}</span><div className="flex min-h-11 items-center justify-between gap-2 rounded-lg border border-line bg-white px-3 py-2 text-sm">
         <span className="min-w-0">
-          <span className="block truncate font-semibold text-ink-900">{value.label}</span>
-          <span className="block truncate text-[11px] text-ink-500">{value.sublabel}</span>
+          <span className="block break-words font-semibold text-ink-900">{value.label}</span>
+          <span className="block break-words text-[11px] text-ink-500">{value.sublabel}</span>
         </span>
         <button
           type="button"
@@ -232,14 +267,15 @@ export function AsyncAccountSelect({
         >
           <X className="h-4 w-4" />
         </button>
-      </div>
+      </div></div>
     );
   }
 
   return (
-    <div ref={containerRef} className="relative">
+    <div className="ai-field"><span>{scope === 'USER' ? 'User' : 'Organization'}</span><div ref={containerRef} className="relative">
       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
       <Input
+        aria-label={scope === 'USER' ? 'Select user' : 'Select organization'}
         className="pl-9"
         value={text}
         placeholder={placeholder ?? (scope === 'USER' ? 'Search teacher/admin user' : 'Search organization')}
@@ -255,6 +291,8 @@ export function AsyncAccountSelect({
             <div className="flex items-center gap-2 px-3 py-3 text-sm text-ink-500">
               <Spinner className="h-4 w-4" /> Searching…
             </div>
+          ) : searchQuery.isError ? (
+            <div role="alert" className="p-3 text-sm text-red-700">Accounts could not be loaded. <button type="button" className="underline" onClick={() => searchQuery.refetch()}>Retry</button></div>
           ) : (searchQuery.data ?? []).length ? (
             (searchQuery.data ?? []).map((result) => (
               <button
@@ -268,8 +306,8 @@ export function AsyncAccountSelect({
                 }}
               >
                 <span className="min-w-0">
-                  <span className="block truncate font-semibold text-ink-900">{result.label}</span>
-                  <span className="block truncate text-[11px] text-ink-500">{result.sublabel}</span>
+                  <span className="block break-words font-semibold text-ink-900">{result.label}</span>
+                  <span className="block break-words text-[11px] text-ink-500">{result.sublabel}</span>
                 </span>
                 <span className="shrink-0 text-right text-[11px] text-ink-500">
                   {result.wallet ? (
@@ -292,17 +330,19 @@ export function AsyncAccountSelect({
           )}
         </div>
       ) : null}
-    </div>
+    </div></div>
   );
 }
 
 /** Search box that keeps local text and pushes a debounced value upward. */
 export function DebouncedSearchInput({
+  id,
   value,
   onChange,
   placeholder,
   className,
 }: {
+  id?: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
@@ -327,7 +367,7 @@ export function DebouncedSearchInput({
   return (
     <div className={cn('relative', className)}>
       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-      <Input className="pl-9" value={text} placeholder={placeholder} onChange={(event) => setText(event.target.value)} />
+      <Input id={id} aria-label={placeholder} className="pl-9" value={text} placeholder={placeholder} onChange={(event) => setText(event.target.value)} />
     </div>
   );
 }

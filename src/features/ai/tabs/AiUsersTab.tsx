@@ -1,3 +1,4 @@
+import { AiFilters } from '../components/ai-ui';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Layers } from 'lucide-react';
@@ -94,7 +95,7 @@ export function AiUsersTab() {
           </>
         }
       />
-      <div className="grid gap-3 rounded-lg border border-line bg-surface-variant p-3 md:grid-cols-3 xl:grid-cols-4">
+      <AiFilters labels={["Search users", "Organization", "Role", "Status", "Wallet tier", "Wallet health", "Funding source"]}>
         <DebouncedSearchInput value={values.search} onChange={(value) => set('search', value)} placeholder="Search name or email" />
         <AsyncAccountSelect
           scope="ORGANIZATION"
@@ -113,7 +114,7 @@ export function AiUsersTab() {
           options={[['HEALTHY', 'Healthy'], ['LOW_20', '≤ 20%'], ['LOW_10', '≤ 10%'], ['LOW_5', '≤ 5%'], ['EXHAUSTED', 'Exhausted'], ['NO_POOL', 'No personal wallet'], ['UNLIMITED', 'Unlimited']]}
         />
         <FilterSelect value={values.allocation} onChange={(value) => set('allocation', value)} placeholder="Personal or org pool" options={[['PERSONAL', 'Personal wallet'], ['ORG_POOL', 'Uses org pool']]} />
-      </div>
+      </AiFilters>
       <ActiveFilterChips
         filters={chips({ search: 'Search', role: 'Role', organizationName: 'Organization', status: 'Status', tier: 'Tier', health: 'Health', allocation: 'Allocation' })}
         onRemove={(key) => {
