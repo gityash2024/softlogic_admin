@@ -11,7 +11,7 @@ Settings drafts survive background refresh. Save acknowledgments only clear the 
 ## Verified
 
 - Admin TypeScript and production build against https://phase2-api.mymultimeds.com/api/v1.
-- 21 admin regressions: checkout identity/return/focus behavior, explicit-zero bulk SET, reclaim tier switching, navigation destinations, draft refresh/save races/target changes, exact huge balances, persistent search labels and advanced range grouping.
+- 22 admin regressions: checkout identity/return/focus behavior, explicit-zero bulk SET, reclaim tier switching, navigation destinations, draft refresh/save races/target changes, exact huge balances, persistent search labels and advanced range grouping.
 - Plan catalog browser inspection at 390, 768, 1024, 1366 and 1920 pixels: document width equals viewport, no tested button overflow. Narrow editor labels and scrolling inspected. Dirty plan close raises the expected discard confirmation.
 - Repository graph refreshed; no new UI dependencies.
 - Phase 2 server audit: TEST Razorpay/Stripe configuration; zero invalid balances, hierarchy mismatches, pending reservations or wallet holds. Protected AWS Phase 1 remains online with unchanged uptime.
@@ -29,3 +29,5 @@ Local browser access was disabled during remaining verification. Complete the fo
 - [ ] Actual redesigned checkout interaction. Prior release sandbox Stripe/Razorpay financial acceptance remains recorded separately; it does not replace this UI pass.
 
 No admin deployment, production change, Vercel UAT change, DigitalOcean backend change or POC edit is part of this work. Builds/screenshots/hashes live in the workspace phase2_release/20261020 and Flutter dist/phase2-1.0.36-36.
+
+Owner update: subsequent verification is code/tests only. Interactive web and Windows checks above are the owner's acceptance checklist; no further Computer Use testing is required for this handoff.

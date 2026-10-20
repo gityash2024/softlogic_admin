@@ -1,7 +1,7 @@
 # Graph Report - admin_panel_softlogic  (2026-10-20)
 
 ## Corpus Check
-- 145 files · ~129,585 words
+- 145 files · ~129,625 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `75849a17`
+- Built from commit: `f985f061`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -381,19 +381,19 @@ Nodes (24): bindCheckoutToOrder(), CheckoutOutcome, clearCheckoutForOrder(), cle
 
 ### Community 97 - "formatCredits"
 Cohesion: 0.13
-Nodes (29): useDebouncedValue(), AiFilters(), AiMetricCard(), AsyncAccountSelect(), DebouncedSearchInput(), DetailDrawer(), HealthBadge(), healthClass() (+21 more)
+Nodes (25): useDebouncedValue(), AiMetricCard(), AsyncAccountSelect(), DebouncedSearchInput(), HealthBadge(), healthClass(), healthLabel, KeyValueGrid() (+17 more)
 
 ### Community 99 - "AiTiersTab.tsx"
 Cohesion: 0.17
 Nodes (14): EmptyRow(), AiTiersTab(), CapInput(), CHAIN, ConversionPreview, ConversionPreviewCard(), FreePricingCard(), FreePricingForm (+6 more)
 
 ### Community 100 - "ai-ui.tsx"
-Cohesion: 0.20
-Nodes (13): AiUnsavedBoundary(), DirtyContext, useAiDirty(), useAiDraft(), AiTierFormFields(), AiCreditsTab(), invalidateAi(), AiFreeHealthTab() (+5 more)
+Cohesion: 0.24
+Nodes (11): AiUnsavedBoundary(), DirtyContext, useAiDirty(), useAiDraft(), AiTierFormFields(), AiFreeHealthTab(), emptyForm(), KeyForm (+3 more)
 
 ### Community 101 - "AiOrdersPanel.tsx"
-Cohesion: 0.22
-Nodes (17): openReceipt(), orderStatusVariant(), formatCredits(), formatDate(), formatDateTime(), formatMinor(), formatUsdMicros(), useAiListParams() (+9 more)
+Cohesion: 0.17
+Nodes (23): openReceipt(), orderStatusVariant(), formatCredits(), formatDate(), formatDateTime(), formatMinor(), formatUsdMicros(), AiFilters() (+15 more)
 
 ### Community 102 - "AiPlansTab.tsx"
 Cohesion: 0.24

@@ -55,8 +55,8 @@
     "semantic_hash": ""
   },
   "src/components/layout/Topbar.tsx": {
-    "mtime": 1792462784.0768037,
-    "ast_hash": "0697908a80b038fc2dc758669fae6dfa",
+    "mtime": 1792470455.0001805,
+    "ast_hash": "4b5b9c11116dc6273ed80b19fbe0ef76",
     "semantic_hash": ""
   },
   "src/components/license/ActivationKeyLabelDialog.tsx": {
@@ -590,8 +590,8 @@
     "semantic_hash": ""
   },
   "src/features/ai/components/BulkAllocateDialog.tsx": {
-    "mtime": 1792462887.3848445,
-    "ast_hash": "cd34706a8bd9642aaf3dbfab9ab9b1cf",
+    "mtime": 1792490114.175653,
+    "ast_hash": "9ffb87e78148fa9f0c960fa95a4e7e01",
     "semantic_hash": ""
   },
   "src/features/ai/components/ai-billing-utils.ts": {
@@ -685,8 +685,8 @@
     "semantic_hash": ""
   },
   "src/features/settings/softlogic-ai/SoftLogicAiTab.tsx": {
-    "mtime": 1792463356.6602101,
-    "ast_hash": "2cda386e924cbc670f9973ed1c95f51f",
+    "mtime": 1792470455.0042107,
+    "ast_hash": "8b292ffb56f1e8afa285dca1553118a7",
     "semantic_hash": ""
   },
   "src/features/settings/softlogic-ai/checkout.ts": {

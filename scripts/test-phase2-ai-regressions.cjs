@@ -234,3 +234,21 @@ test('every terminal checkout refreshes buyer history and balances', () => {
     assert.deepEqual(keys, status === 'PENDING' ? [] : ['ai-billing-storefront', 'ai-billing-buyer-orders'], status);
   }
 });
+
+test('bulk allocation keeps its submitted rows and dialog stable until results arrive', () => {
+  const relative = 'src/features/ai/components/BulkAllocateDialog.tsx';
+  const dialog = findNode(relative, item => ts.isJsxOpeningElement(item) && item.tagName.getText() === 'Dialog');
+  const handler = dialog.attributes.properties.find(item => item.name?.getText() === 'onOpenChange').initializer.expression;
+  const closed = [];
+  const mutation = { isPending: true };
+  const attempt = value => vm.runInNewContext(transpile(`(${handler.getText()})(value)`), { mutation, value, onOpenChange: next => closed.push(next) });
+  attempt(false);
+  assert.equal(closed.length, 0);
+  mutation.isPending = false;
+  attempt(false);
+  assert.deepEqual(closed, [false]);
+  const fieldset = findNode(relative, item => ts.isJsxOpeningElement(item) && item.tagName.getText() === 'fieldset');
+  const disabled = fieldset.attributes.properties.find(item => item.name?.getText() === 'disabled').initializer.expression;
+  mutation.isPending = true;
+  assert.equal(vm.runInNewContext(disabled.getText(), { mutation }), true);
+});

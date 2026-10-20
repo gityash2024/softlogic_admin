@@ -2800,7 +2800,7 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "src_features_ai_components_ai_ui_aifilters",
-      "community": 97,
+      "community": 101,
       "norm_label": "aifilters()"
     },
     {
@@ -2900,7 +2900,7 @@
       "source_location": "L164",
       "_origin": "ast",
       "id": "src_features_ai_components_ai_ui_detaildrawer",
-      "community": 97,
+      "community": 101,
       "norm_label": "detaildrawer()"
     },
     {
@@ -2920,7 +2920,7 @@
       "source_location": "L203",
       "_origin": "ast",
       "id": "src_features_ai_components_ai_ui_jsonblock",
-      "community": 97,
+      "community": 101,
       "norm_label": "jsonblock()"
     },
     {
@@ -2980,7 +2980,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "src_features_ai_tabs_aicreditstab_invalidateai",
-      "community": 100,
+      "community": 97,
       "norm_label": "invalidateai()"
     },
     {
@@ -2990,7 +2990,7 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "src_features_ai_tabs_aicreditstab_aicreditstab",
-      "community": 100,
+      "community": 97,
       "norm_label": "aicreditstab()"
     },
     {
@@ -3070,7 +3070,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_features_ai_tabs_ailedgertab",
-      "community": 97,
+      "community": 101,
       "norm_label": "ailedgertab.tsx"
     },
     {
@@ -3080,7 +3080,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "src_features_ai_tabs_ailedgertab_keys",
-      "community": 97,
+      "community": 101,
       "norm_label": "keys"
     },
     {
@@ -3090,7 +3090,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "src_features_ai_tabs_ailedgertab_ledger_types",
-      "community": 97,
+      "community": 101,
       "norm_label": "ledger_types"
     },
     {
@@ -3250,7 +3250,7 @@
       "source_location": "L259",
       "_origin": "ast",
       "id": "src_features_ai_tabs_aiorganizationstab_filterselect",
-      "community": 97,
+      "community": 101,
       "norm_label": "filterselect()"
     },
     {
@@ -14536,7 +14536,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/ai/components/BulkAllocateDialog.tsx",
-      "source_location": "L161",
+      "source_location": "L162",
       "weight": 1.0,
       "source": "src_features_ai_components_bulkallocatedialog_bulkallocatedialog",
       "target": "src_features_ai_components_ai_format_formatcredits"
@@ -28206,5 +28206,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "75849a17119b1cc3d57462a234c47601350c08fc"
+  "built_at_commit": "f985f061e381d6a344a497aaa4fe65c27b59a27f"
 }

@@ -101,7 +101,7 @@ export function BulkAllocateDialog({
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(value) => { if (!mutation.isPending) onOpenChange(value); }}>
       <DialogContent className="ai-workspace ai-dialog max-w-3xl">
         <DialogHeader>
           <DialogTitle>Bulk allocate credits</DialogTitle>
@@ -110,6 +110,7 @@ export function BulkAllocateDialog({
           </DialogDescription>
         </DialogHeader>
 
+        <fieldset disabled={mutation.isPending} className="contents">
         <div className="flex flex-wrap items-center gap-3">
           <TierToggle value={tier} onChange={(value) => setTier(value as AiTier)} />
           <Select value={mode} onValueChange={(value) => setMode(value as 'ADD' | 'SET')}>
@@ -202,7 +203,7 @@ export function BulkAllocateDialog({
         <AiField label="Reason (shown in the ledger)"><Input placeholder="Reason (shown in the ledger)" value={reason} onChange={(event) => setReason(event.target.value)} /></AiField>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="outline" disabled={mutation.isPending} onClick={() => onOpenChange(false)}>
             Close
           </Button>
           <Button type="button" variant="primary" disabled={mutation.isPending || !rows.length} onClick={() => mutation.mutate()}>
@@ -210,6 +211,7 @@ export function BulkAllocateDialog({
             Apply to {rows.length} {rows.length === 1 ? 'row' : 'rows'}
           </Button>
         </DialogFooter>
+        </fieldset>
       </DialogContent>
     </Dialog>
   );
