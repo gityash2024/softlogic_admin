@@ -92,4 +92,25 @@
   .ai-plan-card { padding: 20px; }
   .ai-workspace :where(td,th) { padding: 12px; }
 }
-@media (prefers-reduced-motion: reduce) { .ai-workspace * { animation: none !important; transition: none !important; } }
+/* Bounded micro-interactions; no global theme or non-AI surface changes. */
+.ai-workspace { --ai-motion: 160ms; }
+.ai-primary-nav button { display: inline-flex; align-items: center; justify-content: center; gap: 9px; transition: color var(--ai-motion), background-color var(--ai-motion), box-shadow var(--ai-motion); }
+.ai-primary-nav button svg { flex-shrink: 0; opacity: .82; }
+.ai-primary-nav button[aria-current=page] svg { opacity: 1; }
+.ai-secondary-nav button { position: relative; transition: color var(--ai-motion), background-color var(--ai-motion), border-color var(--ai-motion); }
+.ai-secondary-nav button::after { position: absolute; content: ''; height: 2px; left: 12px; right: 12px; bottom: 3px; background: currentColor; border-radius: 2px; transform: scaleX(0); transition: transform var(--ai-motion) ease-out; }
+.ai-secondary-nav button[data-state=active]::after { transform: scaleX(1); }
+.ai-workspace :where(button:not(:disabled),a,input,textarea,[role=combobox]) { transition: background-color var(--ai-motion), border-color var(--ai-motion), box-shadow var(--ai-motion), color var(--ai-motion); }
+.ai-workspace :where(button:not(:disabled)):active { transform: translateY(1px); }
+.ai-workspace :where(input:not([type=checkbox]),textarea,[role=combobox]):focus-visible { border-color: #93b4ee; box-shadow: 0 0 0 3px #1149b510; }
+.ai-workspace :where(.ai-metric-card,.ai-plan-card) { transition: border-color var(--ai-motion), box-shadow var(--ai-motion); }
+@media (hover: hover) {
+  .ai-workspace :where(.ai-metric-card,.ai-plan-card):hover { border-color: #b9cbea; box-shadow: 0 4px 16px #102d5910; }
+  .ai-workspace :where(tbody tr):hover { background-color: #f6f9fe; }
+}
+.ai-workspace [role=tabpanel][data-state=active] { animation: ai-section-enter 180ms ease-out both; }
+@keyframes ai-section-enter { from { opacity: .65; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .ai-workspace *, .ai-workspace *::before, .ai-workspace *::after { animation: none !important; transition: none !important; }
+  .ai-workspace :where(button:not(:disabled)):active { transform: none; }
+}

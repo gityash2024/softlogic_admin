@@ -3,7 +3,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { io } from 'socket.io-client';
-import { BrainCircuit, CheckCircle2, CloudCog, Database, KeyRound, RefreshCw, Save, Send, Undo2, Wallet } from 'lucide-react';
+import { BrainCircuit, Building2, CheckCircle2, CloudCog, CreditCard, Database, KeyRound, LayoutDashboard, RefreshCw, Save, Send, SlidersHorizontal, Undo2, Wallet } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -46,6 +46,10 @@ const API_BASE_URL =
 const TEXT_MODEL = 'gemini-3.5-flash';
 const IMAGE_MODEL = 'imagen-4.0-generate-001';
 const TTS_MODEL = 'gemini-2.5-flash-preview-tts';
+const navigationIcons: Record<string, LucideIcon> = {
+  Overview: LayoutDashboard, 'Access & credits': SlidersHorizontal,
+  'Plans & payments': CreditCard, Accounts: Building2, Providers: CloudCog,
+};
 
 const formatTokens = (value: number | null | undefined) =>
   new Intl.NumberFormat('en-IN').format(value ?? 0);
@@ -423,7 +427,10 @@ function AiPageContent() {
 
       <Tabs value={activeTab} onValueChange={changeTab}>
         <nav className="ai-primary-nav" aria-label="AI workspace">
-          {AI_NAVIGATION.map(group => <button key={group.label} type="button" aria-current={activeGroup.label === group.label ? 'page' : undefined} onClick={() => changeTab(group.tabs[0].id)}>{group.label}</button>)}
+          {AI_NAVIGATION.map(group => {
+            const Icon = navigationIcons[group.label];
+            return <button key={group.label} type="button" aria-current={activeGroup.label === group.label ? 'page' : undefined} onClick={() => changeTab(group.tabs[0].id)}><Icon size={17} aria-hidden="true" /><span>{group.label}</span></button>;
+          })}
         </nav>
         <TabsList className="ai-secondary-nav" aria-label={activeGroup.label}>
           {activeGroup.tabs.filter(tab => tab.id !== 'google-billing' || (isSuperAdmin && data.googleBilling)).map(tab => <TabsTrigger key={tab.id} value={tab.id}>{tab.label}</TabsTrigger>)}

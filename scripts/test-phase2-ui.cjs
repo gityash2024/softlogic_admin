@@ -193,3 +193,25 @@ test('advanced filters keep range controls grouped without a nested label', () =
   assert.match(html, /role="group" aria-label="Credits"/);
   assert(!html.includes('<label class="ai-field" for="undefined"'));
 });
+
+test('AI motion supports reduced motion including decorative pseudo-elements', () => {
+  const root = require('postcss').parse(read('ai-workspace.css'));
+  const reduced = [];
+  root.walkAtRules('media', rule => { if (rule.params.includes('prefers-reduced-motion: reduce')) reduced.push(rule); });
+  assert(reduced.length > 0);
+  const text = reduced.map(rule => rule.toString()).join('\n');
+  assert.match(text, /\.ai-workspace \*::before/);
+  assert.match(text, /animation: none !important/);
+  assert.match(text, /transition: none !important/);
+  assert.match(text, /transform: none/);
+});
+
+test('unlimited pool presentation retains exact accounting detail', () => {
+  const React = require('react');
+  const { renderToStaticMarkup } = require('react-dom/server');
+  const { AiMetricCard } = presentation();
+  const html = renderToStaticMarkup(React.createElement(AiMetricCard, { label: 'Pro platform pool', value: 'Unlimited',
+    detail: React.createElement('span', null, 'Bookkeeping available: 11,86,91,79,40,52,530') }));
+  assert.match(html, /Unlimited/);
+  assert.match(html, /11,86,91,79,40,52,530/);
+});
