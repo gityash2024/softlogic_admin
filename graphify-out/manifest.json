@@ -165,8 +165,8 @@
     "semantic_hash": "86da4036b97cda98dd5486e0ac2f3960"
   },
   "src/features/ai/AiPage.tsx": {
-    "mtime": 1792469838.41717,
-    "ast_hash": "b16f40ee96643ee11109a8d532f2d184",
+    "mtime": 1792510769.1088421,
+    "ast_hash": "915fac30e43c3c479b21544ae66a26d2",
     "semantic_hash": ""
   },
   "src/features/auth/ForbiddenScreen.tsx": {
@@ -650,8 +650,8 @@
     "semantic_hash": ""
   },
   "src/features/ai/tabs/AiUsageOverview.tsx": {
-    "mtime": 1792463619.692213,
-    "ast_hash": "6b9fd5e00ca810ffb16534438ac5c9ec",
+    "mtime": 1792510912.3189323,
+    "ast_hash": "72682c6f46d313f24d89dcd9c3013e9d",
     "semantic_hash": ""
   },
   "src/features/ai/tabs/AiUsersTab.tsx": {
@@ -685,8 +685,8 @@
     "semantic_hash": ""
   },
   "src/features/settings/softlogic-ai/SoftLogicAiTab.tsx": {
-    "mtime": 1792470455.0042107,
-    "ast_hash": "8b292ffb56f1e8afa285dca1553118a7",
+    "mtime": 1792553514.5154386,
+    "ast_hash": "93e477141e19f1fb23e62708a1536eed",
     "semantic_hash": ""
   },
   "src/features/settings/softlogic-ai/checkout.ts": {
@@ -710,8 +710,8 @@
     "semantic_hash": ""
   },
   "src/types/ai.ts": {
-    "mtime": 1792321977.7012932,
-    "ast_hash": "6981580417e3bd5f3de4d998733343ce",
+    "mtime": 1792552532.2800853,
+    "ast_hash": "29928067a2c81141c8b76a7b70fb8e7a",
     "semantic_hash": ""
   },
   "src/features/ai/components/ai-drafts.tsx": {
