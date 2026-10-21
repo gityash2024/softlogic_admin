@@ -286,26 +286,26 @@ export function FilterSelect({
   );
 }
 
-export function WalletDetail({ title, wallet }: { title: string; wallet: AiOrganizationRow['wallets']['PRO'] }) {
+export function WalletDetail({ title, wallet, unlimited = false }: { title: string; wallet: AiOrganizationRow['wallets']['PRO']; unlimited?: boolean }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">{title}</p>
-        <HealthBadge wallet={wallet} fallback="No pool yet" />
+        <HealthBadge wallet={wallet} fallback="No pool yet" unlimited={unlimited} />
       </div>
       {wallet ? (
         <KeyValueGrid
           rows={[
-            ['Assigned', wallet.unlimited ? 'Unlimited' : wallet.allocatedTokens.toLocaleString('en-IN')],
+            ['Assigned', unlimited || wallet.unlimited ? 'Unlimited' : wallet.allocatedTokens.toLocaleString('en-IN')],
             ['Used', wallet.usedTokens.toLocaleString('en-IN')],
             ['Reserved', wallet.reservedTokens.toLocaleString('en-IN')],
             ['Given to children', wallet.childAllocatedTokens.toLocaleString('en-IN')],
-            ['Available', wallet.unlimited ? 'Unlimited' : wallet.availableTokens.toLocaleString('en-IN')],
+            ['Available', unlimited || wallet.unlimited ? 'Unlimited' : wallet.availableTokens.toLocaleString('en-IN')],
             ['Account id', <span className="font-mono text-xs">{wallet.accountId}</span>],
           ]}
         />
       ) : (
-        <p className="rounded-lg border border-dashed border-line px-3 py-3 text-sm text-ink-500">No wallet yet. It is created on the first allocation or usage.</p>
+        <p className="rounded-lg border border-dashed border-line px-3 py-3 text-sm text-ink-500">{unlimited ? 'Unlimited access. No personal credit allocation required.' : 'No wallet yet. It is created on the first allocation or usage.'}</p>
       )}
     </div>
   );

@@ -107,19 +107,20 @@ const healthClass = (health: AiHealth) => {
   return 'border-emerald-200 bg-emerald-50 text-emerald-700';
 };
 
-export function HealthBadge({ wallet, fallback = 'No pool' }: { wallet: AiWalletSummary | null | undefined; fallback?: string }) {
-  if (!wallet) return <span className="text-xs text-ink-500">{fallback}</span>;
+export function HealthBadge({ wallet, fallback = 'No pool', unlimited = false }: { wallet: AiWalletSummary | null | undefined; fallback?: string; unlimited?: boolean }) {
+  const health = unlimited ? 'UNLIMITED' : wallet?.health;
+  if (!health) return <span className="text-xs text-ink-500">{fallback}</span>;
   return (
-    <span className={cn('inline-flex rounded-full border px-2 py-1 text-xs font-semibold', healthClass(wallet.health))}>
-      {healthLabel[wallet.health] ?? wallet.health}
-      {wallet.health !== 'UNLIMITED' && wallet.health !== 'NO_POOL' ? ` - ${wallet.percentRemaining}%` : ''}
+    <span className={cn('inline-flex rounded-full border px-2 py-1 text-xs font-semibold', healthClass(health))}>
+      {healthLabel[health] ?? health}
+      {wallet && health !== 'UNLIMITED' && health !== 'NO_POOL' ? ` - ${wallet.percentRemaining}%` : ''}
     </span>
   );
 }
 
-export function WalletCells({ wallet }: { wallet: AiWalletSummary | null | undefined }) {
+export function WalletCells({ wallet, unlimited = false }: { wallet: AiWalletSummary | null | undefined; unlimited?: boolean }) {
+  if (unlimited || wallet?.unlimited) return <span className="text-xs font-semibold text-indigo-700">Unlimited</span>;
   if (!wallet) return <span className="text-xs text-ink-500">—</span>;
-  if (wallet.unlimited) return <span className="text-xs font-semibold text-indigo-700">Unlimited</span>;
   return (
     <span className="block text-xs leading-5 text-ink-600">
       <strong className="ai-wallet-number text-sm text-ink-900">{formatCredits(wallet.availableTokens)}</strong> available

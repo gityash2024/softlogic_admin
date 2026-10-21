@@ -605,8 +605,8 @@
     "semantic_hash": ""
   },
   "src/features/ai/components/ai-ui.tsx": {
-    "mtime": 1792469995.3699121,
-    "ast_hash": "776624e4e3317d6c9d7e82d32e3f25ec",
+    "mtime": 1792574229.097561,
+    "ast_hash": "7df02a37d4cedde14b73be13310f492b",
     "semantic_hash": ""
   },
   "src/features/ai/components/useAiListParams.ts": {
@@ -635,8 +635,8 @@
     "semantic_hash": ""
   },
   "src/features/ai/tabs/AiOrganizationsTab.tsx": {
-    "mtime": 1792469995.3709106,
-    "ast_hash": "61bacdceea1de51729f043834d924383",
+    "mtime": 1792574229.0999362,
+    "ast_hash": "4c3ccd4b154cc517d922a33b49fa6c48",
     "semantic_hash": ""
   },
   "src/features/ai/tabs/AiPlansTab.tsx": {
@@ -655,8 +655,8 @@
     "semantic_hash": ""
   },
   "src/features/ai/tabs/AiUsersTab.tsx": {
-    "mtime": 1792462784.06686,
-    "ast_hash": "4c1a47aba9cfcf032e3650e0d9c85172",
+    "mtime": 1792574229.0985608,
+    "ast_hash": "cc0d6deb6853e97c9a94a0ef714a4554",
     "semantic_hash": ""
   },
   "src/features/settings/softlogic-ai/CheckoutReturn.tsx": {

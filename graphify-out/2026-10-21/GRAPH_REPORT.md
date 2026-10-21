@@ -1,16 +1,16 @@
-# Graph Report - admin_panel_softlogic  (2026-10-20)
+# Graph Report - admin_panel_softlogic  (2026-10-21)
 
 ## Corpus Check
-- 145 files · ~129,625 words
+- 145 files · ~129,685 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1145 nodes · 1613 edges · 105 communities (79 shown, 26 thin omitted)
+- 1146 nodes · 1614 edges · 105 communities (79 shown, 26 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 15 edges (avg confidence: 0.54)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `f985f061`
+- Built from commit: `6785e1f9`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -102,12 +102,12 @@
 - [[_COMMUNITY_ai.ts|ai.ts]]
 - [[_COMMUNITY_SoftLogicAiTab.tsx|SoftLogicAiTab.tsx]]
 - [[_COMMUNITY_formatCredits|formatCredits]]
+- [[_COMMUNITY_AiOrdersPanel.tsx|AiOrdersPanel.tsx]]
 - [[_COMMUNITY_AiTiersTab.tsx|AiTiersTab.tsx]]
 - [[_COMMUNITY_ai-ui.tsx|ai-ui.tsx]]
 - [[_COMMUNITY_AiOrdersPanel.tsx|AiOrdersPanel.tsx]]
 - [[_COMMUNITY_AiPlansTab.tsx|AiPlansTab.tsx]]
 - [[_COMMUNITY_downloadAdminExport|downloadAdminExport]]
-- [[_COMMUNITY_AiUsageOverview.tsx|AiUsageOverview.tsx]]
 - [[_COMMUNITY_ai-branding.ts|ai-branding.ts]]
 
 ## God Nodes (most connected - your core abstractions)
@@ -165,7 +165,7 @@ Nodes (29): devDependencies, autoprefixer, eslint, @eslint/js, eslint-plugin-rea
 
 ### Community 6 - "QrLoginScannerCard.tsx"
 Cohesion: 0.10
-Nodes (24): html5-qrcode, buildCameraTargets(), CameraDevice, cameraErrorMessage(), cameraLabel(), CameraStartTarget, isRearCamera(), ParsedQrLoginPayload (+16 more)
+Nodes (25): html5-qrcode, buildCameraTargets(), CameraDevice, cameraErrorMessage(), cameraLabel(), CameraStartTarget, isRearCamera(), ParsedQrLoginPayload (+17 more)
 
 ### Community 7 - "LiveSessionDetailPage.tsx"
 Cohesion: 0.10
@@ -192,8 +192,8 @@ Cohesion: 0.13
 Nodes (18): acceptedStudyMaterialTypes, fileExtension(), fileExtensionWithDot(), formatBytes(), isOfficeDocument(), isPdf(), isTextDocument(), LiveSessionMediaAsset (+10 more)
 
 ### Community 13 - "AiPage.tsx"
-Cohesion: 0.20
-Nodes (12): accountForOrg(), accountForUser(), AiPageContent(), formatTokens(), formatUsd(), inputValueToMicros(), microsToInputValue(), PricingFormRow (+4 more)
+Cohesion: 0.18
+Nodes (13): accountForOrg(), accountForUser(), AiPageContent(), formatTokens(), formatUsd(), inputValueToMicros(), microsToInputValue(), navigationIcons (+5 more)
 
 ### Community 14 - "LicensePage.tsx"
 Cohesion: 0.17
@@ -377,42 +377,42 @@ Nodes (35): AiAccountSearchResult, AiBalanceAlert, AiBillingConfig, AiBrandLabel
 
 ### Community 96 - "SoftLogicAiTab.tsx"
 Cohesion: 0.11
-Nodes (24): bindCheckoutToOrder(), CheckoutOutcome, clearCheckoutForOrder(), clearIdempotencyKey(), idempotencyKeyFor(), isCheckoutTerminal(), launchCheckout(), loaded (+16 more)
+Nodes (23): bindCheckoutToOrder(), CheckoutOutcome, clearCheckoutForOrder(), clearIdempotencyKey(), idempotencyKeyFor(), isCheckoutTerminal(), launchCheckout(), loaded (+15 more)
 
 ### Community 97 - "formatCredits"
-Cohesion: 0.13
-Nodes (25): useDebouncedValue(), AiMetricCard(), AsyncAccountSelect(), DebouncedSearchInput(), HealthBadge(), healthClass(), healthLabel, KeyValueGrid() (+17 more)
+Cohesion: 0.18
+Nodes (19): formatCredits(), useDebouncedValue(), AiMetricCard(), AsyncAccountSelect(), DebouncedSearchInput(), healthLabel, SectionHeader(), TierBadge() (+11 more)
+
+### Community 98 - "AiOrdersPanel.tsx"
+Cohesion: 0.35
+Nodes (10): openReceipt(), orderStatusVariant(), formatDate(), formatDateTime(), formatMinor(), AiOrdersPanel(), KEYS, OrderDetailDrawer() (+2 more)
 
 ### Community 99 - "AiTiersTab.tsx"
-Cohesion: 0.17
-Nodes (14): EmptyRow(), AiTiersTab(), CapInput(), CHAIN, ConversionPreview, ConversionPreviewCard(), FreePricingCard(), FreePricingForm (+6 more)
+Cohesion: 0.19
+Nodes (13): AiTiersTab(), CapInput(), CHAIN, ConversionPreview, ConversionPreviewCard(), FreePricingCard(), FreePricingForm, inputToMicros() (+5 more)
 
 ### Community 100 - "ai-ui.tsx"
 Cohesion: 0.24
 Nodes (11): AiUnsavedBoundary(), DirtyContext, useAiDirty(), useAiDraft(), AiTierFormFields(), AiFreeHealthTab(), emptyForm(), KeyForm (+3 more)
 
 ### Community 101 - "AiOrdersPanel.tsx"
-Cohesion: 0.17
-Nodes (23): openReceipt(), orderStatusVariant(), formatCredits(), formatDate(), formatDateTime(), formatMinor(), formatUsdMicros(), AiFilters() (+15 more)
+Cohesion: 0.13
+Nodes (25): formatUsdMicros(), AiFilters(), DetailDrawer(), EmptyRow(), HealthBadge(), healthClass(), JsonBlock(), KeyValueGrid() (+17 more)
 
 ### Community 102 - "AiPlansTab.tsx"
-Cohesion: 0.24
-Nodes (12): previewCredits(), AiField(), AiPlansTab(), BillingConfigCard(), ConfigForm, GatewayCard(), majorToMinor(), minorToMajor() (+4 more)
+Cohesion: 0.22
+Nodes (13): previewCredits(), AiField(), LoadingBlock(), AiPlansTab(), BillingConfigCard(), ConfigForm, GatewayCard(), majorToMinor() (+5 more)
 
 ### Community 103 - "downloadAdminExport"
 Cohesion: 0.26
 Nodes (9): activityApi, AdminListQuery, cleanQuery(), downloadAdminExport(), getAdminList(), aiAdminApi, aiBillingApi, CreateOrderPayload (+1 more)
-
-### Community 104 - "AiUsageOverview.tsx"
-Cohesion: 0.32
-Nodes (6): LoadingBlock(), SectionHeader(), AiUsageOverview(), isoDay(), PALETTE, pivot()
 
 ### Community 105 - "ai-branding.ts"
 Cohesion: 0.60
 Nodes (4): AI_BUYER_ROLES, aiBrandLabelsForOrganization(), aiBrandLabelsForUser(), canBuyAiCredits()
 
 ## Knowledge Gaps
-- **491 isolated node(s):** `name`, `private`, `version`, `type`, `dev` (+486 more)
+- **492 isolated node(s):** `name`, `private`, `version`, `type`, `dev` (+487 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **26 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -420,13 +420,13 @@ Nodes (4): AI_BUYER_ROLES, aiBrandLabelsForOrganization(), aiBrandLabelsForUser(
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `AdminExportFormat` connect `ActivityPage.tsx` to `licensing.api.ts`, `ContentPage.tsx`, `downloadAdminExport`, `OrganizationsPage`, `SubscriptionFormPage.tsx`, `subscriptions.api.ts`, `organizations.api.ts`, `users.api.ts`, `admin-api.ts`, `AdminExportFormat`?**
-  _High betweenness centrality (0.018) - this node is a cross-community bridge._
+  _High betweenness centrality (0.016) - this node is a cross-community bridge._
 - **Why does `ContentPage()` connect `ContentPage.tsx` to `ActivityPage.tsx`?**
-  _High betweenness centrality (0.014) - this node is a cross-community bridge._
+  _High betweenness centrality (0.013) - this node is a cross-community bridge._
 - **Why does `dependencies` connect `dependencies` to `devDependencies`, `QrLoginScannerCard.tsx`?**
   _High betweenness centrality (0.009) - this node is a cross-community bridge._
 - **What connects `name`, `private`, `version` to the rest of the system?**
-  _491 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _492 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `api.ts` be split into smaller, more focused modules?**
   _Cohesion score 0.02631578947368421 - nodes in this community are weakly interconnected._
 - **Should `dependencies` be split into smaller, more focused modules?**

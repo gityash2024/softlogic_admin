@@ -161,11 +161,11 @@ export function AiUsersTab() {
                       </button>
                     </td>
                     <td className="px-3 py-2 text-xs">{row.role}</td>
-                    <td className="px-3 py-2">{row.usesOrgPool.PRO ? <span className="text-xs text-ink-500">Uses org pool</span> : <WalletCells wallet={row.wallets.PRO} />}</td>
-                    <td className="px-3 py-2">{row.usesOrgPool.FREE ? <span className="text-xs text-ink-500">Uses org pool</span> : <WalletCells wallet={row.wallets.FREE} />}</td>
+                    <td className="px-3 py-2">{row.usesOrgPool.PRO && row.role !== 'SUPER_ADMIN' ? <span className="text-xs text-ink-500">Uses org pool</span> : <WalletCells wallet={row.wallets.PRO} unlimited={row.role === 'SUPER_ADMIN'} />}</td>
+                    <td className="px-3 py-2">{row.usesOrgPool.FREE && row.role !== 'SUPER_ADMIN' ? <span className="text-xs text-ink-500">Uses org pool</span> : <WalletCells wallet={row.wallets.FREE} unlimited={row.role === 'SUPER_ADMIN'} />}</td>
                     <td className="space-y-1 px-3 py-2">
-                      <div><HealthBadge wallet={row.wallets.PRO} fallback="Pro: org pool" /></div>
-                      <div><HealthBadge wallet={row.wallets.FREE} fallback="Free: org pool" /></div>
+                      <div><HealthBadge wallet={row.wallets.PRO} fallback="Pro: org pool" unlimited={row.role === 'SUPER_ADMIN'} /></div>
+                      <div><HealthBadge wallet={row.wallets.FREE} fallback="Free: org pool" unlimited={row.role === 'SUPER_ADMIN'} /></div>
                     </td>
                     <td className="px-3 py-2 text-xs font-semibold text-ink-700">{policyLabel(row)}</td>
                     <td className="px-3 py-2">{row.preferredTier ? <TierBadge tier={row.preferredTier} /> : <span className="text-xs text-ink-500">Auto</span>}</td>
@@ -193,8 +193,8 @@ export function AiUsersTab() {
                 ['Created', formatDateTime(detail.createdAt)],
               ]}
             />
-            <WalletDetail title="Pro wallet" wallet={detail.wallets.PRO} />
-            <WalletDetail title="Free wallet" wallet={detail.wallets.FREE} />
+            <WalletDetail title="Pro wallet" wallet={detail.wallets.PRO} unlimited={detail.role === 'SUPER_ADMIN'} />
+            <WalletDetail title="Free wallet" wallet={detail.wallets.FREE} unlimited={detail.role === 'SUPER_ADMIN'} />
           </>
         ) : null}
       </DetailDrawer>

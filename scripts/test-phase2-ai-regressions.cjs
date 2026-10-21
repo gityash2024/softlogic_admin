@@ -11,6 +11,66 @@ const root = path.resolve(__dirname, '..');
 const checkoutPath = 'src/features/settings/softlogic-ai/checkout.ts';
 const summaryPath = 'src/features/settings/softlogic-ai/OrderSummaryDialog.tsx';
 
+function renderUserWallets(role, hasWallet = true) {
+  const wrapper = ({ children }) => React.createElement('div', null, children);
+  const wallet = { accountId: 'wallet', tier: 'PRO', allocatedTokens: 26800000, usedTokens: 19688375,
+    reservedTokens: 0, childAllocatedTokens: 0, availableTokens: 7111625, percentRemaining: 26.53,
+    unlimited: false, status: 'ACTIVE', health: 'HEALTHY' };
+  const row = { id: 'user', email: 'fixture@example.test', name: 'Fixture', role, status: 'ACTIVE',
+    primaryOrganization: null, createdAt: '2026-10-21', preferredTier: null, tierPolicy: null,
+    wallets: { PRO: hasWallet ? wallet : null, FREE: hasWallet ? { ...wallet, tier: 'FREE' } : null },
+    usesOrgPool: { PRO: !hasWallet, FREE: !hasWallet } };
+  const ui = loadModule('src/features/ai/components/ai-ui.tsx', {
+    '@/components/ui/badge': { Badge: wrapper }, '@/components/ui/dialog': {},
+    '@/components/ui/input': {}, '@/components/ui/spinner': {}, '@/lib/utils': { cn: (...parts) => parts.join(' ') },
+    '@/services/ai-admin.api': {}, './ai-format': { formatCredits: value => value.toLocaleString('en-IN') },
+  });
+  const listParams = { useAiListParams: () => ({ values: {}, page: 1, set() {}, setMany() {}, clear() {}, chips: () => [] }) };
+  const common = {
+    '@/components/ui/button': { Button: wrapper }, '@/components/ui/card': { Card: wrapper },
+    '@/features/admin/admin-list-ui': {}, '@/lib/api': {}, '@/services/ai-admin.api': {},
+    '../components/BulkAllocateDialog': {}, '../components/ai-ui': ui,
+    '../components/ai-format': { formatDateTime: String }, '../components/useAiListParams': listParams,
+  };
+  const { WalletDetail } = loadModule('src/features/ai/tabs/AiOrganizationsTab.tsx', { ...common, '@/components/ui/select': {} });
+  const displayUi = { ...ui, AiFilters: () => null, DetailDrawer: wrapper, SectionHeader: () => null };
+  const { AiUsersTab } = loadModule('src/features/ai/tabs/AiUsersTab.tsx', {
+    ...common, '../components/ai-ui': displayUi, './AiOrganizationsTab': { WalletDetail, FilterSelect: () => null },
+    '@/features/admin/admin-list-ui': { ActiveFilterChips: () => null, ExportButtons: () => null, PaginationFooter: () => null },
+    '../components/BulkAllocateDialog': { BulkAllocateDialog: () => null },
+    '@tanstack/react-query': { useQuery: () => ({ data: { data: [row] } }) },
+    react: { ...React, useState: initial => [initial === null ? row : typeof initial === 'function' ? initial() : initial, () => {}] },
+  });
+  return renderToStaticMarkup(React.createElement(AiUsersTab));
+}
+
+test('Superadmin Free and Pro wallet rows and details show Unlimited while preserving recorded usage', () => {
+  const markup = renderUserWallets('SUPER_ADMIN');
+  assert.ok((markup.match(/Unlimited/g) ?? []).length >= 8);
+  assert.doesNotMatch(markup, /Healthy|26\.53%|2,68,00,000|71,11,625/);
+  assert.match(markup, /1,96,88,375/);
+});
+
+test('Superadmin remains Unlimited without a personal wallet; other users still use their organization pool', () => {
+  const superadmin = renderUserWallets('SUPER_ADMIN', false);
+  assert.match(superadmin, /Unlimited/);
+  assert.doesNotMatch(superadmin, /Uses org pool|No wallet yet|Pro: org pool|Free: org pool/);
+  const teacher = renderUserWallets('TEACHER', false);
+  assert.match(teacher, /Uses org pool/);
+  assert.match(teacher, /No wallet yet/);
+  assert.doesNotMatch(teacher, /Unlimited/);
+});
+
+test('other account roles keep numeric wallet balances and health percentages', () => {
+  for (const role of ['PARTNER_ADMIN', 'CUSTOMER_ADMIN', 'ADMIN', 'TEACHER']) {
+    const markup = renderUserWallets(role);
+    assert.match(markup, /Healthy - 26\.53%/, role);
+    assert.match(markup, /2,68,00,000/, role);
+    assert.match(markup, /71,11,625/, role);
+    assert.doesNotMatch(markup, /Unlimited/, role);
+  }
+});
+
 function readSource(relative) {
   return fs.readFileSync(path.join(root, relative), 'utf8');
 }
