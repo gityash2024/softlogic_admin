@@ -105,15 +105,15 @@ export function SoftLogicAiTab({ storefront }: { storefront: AiStorefront }) {
   );
 }
 
-function BalanceCard({ title, icon, status, tone }: { title: string; icon: React.ReactNode; status: AiCreditStatus | null; tone: 'pro' | 'free' }) {
-  const percent = status ? Math.max(0, Math.min(100, status.percentRemaining)) : 0;
+export function BalanceCard({ title, icon, status, tone }: { title: string; icon: React.ReactNode; status: AiCreditStatus | null; tone: 'pro' | 'free' }) {
+  const percent = status?.unlimited ? 100 : status ? Math.max(0, Math.min(100, status.percentRemaining)) : 0;
   return (
     <Card className="px-5 py-4">
       <div className={`flex items-center gap-2 ${tone === 'pro' ? 'text-brand-purple' : 'text-brand-primary'}`}>
         {icon}
         <p className="text-sm font-bold text-ink-900">{title}</p>
       </div>
-      <p className="ai-metric-value mt-3">{formatCredits(status?.availableTokens)}</p>
+      <p className="ai-metric-value mt-3">{status?.unlimited ? 'Unlimited' : formatCredits(status?.availableTokens)}</p>
       <p className="text-xs text-ink-500">
         available of {formatCredits(status?.allocatedTokens)} · {formatCredits(status?.usedTokens)} used
       </p>

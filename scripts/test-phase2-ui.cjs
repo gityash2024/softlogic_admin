@@ -215,3 +215,32 @@ test('unlimited pool presentation retains exact accounting detail', () => {
   assert.match(html, /Unlimited/);
   assert.match(html, /11,86,91,79,40,52,530/);
 });
+
+
+test('unlimited zero-balance wallet remains healthy while finite zero stays exhausted', () => {
+  const React = require('react');
+  const { renderToStaticMarkup } = require('react-dom/server');
+  const source = fs.readFileSync(path.join(__dirname, '../src/features/settings/softlogic-ai/SoftLogicAiTab.tsx'), 'utf8');
+  const exports = {};
+  vm.runInNewContext(ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
+  }).outputText, { exports, require: name => {
+    if (name.endsWith('.css')) return {};
+    if (name === '@/components/ui/card') return { Card: props => React.createElement('div', props, props.children) };
+    if (name.includes('ai-format')) return { formatCredits: String };
+    if (name === 'react' || name === 'react/jsx-runtime') return require(name);
+    return {};
+  }});
+  const status = { unlimited: true, availableTokens: '0', allocatedTokens: '1000', usedTokens: '1000', percentRemaining: 0 };
+  const render = value => renderToStaticMarkup(React.createElement(exports.BalanceCard,
+    { title: 'Free', icon: null, status: value, tone: 'free' }));
+  const unlimited = render(status);
+  assert.match(unlimited, /Unlimited/);
+  assert.match(unlimited, /width:100%/);
+  assert(!unlimited.includes('bg-red-500'));
+  assert.match(unlimited, /1000 used/);
+  const finite = render({ ...status, unlimited: false });
+  assert(!finite.includes('Unlimited'));
+  assert.match(finite, /bg-red-500/);
+  assert.match(finite, /width:0%/);
+});

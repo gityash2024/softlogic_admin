@@ -369,6 +369,7 @@ export interface AiStorefront {
 }
 
 export interface AiCreditStatus {
+  unlimited?: boolean;
   accountId: string;
   scope: string;
   availableTokens: number;
