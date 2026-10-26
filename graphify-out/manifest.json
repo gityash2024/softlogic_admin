@@ -165,8 +165,8 @@
     "semantic_hash": "86da4036b97cda98dd5486e0ac2f3960"
   },
   "src/features/ai/AiPage.tsx": {
-    "mtime": 1792510769.1088421,
-    "ast_hash": "915fac30e43c3c479b21544ae66a26d2",
+    "mtime": 1793033840.1693068,
+    "ast_hash": "97a173ad2b6895ecadf376ce82433a25",
     "semantic_hash": ""
   },
   "src/features/auth/ForbiddenScreen.tsx": {
@@ -645,8 +645,8 @@
     "semantic_hash": ""
   },
   "src/features/ai/tabs/AiTiersTab.tsx": {
-    "mtime": 1792470080.6979897,
-    "ast_hash": "2f5d0134ef7db72a8c4f26431f9ae182",
+    "mtime": 1793033863.7295582,
+    "ast_hash": "03f2d65bc957b77518c37f8515c87e6f",
     "semantic_hash": ""
   },
   "src/features/ai/tabs/AiUsageOverview.tsx": {
@@ -710,8 +710,8 @@
     "semantic_hash": ""
   },
   "src/types/ai.ts": {
-    "mtime": 1792552532.2800853,
-    "ast_hash": "29928067a2c81141c8b76a7b70fb8e7a",
+    "mtime": 1793033840.1652815,
+    "ast_hash": "5e0e83d8b4287bb4223e552b7566cd04",
     "semantic_hash": ""
   },
   "src/features/ai/components/ai-drafts.tsx": {

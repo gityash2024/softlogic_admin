@@ -91,10 +91,10 @@ function TierSwitchCard() {
   return (
     <Card className="space-y-5 px-4 py-5 sm:px-6">
       <SectionHeader
-        title="Pro switch & Free tier"
+        title={form.tiersActive ? 'Platform AI mode' : 'Pro switch & Free tier'}
         description={
           form.tiersActive
-            ? 'Tiers are active. Pro OFF stops every paid Gemini call platform-wide; everyone runs on Free and no upgrade prompts are shown.'
+            ? 'Choose which AI runs across Phase 2. Users can choose Automatic, Free or Pro only while both are enabled. Existing access rules and credits still apply.'
             : 'Tiers are not active yet. The release conversion script activates them; until then every request uses the existing paid path.'
         }
         actions={
@@ -106,12 +106,25 @@ function TierSwitchCard() {
       />
 
       <div className="grid gap-3 lg:grid-cols-2">
+        {form.tiersActive ? (
+          <AiField label="Master AI switch">
+            <Select value={!form.proGloballyEnabled ? 'FREE_ONLY' : !form.freeEnabled ? 'PRO_ONLY' : 'BOTH'} onValueChange={(mode) => setForm((current) => current ? { ...current, proGloballyEnabled: mode !== 'FREE_ONLY', freeEnabled: mode !== 'PRO_ONLY' } : current)}>
+              <SelectTrigger aria-label="Master AI switch"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="BOTH">Both · Free and Pro</SelectItem>
+                <SelectItem value="FREE_ONLY">Free only</SelectItem>
+                <SelectItem value="PRO_ONLY">Pro only</SelectItem>
+              </SelectContent>
+            </Select>
+          </AiField>
+        ) : (
         <ToggleRow
           label="Pro (paid Gemini) ON"
           detail="Global kill switch. OFF charges nothing to Pro and hides upgrade prompts everywhere."
           checked={form.proGloballyEnabled}
           onChange={(value) => update('proGloballyEnabled', value)}
         />
+        )}
         <div className="rounded-lg border border-line bg-white px-3 py-3">
           <p className="text-sm font-semibold text-ink-900">Pro available to</p>
           <p className="text-xs text-ink-500">Policies below override this for selected partners, organizations or users.</p>
@@ -125,12 +138,12 @@ function TierSwitchCard() {
             </SelectContent>
           </Select>
         </div>
-        <ToggleRow
+        {!form.tiersActive && <ToggleRow
           label="Free tier enabled"
           detail="Free AI chain (free providers, self-hosted Qwen, templates)."
           checked={form.freeEnabled}
           onChange={(value) => update('freeEnabled', value)}
-        />
+        />}
         <ToggleRow
           label="Fall back from Pro to Free"
           detail="When a Pro request fails for any reason and the user has Free credits, answer on Free."

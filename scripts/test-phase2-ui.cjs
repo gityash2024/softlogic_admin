@@ -244,3 +244,35 @@ test('unlimited zero-balance wallet remains healthy while finite zero stays exha
   assert.match(finite, /bg-red-500/);
   assert.match(finite, /width:0%/);
 });
+
+test('master mode control maps all three choices to persisted availability flags', () => {
+  const config = { tiersActive: true, proGloballyEnabled: true, freeEnabled: true };
+  let draft = config;
+  const jsx = (type, props) => ({ type, props });
+  const componentNames = new Proxy({}, { get: (_target, key) => key });
+  const mocks = name => {
+    if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx };
+    if (name === 'react') return { useState: () => [false, () => {}] };
+    if (name === '@tanstack/react-query') return { useQuery: () => ({ data: config }), useQueryClient: () => ({ invalidateQueries() {} }), useMutation: () => ({ isPending: false, mutate() {} }) };
+    if (name.endsWith('ai-drafts')) return { useAiDraft: () => [config, update => { draft = update(draft); }, () => {}] };
+    if (name.endsWith('ai-format')) return { formatDateTime: () => '', formatCredits: () => '' };
+    return componentNames;
+  };
+  const code = ts.transpileModule(read('tabs/AiTiersTab.tsx'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
+  const exports = {};
+  vm.runInNewContext(code + '\nexports.renderMaster = TierSwitchCard;', { exports, require: mocks });
+  const tree = exports.renderMaster();
+  const find = node => {
+    if (!node || typeof node !== 'object') return null;
+    if (node.type === 'Select' && node.props.value === 'BOTH') return node;
+    for (const child of [node.props?.children].flat(Infinity)) { const result = find(child); if (result) return result; }
+    return null;
+  };
+  const select = find(tree);
+  assert(select, 'Existing AI tier card must expose the master Select');
+  for (const [mode, pro, free] of [['FREE_ONLY', false, true], ['PRO_ONLY', true, false], ['BOTH', true, true]]) {
+    select.props.onValueChange(mode);
+    assert.equal(draft.proGloballyEnabled, pro);
+    assert.equal(draft.freeEnabled, free);
+  }
+});

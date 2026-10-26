@@ -28,6 +28,7 @@ export interface AiBrandLabels {
 export interface AiMyTier {
   tiersActive: boolean;
   proGloballyEnabled: boolean;
+  freeEnabled?: boolean;
   proAccess: boolean;
   proUsable: boolean;
   freeUsable: boolean;

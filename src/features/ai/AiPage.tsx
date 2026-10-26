@@ -157,6 +157,9 @@ function AiPageContent() {
       transports: ['websocket', 'polling'],
     });
     socket.on('connect', () => socket.emit('ai:join'));
+    socket.on('ai:tier-config-updated', () => {
+      queryClient.invalidateQueries({ predicate: (query) => String(query.queryKey[0] ?? '').startsWith('ai-') });
+    });
     socket.on('ai:credits-updated', () => {
       queryClient.invalidateQueries({ queryKey: ['ai-overview'] });
       // Phase 2 tabs (summary, lists, ledger, orders) share the `ai-` key prefix.
