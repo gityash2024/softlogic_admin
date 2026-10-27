@@ -114,8 +114,8 @@ export function AiUsageOverview() {
         <p className="text-sm text-red-700">{extractApiError(summaryQuery.error)}</p>
       ) : summary ? (
         <div className="ai-stats-grid grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {summary.PRO.master && <StatCard label="Pro platform pool" value={summary.PRO.master.unlimited ? 'Unlimited' : formatCredits(summary.PRO.master.availableTokens)} detail={<><span>{formatCredits(summary.PRO.usedTokens)} used overall</span><span className="ai-exact-number">Bookkeeping available: {formatCredits(summary.PRO.master.availableTokens)}</span></>} tone="purple" />}
-          {summary.FREE.master && <StatCard label="Free platform pool" value={summary.FREE.master.unlimited ? 'Unlimited' : formatCredits(summary.FREE.master.availableTokens)} detail={<><span>{formatCredits(summary.FREE.usedTokens)} used overall</span><span className="ai-exact-number">Bookkeeping available: {formatCredits(summary.FREE.master.availableTokens)}</span></>} tone="blue" />}
+          {summary.PRO.master && <StatCard label="Pro platform pool" value={formatCredits(summary.PRO.master.availableTokens)} detail={<><span>{formatCredits(summary.PRO.usedTokens)} used overall</span><span className="ai-exact-number">{formatCredits(summary.PRO.master.childAllocatedTokens)} assigned</span></>} tone="purple" />}
+          {summary.FREE.master && <StatCard label="Free platform pool" value={formatCredits(summary.FREE.master.availableTokens)} detail={<><span>{formatCredits(summary.FREE.usedTokens)} used overall</span><span className="ai-exact-number">{formatCredits(summary.FREE.master.childAllocatedTokens)} assigned</span></>} tone="blue" />}
           <StatCard label="Pro requests today" value={formatCredits(summary.PRO.today.requests)} detail={`${formatCredits(summary.PRO.today.credits)} credits`} tone="purple" />
           <StatCard label="Free requests today" value={formatCredits(summary.FREE.today.requests)} detail={`${formatCredits(summary.FREE.today.credits)} credits`} tone="blue" />
           <StatCard

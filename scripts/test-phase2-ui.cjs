@@ -206,13 +206,13 @@ test('AI motion supports reduced motion including decorative pseudo-elements', (
   assert.match(text, /transform: none/);
 });
 
-test('unlimited pool presentation retains exact accounting detail', () => {
+test('finite pool presentation retains exact accounting detail', () => {
   const React = require('react');
   const { renderToStaticMarkup } = require('react-dom/server');
   const { AiMetricCard } = presentation();
-  const html = renderToStaticMarkup(React.createElement(AiMetricCard, { label: 'Pro platform pool', value: 'Unlimited',
-    detail: React.createElement('span', null, 'Bookkeeping available: 11,86,91,79,40,52,530') }));
-  assert.match(html, /Unlimited/);
+  const html = renderToStaticMarkup(React.createElement(AiMetricCard, { label: 'Free platform pool', value: '11,86,91,79,40,52,530',
+    detail: React.createElement('span', null, '500 assigned') }));
+  assert(!html.includes('Unlimited'));
   assert.match(html, /11,86,91,79,40,52,530/);
 });
 

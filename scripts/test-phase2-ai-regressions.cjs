@@ -95,6 +95,27 @@ function loadModule(relative, dependencies = {}, globals = {}) {
   return sandbox.exports;
 }
 
+test('overview renders finite platform funding even when an older server sends unlimited access flags', () => {
+  const wrapper = ({ children }) => React.createElement('div', null, children);
+  const today = { requests: 0, credits: 0, fallbackRequests: 0, failedRequests: 0, offlineRequests: 0 };
+  const tier = available => ({ master: { unlimited: true, availableTokens: available, childAllocatedTokens: 500 }, usedTokens: 20, today });
+  const summary = { tiersActive: true, proGloballyEnabled: true, PRO: tier(0), FREE: tier(118691794052530) };
+  const ui = { SectionHeader: () => null, LoadingBlock: () => null,
+    AiMetricCard: ({ label, value, detail }) => React.createElement('section', null, label, value, detail) };
+  const { AiUsageOverview } = loadModule('src/features/ai/tabs/AiUsageOverview.tsx', {
+    react: { ...React, useState: value => [value, () => {}], useMemo: fn => fn() },
+    '@tanstack/react-query': { useQuery: ({ queryKey }) => ({ data: queryKey[0] === 'ai-summary' ? summary : { points: [], offline: [] } }) },
+    recharts: new Proxy({}, { get: () => wrapper }), '@/components/ui/card': { Card: wrapper },
+    '@/components/ui/select': Object.fromEntries(['Select','SelectContent','SelectItem','SelectTrigger','SelectValue'].map(name => [name, wrapper])),
+    '@/lib/api': {}, '@/services/ai-admin.api': { aiAdminApi: {} }, '../components/ai-ui': ui,
+    '../components/ai-format': { formatCredits: value => Number(value).toLocaleString('en-IN') },
+  });
+  const html = renderToStaticMarkup(React.createElement(AiUsageOverview));
+  assert(!html.includes('Unlimited'));
+  assert.match(html, /11,86,91,79,40,52,530/);
+  assert.match(html, /500 assigned/);
+});
+
 function parsed(relative) {
   return ts.createSourceFile(relative, readSource(relative), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 }
