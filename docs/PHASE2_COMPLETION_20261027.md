@@ -1,5 +1,7 @@
 # Phase 2 completion update — 27 October 2026
 
+Latest repair, billing recheck and corrected Windows release: [28 October session stability](PHASE2_SESSION_STABILITY_20261028.md). That update supersedes the timeout/build/release details below.
+
 This update completes the reference and platform-pool corrections on top of the delivered online profanity hierarchy and Superadmin AI master switch. Backend deployment is Phase 2 only; admin and Windows app remain local. Production, Phase 1, DigitalOcean staging and Vercel UAT were not deployed.
 
 ## Changes
