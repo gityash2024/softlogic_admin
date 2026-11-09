@@ -298,7 +298,7 @@ function PlansCard({ config }: { config: AiBillingConfig }) {
       ) : (
         <div className="ai-plan-grid">
           {(plansQuery.data ?? []).map((plan) => (
-            <div key={plan.id} className={`ai-plan-card relative rounded-xl border px-4 py-4 ${plan.isPopular ? 'border-brand-primary shadow-card' : 'border-line'} ${plan.archivedAt || !plan.active ? 'opacity-60' : ''}`}>
+            <div key={plan.id} data-popular={plan.isPopular} className={`ai-plan-card relative rounded-xl border px-4 py-4 ${plan.archivedAt || !plan.active ? 'opacity-60' : ''}`}>
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <h4 className="text-ink-900">{plan.name}</h4>
@@ -345,7 +345,7 @@ function PlansCard({ config }: { config: AiBillingConfig }) {
       )}
 
       <Dialog open={Boolean(form)} onOpenChange={(open) => !open && closePlan()}>
-        <DialogContent className="ai-workspace ai-dialog max-w-2xl">
+        <DialogContent className="ai-workspace ai-dialog ai-console-dialog max-w-2xl">
           <DialogHeader>
             <DialogTitle>{form?.id ? 'Edit plan' : 'New plan'}</DialogTitle>
             <DialogDescription>Price changes apply to new orders only.</DialogDescription>

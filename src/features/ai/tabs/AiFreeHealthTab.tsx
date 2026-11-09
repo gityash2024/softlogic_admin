@@ -202,7 +202,7 @@ export function AiFreeHealthTab() {
             </Button>
           }
         />
-        <div className="overflow-x-auto scrollbar-thin">
+        <div className="overflow-x-auto scrollbar-thin" role="region" aria-label="Free provider keys" tabIndex={0}>
           <table className="w-full min-w-[1080px] text-left text-sm">
             <thead className="text-xs uppercase tracking-wide text-ink-500">
               <tr>
@@ -336,7 +336,7 @@ export function AiFreeHealthTab() {
       ) : null}
 
       <Dialog open={Boolean(form)} onOpenChange={(open) => !open && closeForm()}>
-        <DialogContent className="ai-workspace ai-dialog">
+        <DialogContent className="ai-workspace ai-dialog ai-console-dialog">
           <DialogHeader>
             <DialogTitle>{form?.id ? 'Edit provider key' : 'Add provider key'}</DialogTitle>
             <DialogDescription>{PROVIDERS.find((item) => item.value === form?.provider)?.hint}</DialogDescription>

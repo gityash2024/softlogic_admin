@@ -90,7 +90,7 @@ export function AiOrdersPanel() {
       />
       {ordersQuery.isError ? <p className="text-sm text-red-700">{extractApiError(ordersQuery.error)}</p> : null}
       <div className="overflow-hidden rounded-lg border border-line">
-        <div className="overflow-x-auto scrollbar-thin">
+        <div className="overflow-x-auto scrollbar-thin" role="region" aria-label="AI orders and refunds" tabIndex={0}>
           <table className="w-full min-w-[1000px] text-left text-sm">
             <thead className="bg-surface-variant text-xs uppercase tracking-wide text-ink-500">
               <tr>

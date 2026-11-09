@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supportApi } from '@/services/support.api';
 import {
@@ -23,6 +23,10 @@ import {
   Presentation,
   LogOut,
   ChevronUp,
+  ChevronDown,
+  CloudCog,
+  CreditCard,
+  SlidersHorizontal,
   X,
   PanelLeftClose,
   PanelLeftOpen,
@@ -32,6 +36,7 @@ import { cn, initials } from '@/lib/utils';
 import { useAuthStore } from '@/lib/auth-store';
 import { runtimeBrandForOrganization } from '@/lib/branding';
 import { canAccessAiModule } from '@/lib/ai-access';
+import { AI_NAVIGATION, aiGroup, aiTab } from '@/features/ai/components/ai-navigation';
 import { canManageMaintenance } from '@/lib/maintenance-access';
 import { authApi } from '@/services/auth.api';
 import { ROLE_LABEL } from '@/types/api';
@@ -104,6 +109,14 @@ const BASE_NAV_ITEMS = [
     icon: Settings,
   },
 ];
+
+const AI_GROUP_ICONS = {
+  Overview: LayoutDashboard,
+  'Access & credits': SlidersHorizontal,
+  'Plans & payments': CreditCard,
+  Accounts: Building2,
+  Providers: CloudCog,
+};
 
 const SUPPORT_INBOX_ITEM = {
   to: '/support',
@@ -291,6 +304,11 @@ export function Sidebar({
   onCollapsedChange,
 }: SidebarProps) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const inAi = Boolean(useMatch('/ai'));
+  const [aiDisclosure, setAiDisclosure] = useState({ inAi, expanded: inAi });
+  if (aiDisclosure.inAi !== inAi) setAiDisclosure({ inAi, expanded: inAi });
+  const aiExpanded = aiDisclosure.expanded;
   const { user, tokens, clear } = useAuthStore();
   const brand = runtimeBrandForOrganization(user?.primaryOrganization);
   const [confirmLogout, setConfirmLogout] = useState(false);
@@ -413,10 +431,21 @@ export function Sidebar({
           className={cn(
             'relative min-h-0 flex-1 overflow-hidden px-3 py-1.5 transition-all duration-300',
             collapsed && 'lg:px-2',
+            canAccessAiModule(user) && aiExpanded &&
+              'overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
           )}
         >
           <ul className="space-y-0">
-            {navItems.map((item) => (
+            {navItems.map((item) => item.to === '/ai' ? (
+              <AiSidebarItem
+                key={item.to}
+                search={inAi ? location.search : undefined}
+                collapsed={collapsed}
+                expanded={aiExpanded}
+                onToggle={() => setAiDisclosure({ inAi, expanded: !aiExpanded })}
+                onNavigate={() => onOpenChange(false)}
+              />
+            ) : (
               <li key={item.to}>
                 <NavLink
                   to={item.to}
@@ -564,5 +593,94 @@ export function Sidebar({
         onConfirm={handleLogout}
       />
     </>
+  );
+}
+
+function AiSidebarItem({ search, collapsed, expanded, onToggle, onNavigate }: {
+  search?: string;
+  collapsed: boolean;
+  expanded: boolean;
+  onToggle: () => void;
+  onNavigate: () => void;
+}) {
+  const activeGroup = search === undefined ? undefined : aiGroup(aiTab(new URLSearchParams(search).get('tab'))).label;
+  const groupLinks = AI_NAVIGATION.map(({ label, tabs: [first] }) => {
+    const params = new URLSearchParams(search);
+    if (first.id === 'overview') params.delete('tab');
+    else params.set('tab', first.id);
+    return { label, to: { pathname: '/ai', search: params.toString() }, Icon: AI_GROUP_ICONS[label] };
+  });
+
+  return (
+    <li>
+      <button
+        type="button"
+        data-tour="tour-ai"
+        aria-expanded={expanded}
+        aria-controls="sidebar-ai-sections"
+        onClick={onToggle}
+        className={cn(
+          'group flex w-full items-center gap-2.5 rounded-lg px-3 py-1 text-left text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-orange',
+          activeGroup ? 'bg-white text-brand-navy shadow-sidebar' : 'text-white/75 hover:bg-white/10 hover:text-white',
+          collapsed && 'lg:hidden',
+        )}
+      >
+        <span className={cn('grid h-6 w-6 shrink-0 place-items-center rounded-lg', activeGroup ? 'bg-brand-orange/15 text-brand-orange' : 'bg-white/10 text-white/80')}>
+          <BrainCircuit size={14} aria-hidden="true" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-semibold">AI</span>
+          <span className={cn('block truncate text-[11px] leading-4', activeGroup ? 'text-brand-navy/70' : 'text-white/60')}>Credits and models</span>
+        </span>
+        <ChevronDown size={16} aria-hidden="true" className={cn('shrink-0 transition-transform motion-reduce:transition-none', expanded && 'rotate-180')} />
+      </button>
+
+      <ul id="sidebar-ai-sections" className={cn(
+        'mb-1.5 ml-5 mt-1.5 space-y-0.5 border-l border-white/20 pl-2.5',
+        !expanded && 'hidden',
+        collapsed && 'lg:hidden',
+      )}>
+        {groupLinks.map(({ label, to, Icon }) => (
+          <li key={label}>
+            <Link
+              to={to}
+              onClick={onNavigate}
+              aria-current={activeGroup === label ? 'true' : undefined}
+              className={cn(
+                'flex min-h-8 items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] leading-4 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-orange',
+                activeGroup === label ? 'bg-white/20 font-semibold text-white' : 'font-medium text-white/80 hover:bg-white/10 hover:text-white',
+              )}
+            >
+              <Icon size={14} aria-hidden="true" className="shrink-0" />
+              {label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+
+      {collapsed && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" aria-label="AI sections" title="AI sections" className={cn(
+              'hidden min-h-9 w-full place-items-center rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-orange lg:grid',
+              activeGroup ? 'bg-white text-brand-navy shadow-sidebar' : 'text-white/80 hover:bg-white/10 hover:text-white',
+            )}>
+              <BrainCircuit size={17} aria-hidden="true" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="right" align="start" className="min-w-48">
+            <DropdownMenuLabel>AI sections</DropdownMenuLabel>
+            {groupLinks.map(({ label, to, Icon }) => (
+              <DropdownMenuItem asChild key={label}>
+                <Link to={to} aria-current={activeGroup === label ? 'true' : undefined} className={cn(activeGroup === label && 'bg-surface-variant font-semibold text-brand-primary')}>
+                  <Icon size={15} aria-hidden="true" />
+                  {label}
+                </Link>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </li>
   );
 }

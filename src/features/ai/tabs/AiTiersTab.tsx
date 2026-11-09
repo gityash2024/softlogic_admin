@@ -335,7 +335,7 @@ function TierPolicyCard() {
       </div>
 
       <div className="overflow-hidden rounded-lg border border-line">
-        <div className="overflow-x-auto scrollbar-thin">
+        <div className="overflow-x-auto scrollbar-thin" role="region" aria-label="AI access policies" tabIndex={0}>
           <table className="min-w-[860px] w-full text-left text-sm">
             <thead className="bg-surface-variant text-xs uppercase tracking-wide text-ink-500">
               <tr>
@@ -458,7 +458,7 @@ export function FreePricingCard() {
       {pricingQuery.isLoading ? (
         <LoadingBlock />
       ) : (
-        <div className="overflow-x-auto scrollbar-thin">
+        <div className="overflow-x-auto scrollbar-thin" role="region" aria-label="Free model pricing" tabIndex={0}>
           <table className="min-w-[960px] text-left text-xs">
             <thead className="uppercase tracking-wide text-ink-500">
               <tr>

@@ -106,7 +106,7 @@ export function AiOrganizationsTab() {
       />
       {listQuery.isError ? <p className="text-sm text-red-700">{extractApiError(listQuery.error)}</p> : null}
       <div className="overflow-hidden rounded-lg border border-line">
-        <div className="overflow-x-auto scrollbar-thin">
+        <div className="overflow-x-auto scrollbar-thin" role="region" aria-label="Organization AI accounts" tabIndex={0}>
           <table className="w-full min-w-[1080px] text-left text-sm">
             <thead className="bg-surface-variant text-xs uppercase tracking-wide text-ink-500">
               <tr>

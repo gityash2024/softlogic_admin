@@ -102,7 +102,7 @@ export function BulkAllocateDialog({
 
   return (
     <Dialog open={open} onOpenChange={(value) => { if (!mutation.isPending) onOpenChange(value); }}>
-      <DialogContent className="ai-workspace ai-dialog max-w-3xl">
+      <DialogContent className="ai-workspace ai-dialog ai-console-dialog max-w-3xl">
         <DialogHeader>
           <DialogTitle>Bulk allocate credits</DialogTitle>
           <DialogDescription>

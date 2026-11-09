@@ -1,9 +1,9 @@
 import { AiField } from '@/features/ai/components/ai-ui';
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { io } from 'socket.io-client';
-import { BrainCircuit, Building2, CheckCircle2, CloudCog, CreditCard, Database, KeyRound, LayoutDashboard, RefreshCw, Save, Send, SlidersHorizontal, Undo2, Wallet } from 'lucide-react';
+import { BrainCircuit, CheckCircle2, CloudCog, Database, KeyRound, RefreshCw, Save, Send, Undo2, Wallet } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import './ai-workspace.css';
-import { AI_NAVIGATION, aiTab, aiGroup } from './components/ai-navigation';
+import { aiTab, aiGroup, type AiTab } from './components/ai-navigation';
 import { AiUnsavedBoundary, useAiDraft } from './components/ai-drafts';
 import { aiAdminApi } from '@/services/ai-admin.api';
 import { aiBillingApi } from '@/services/ai-billing.api';
@@ -46,11 +46,6 @@ const API_BASE_URL =
 const TEXT_MODEL = 'gemini-3.5-flash';
 const IMAGE_MODEL = 'imagen-4.0-generate-001';
 const TTS_MODEL = 'gemini-2.5-flash-preview-tts';
-const navigationIcons: Record<string, LucideIcon> = {
-  Overview: LayoutDashboard, 'Access & credits': SlidersHorizontal,
-  'Plans & payments': CreditCard, Accounts: Building2, Providers: CloudCog,
-};
-
 const formatTokens = (value: number | null | undefined) =>
   new Intl.NumberFormat('en-IN').format(value ?? 0);
 
@@ -411,36 +406,36 @@ function AiPageContent() {
   }
 
   return (
-    <div data-ai-page className="ai-workspace space-y-6">
-      <div className="ai-page-heading">
-        <div>
-          <p className="ai-eyebrow">AI WORKSPACE</p><h2 className="text-2xl font-bold text-ink-900">{activeGroup.tabs.find(tab => tab.id === activeTab)?.label}</h2>
-          <p className="text-sm text-ink-500">
-            Manage access, monitor usage and keep every AI credit accounted for.
-          </p>
+    <Tabs data-ai-page className="ai-workspace ai-console" value={activeTab} onValueChange={changeTab} activationMode="manual">
+      <header className="ai-console-hero">
+        <div className="ai-console-hero-copy">
+          <span className="ai-console-emblem"><BrainCircuit size={23} aria-hidden="true" /></span>
+          <div>
+            <p className="ai-eyebrow">AI workspace <span aria-hidden="true">/</span> {activeGroup.label}</p>
+            <h2 id="ai-view-heading">{activeGroup.tabs.find(tab => tab.id === activeTab)?.label}</h2>
+            <p className="ai-console-description">{activeGroup.description}</p>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="ai-service-pill">{data.config.enabled ? 'Service enabled' : 'Service disabled'}</span>
+        <div className="ai-console-actions">
+          <span className="ai-service-pill" data-enabled={data.config.enabled}>{data.config.enabled ? 'Service enabled' : 'Service disabled'}</span>
           {billingModeQuery.data?.[0]?.effectiveMode && <span className="ai-mode-pill">{billingModeQuery.data[0].effectiveMode === 'TEST' ? 'Test payments' : 'Live payments'}</span>}
-        <Button variant="outline" onClick={() => overviewQuery.refetch()}>
-          <RefreshCw className="h-4 w-4" />
-          Refresh
-        </Button></div>
-      </div>
+          <Button variant="outline" onClick={() => overviewQuery.refetch()}>
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
+            Refresh
+          </Button>
+        </div>
+      </header>
 
-      <Tabs value={activeTab} onValueChange={changeTab}>
-        <nav className="ai-primary-nav" aria-label="AI workspace">
-          {AI_NAVIGATION.map(group => {
-            const Icon = navigationIcons[group.label];
-            return <button key={group.label} type="button" aria-current={activeGroup.label === group.label ? 'page' : undefined} onClick={() => changeTab(group.tabs[0].id)}><Icon size={17} aria-hidden="true" /><span>{group.label}</span></button>;
-          })}
-        </nav>
-        <TabsList className="ai-secondary-nav" aria-label={activeGroup.label}>
-          {activeGroup.tabs.filter(tab => tab.id !== 'google-billing' || (isSuperAdmin && data.googleBilling)).map(tab => <TabsTrigger key={tab.id} value={tab.id}>{tab.label}</TabsTrigger>)}
-        </TabsList>
+      <TabsList className="ai-console-tabs" aria-label={`${activeGroup.label} pages`}>
+        {activeGroup.tabs.filter(tab => tab.id !== 'google-billing' || (isSuperAdmin && data.googleBilling) || activeTab === tab.id).map(tab => (
+          <TabsTrigger key={tab.id} value={tab.id}>
+            {tab.label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
 
-      <TabsContent value="overview"><AiUsageOverview /></TabsContent>
-      <TabsContent value="configuration" className="space-y-5">
+      <AiView activeTab={activeTab} value="overview"><AiUsageOverview /></AiView>
+      <AiView activeTab={activeTab} value="configuration" className="space-y-5">
         <div className="grid gap-4 sm:grid-cols-2">
           <MetricCard icon={KeyRound} label="Pro provider key" value={data.config.hasGeminiApiKey ? 'Configured' : 'Missing'} detail={data.config.maskedGeminiApiKey ?? 'No master key'} />
           <MetricCard icon={CheckCircle2} label="AI service" value={data.config.enabled ? 'Enabled' : 'Disabled'} detail={data.config.lastTestStatus ?? 'Not tested'} />
@@ -504,8 +499,8 @@ function AiPageContent() {
             )}
           </form>
         </Card>
-      </TabsContent>
-      <TabsContent value="pricing" className="space-y-5">
+      </AiView>
+      <AiView activeTab={activeTab} value="pricing" className="space-y-5">
         <Card className="space-y-4 px-4 py-5 sm:px-6">          <div className="space-y-3 border-t border-line pt-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -519,7 +514,7 @@ function AiPageContent() {
                 </Button>
               )}
             </div>
-            <div className="overflow-x-auto scrollbar-thin">
+            <div className="overflow-x-auto scrollbar-thin" role="region" aria-label="Pro model pricing" tabIndex={0}>
               <table className="min-w-[860px] text-left text-xs">
                 <thead className="uppercase tracking-wide text-ink-500">
                   <tr>
@@ -581,11 +576,11 @@ function AiPageContent() {
           </div>
 </Card>
         <FreePricingCard />
-      </TabsContent>
-      <TabsContent value="tiers">
+      </AiView>
+      <AiView activeTab={activeTab} value="tiers">
         <AiTiersTab />
-      </TabsContent>
-      <TabsContent value="credits">
+      </AiView>
+      <AiView activeTab={activeTab} value="credits">
         {tierSummaryQuery.data?.tiersActive === false ? (<>        <Card className="space-y-4 px-4 py-5 sm:px-6">
           <div>
             <div className="flex items-center gap-1">
@@ -817,27 +812,27 @@ function AiPageContent() {
             </section>
           )}
         </Card></>) : <AiCreditsTab isSuperAdmin={isSuperAdmin} />}
-      </TabsContent>
-      <TabsContent value="plans">
+      </AiView>
+      <AiView activeTab={activeTab} value="plans">
         <AiPlansTab view="plans" />
-      </TabsContent>
-      <TabsContent value="billing-settings"><AiPlansTab view="billing-settings" /></TabsContent>
-      <TabsContent value="gateways"><AiPlansTab view="gateways" /></TabsContent>
-      <TabsContent value="orders"><AiPlansTab view="orders" /></TabsContent>
-      <TabsContent value="organizations">
+      </AiView>
+      <AiView activeTab={activeTab} value="billing-settings"><AiPlansTab view="billing-settings" /></AiView>
+      <AiView activeTab={activeTab} value="gateways"><AiPlansTab view="gateways" /></AiView>
+      <AiView activeTab={activeTab} value="orders"><AiPlansTab view="orders" /></AiView>
+      <AiView activeTab={activeTab} value="organizations">
         <AiOrganizationsTab />
-      </TabsContent>
-      <TabsContent value="users">
+      </AiView>
+      <AiView activeTab={activeTab} value="users">
         <AiUsersTab />
-      </TabsContent>
-      <TabsContent value="ledger">
+      </AiView>
+      <AiView activeTab={activeTab} value="ledger">
         <AiLedgerTab />
-      </TabsContent>
-      <TabsContent value="free-health">
+      </AiView>
+      <AiView activeTab={activeTab} value="free-health">
         <AiFreeHealthTab />
-      </TabsContent>
+      </AiView>
 
-      <TabsContent value="google-billing">
+      <AiView activeTab={activeTab} value="google-billing">
       {isSuperAdmin && data.googleBilling ? (
         <Card className="space-y-4 px-4 py-5 sm:px-6">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
@@ -912,7 +907,7 @@ function AiPageContent() {
             </div>
           </form>
 
-          <div className="overflow-x-auto scrollbar-thin">
+          <div className="overflow-x-auto scrollbar-thin" role="region" aria-label="Google billing history" tabIndex={0}>
             <table className="min-w-[860px] text-left text-xs">
               <thead className="uppercase tracking-wide text-ink-500">
                 <tr>
@@ -951,15 +946,24 @@ function AiPageContent() {
         </Card>
       ) : null}
 
-      </TabsContent>
-      </Tabs>
-    </div>
+      </AiView>
+    </Tabs>
   );
+}
+
+function AiView({ activeTab, value, className, children }: {
+  activeTab: AiTab;
+  value: AiTab;
+  className?: string;
+  children: ReactNode;
+}) {
+  if (activeTab !== value) return null;
+  return <TabsContent value={value} className={className ? `ai-console-view ${className}` : 'ai-console-view'}>{children}</TabsContent>;
 }
 
 function MetricCard({ icon: Icon, label, value, detail }: { icon: LucideIcon; label: string; value: string; detail: string }) {
   return (
-    <Card className="px-5 py-4">
+    <Card className="ai-provider-metric px-5 py-4">
       <div className="flex items-center gap-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
           <Icon className="h-5 w-5" />

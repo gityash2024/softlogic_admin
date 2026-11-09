@@ -25,7 +25,7 @@ export function AiMetricCard({ label, value, detail, tone = 'blue' }: {
   const compact = numeric !== null && Number.isFinite(numeric) && numeric >= 1_000_000
     ? new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 }).format(numeric) : null;
   const colors = { blue: '#1149b5', purple: '#6d40c5', orange: '#b45309', green: '#047857', gray: '#172b4d' };
-  return <div className="ai-metric-card">
+  return <div className="ai-metric-card" data-tone={tone}>
     <p className="ai-metric-label">{label}</p>
     <p className="ai-metric-value" style={{ color: colors[tone] }} title={exact ?? undefined}>{compact ?? value}</p>
     {compact && <span className="ai-exact-number">{exact}</span>}
@@ -133,7 +133,7 @@ export function WalletCells({ wallet, unlimited = false }: { wallet: AiWalletSum
 
 export function SectionHeader({ title, description, actions }: { title: string; description?: ReactNode; actions?: ReactNode }) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div className="ai-section-header flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <h3 className="text-base font-bold text-ink-900">{title}</h3>
         {description ? <p className="text-sm text-ink-500">{description}</p> : null}
@@ -177,7 +177,7 @@ export function DetailDrawer({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="ai-workspace ai-dialog ai-drawer left-auto right-0 top-0 h-dvh max-h-dvh w-full max-w-xl translate-x-0 translate-y-0 content-start rounded-none rounded-l-xl sm:w-full">
+      <DialogContent className="ai-workspace ai-dialog ai-console-dialog ai-drawer left-auto right-0 top-0 h-dvh max-h-dvh w-full max-w-xl translate-x-0 translate-y-0 content-start rounded-none rounded-l-xl sm:w-full">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description ? <DialogDescription>{description}</DialogDescription> : null}
@@ -190,7 +190,7 @@ export function DetailDrawer({
 
 export function KeyValueGrid({ rows }: { rows: Array<[string, ReactNode]> }) {
   return (
-    <dl className="grid grid-cols-1 gap-x-4 gap-y-2 rounded-lg border border-line bg-surface-variant/50 px-3 py-3 text-sm sm:grid-cols-[160px_1fr]">
+    <dl className="ai-key-values grid grid-cols-1 gap-x-4 gap-y-2 rounded-lg border border-line bg-surface-variant/50 px-3 py-3 text-sm sm:grid-cols-[160px_1fr]">
       {rows.map(([label, value]) => (
         <div key={label} className="contents">
           <dt className="text-xs font-semibold uppercase tracking-wide text-ink-500">{label}</dt>
