@@ -23,7 +23,7 @@ const PROVIDERS: Array<{ value: AiFreeProvider; label: string; hint: string; cap
   { value: 'gemini', label: 'Gemini free tier', hint: 'One key per Google Cloud project (quota is per project).', cap: 900, rpm: 12 },
   { value: 'pollinations', label: 'Pollinations', hint: 'Token from enter.pollinations.ai.', cap: 300, rpm: 10 },
   { value: 'openrouter', label: 'OpenRouter', hint: 'Free models; ~50 requests/day per account without credits.', cap: 45, rpm: 18 },
-  { value: 'serper', label: 'Serper (web search)', hint: 'Used for grounded answers on Free.', cap: 400, rpm: 30 },
+  { value: 'serper', label: 'Serper (web search)', hint: 'Requires a verified included-only allowance to be eligible for the Free gateway.', cap: 400, rpm: 30 },
   { value: 'youtube', label: 'YouTube Data API', hint: 'Video suggestions.', cap: 90, rpm: 30 },
 ];
 
@@ -160,13 +160,23 @@ export function AiFreeHealthTab() {
                 const used = provider.requestsToday ?? 0;
                 const capacity = provider.dailyCapacity ?? 0;
                 const percent = capacity ? Math.min(100, Math.round((used / capacity) * 100)) : 0;
-                const ready = provider.ready ?? ((provider.usableKeys ?? 0) > 0 && !provider.circuitOpenFor);
+                const ready = provider.ready ?? provider.installed ?? ((provider.usableKeys ?? 0) > 0);
+                const enabledKeys = (health.keys ?? []).filter(key => key.provider === name && key.enabled);
+                const unverified = enabledKeys.length > 0 && enabledKeys.every(key => key.allowanceVerified === false);
+                const voices = Object.entries(provider.voices ?? {}).filter(([, installed]) => installed).map(([voice]) => voice);
+                const status = provider.enabled === false ? 'Off'
+                  : provider.circuitOpenFor ? `Cooling ${secondsLabel(provider.circuitOpenFor)}`
+                  : ready ? 'Ready'
+                  : provider.keys === 0 ? 'Not configured'
+                  : unverified ? 'Allowance unverified'
+                  : provider.installed === false ? 'Not installed'
+                  : 'Not ready';
                 return (
                   <div key={name} className="rounded-lg border border-line bg-white px-3 py-3">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-bold capitalize text-ink-900">{name}</p>
-                      <Badge variant={provider.enabled === false ? 'default' : ready ? 'success' : 'danger'}>
-                        {provider.enabled === false ? 'Off' : ready ? 'Ready' : provider.circuitOpenFor ? `Cooling ${secondsLabel(provider.circuitOpenFor)}` : 'Not ready'}
+                      <Badge variant={status === 'Ready' ? 'success' : status === 'Off' || status === 'Not configured' ? 'default' : status === 'Not ready' ? 'danger' : 'warning'}>
+                        {status}
                       </Badge>
                     </div>
                     {provider.keys !== undefined ? (
@@ -180,7 +190,7 @@ export function AiFreeHealthTab() {
                       </>
                     ) : (
                       <p className="mt-1 text-xs text-ink-500">
-                        {provider.installed === false ? 'Not installed' : provider.queueWaiting !== undefined ? `${provider.queueWaiting} waiting in queue` : 'Local provider'}
+                        {voices.length > 0 ? `Installed voices: ${voices.join(', ')}` : provider.queueWaiting !== undefined ? `${provider.queueWaiting} waiting in queue` : 'Local provider'}
                       </p>
                     )}
                   </div>
@@ -321,7 +331,7 @@ export function AiFreeHealthTab() {
 
       {health?.reachable && (health.recentEvents ?? []).length ? (
         <Card className="space-y-3 px-4 py-5 sm:px-6">
-          <SectionHeader title="Recent gateway events" description="Errors and warnings from the last requests (no prompt content is stored)." />
+          <SectionHeader title="Recent gateway events" description="Last 50 recorded warnings and errors, including past incidents. Use the status cards above for current readiness. No prompt content is stored." />
           <div className="max-h-80 space-y-1 overflow-y-auto scrollbar-thin">
             {(health.recentEvents ?? []).map((event) => (
               <div key={event.id} className="grid gap-2 rounded-lg border border-line px-3 py-2 text-xs sm:grid-cols-[150px_70px_110px_1fr]">

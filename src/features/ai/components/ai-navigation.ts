@@ -22,12 +22,12 @@ export const AI_NAVIGATION = [
   },
   {
     label: 'Providers',
-    description: 'Manage provider settings and review model pricing, health and billing.',
-    tabs: [{ id: 'configuration', label: 'Pro configuration' }, { id: 'pricing', label: 'Model pricing' }, { id: 'free-health', label: 'Free AI health' }, { id: 'google-billing', label: 'Google billing' }],
+    description: 'Manage provider settings and review model pricing and health.',
+    tabs: [{ id: 'configuration', label: 'Pro configuration' }, { id: 'pricing', label: 'Model pricing' }, { id: 'free-health', label: 'Free AI health' }],
   },
 ] as const;
 
 export type AiTab = (typeof AI_NAVIGATION)[number]['tabs'][number]['id'];
 export const aiTab = (value: string | null): AiTab =>
-  AI_NAVIGATION.flatMap(group => [...group.tabs]).some(tab => tab.id === value) ? value as AiTab : 'overview';
+  value === 'google-billing' ? 'configuration' : AI_NAVIGATION.flatMap(group => [...group.tabs]).some(tab => tab.id === value) ? value as AiTab : 'overview';
 export const aiGroup = (value: AiTab) => AI_NAVIGATION.find(group => group.tabs.some(tab => tab.id === value))!;

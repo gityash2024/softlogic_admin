@@ -108,6 +108,7 @@ export interface AiFreeHealthKey {
   projectRef: string | null;
   source: string;
   enabled: boolean;
+  allowanceVerified?: boolean;
   disabledReason: string | null;
   day: string;
   requestsToday: number;
@@ -141,6 +142,7 @@ export interface AiFreeHealth {
       ready?: boolean;
       queueWaiting?: number;
       installed?: boolean;
+      voices?: Record<string, boolean>;
     }
   >;
   keys?: AiFreeHealthKey[];

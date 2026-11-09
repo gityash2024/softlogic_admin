@@ -3,7 +3,7 @@ import { FormEvent, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { io } from 'socket.io-client';
-import { BrainCircuit, CheckCircle2, CloudCog, Database, KeyRound, RefreshCw, Save, Send, Undo2, Wallet } from 'lucide-react';
+import { BrainCircuit, CheckCircle2, KeyRound, RefreshCw, Save, Send, Undo2, Wallet } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -48,12 +48,6 @@ const IMAGE_MODEL = 'imagen-4.0-generate-001';
 const TTS_MODEL = 'gemini-2.5-flash-preview-tts';
 const formatTokens = (value: number | null | undefined) =>
   new Intl.NumberFormat('en-IN').format(value ?? 0);
-
-const formatUsd = (micros: number | null | undefined) =>
-  `$${((micros ?? 0) / 1_000_000).toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 6,
-  })}`;
 
 const microsToInputValue = (micros: number | null | undefined) =>
   String((micros ?? 0) / 1_000_000);
@@ -123,15 +117,6 @@ function AiPageContent() {
     amountTokens: '',
   });
   const [pricingForm, setPricingForm, pricingSaved] = useAiDraft<PricingFormRow[]>((overviewQuery.data?.pricing ?? []).map(pricingRowFromSummary));
-  const billing = overviewQuery.data?.googleBilling?.config;
-  const [billingForm, setBillingForm, billingSaved] = useAiDraft({
-    enabled: billing?.enabled ?? false,
-    projectId: billing?.projectId ?? '',
-    billingTableProjectId: billing?.billingTableProjectId ?? '',
-    billingDatasetId: billing?.billingDatasetId ?? '',
-    billingTableName: billing?.billingTableName ?? '',
-    monthlyCapUsd: String((billing?.monthlyCapMicros ?? 50_000_000) / 1_000_000),
-  });
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = aiTab(searchParams.get('tab'));
   const activeGroup = aiGroup(activeTab);
@@ -216,33 +201,6 @@ function AiPageContent() {
     onSuccess: (_data, submitted) => {
       toast.success('AI pricing saved');
       pricingSaved(submitted);
-      queryClient.invalidateQueries({ queryKey: ['ai-overview'] });
-    },
-    onError: (error) => toast.error(extractApiError(error)),
-  });
-
-  const billingMutation = useMutation({
-    mutationFn: (submitted: typeof billingForm) =>
-      aiApi.updateGoogleBilling({
-        enabled: submitted.enabled,
-        projectId: submitted.projectId.trim(),
-        billingTableProjectId: submitted.billingTableProjectId.trim() || null,
-        billingDatasetId: submitted.billingDatasetId.trim() || null,
-        billingTableName: submitted.billingTableName.trim() || null,
-        monthlyCapMicros: inputValueToMicros(submitted.monthlyCapUsd),
-      }),
-    onSuccess: (_data, submitted) => {
-      toast.success('Google billing verification saved');
-      billingSaved(submitted);
-      queryClient.invalidateQueries({ queryKey: ['ai-overview'] });
-    },
-    onError: (error) => toast.error(extractApiError(error)),
-  });
-
-  const billingSyncMutation = useMutation({
-    mutationFn: aiApi.syncGoogleBilling,
-    onSuccess: () => {
-      toast.success('Google billing verification synced');
       queryClient.invalidateQueries({ queryKey: ['ai-overview'] });
     },
     onError: (error) => toast.error(extractApiError(error)),
@@ -427,7 +385,7 @@ function AiPageContent() {
       </header>
 
       <TabsList className="ai-console-tabs" aria-label={`${activeGroup.label} pages`}>
-        {activeGroup.tabs.filter(tab => tab.id !== 'google-billing' || (isSuperAdmin && data.googleBilling) || activeTab === tab.id).map(tab => (
+        {activeGroup.tabs.map(tab => (
           <TabsTrigger key={tab.id} value={tab.id}>
             {tab.label}
           </TabsTrigger>
@@ -832,121 +790,6 @@ function AiPageContent() {
         <AiFreeHealthTab />
       </AiView>
 
-      <AiView activeTab={activeTab} value="google-billing">
-      {isSuperAdmin && data.googleBilling ? (
-        <Card className="space-y-4 px-4 py-5 sm:px-6">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-            <div>
-              <h3 className="text-base font-bold text-ink-900">Google Billing Verification</h3>
-              <p className="text-sm text-ink-500">BigQuery billing export compared with SoftLogic AI credit charges.</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <StatusPill status={data.googleBilling.status} />
-              <Button type="button" variant="outline" disabled={billingSyncMutation.isPending} onClick={() => billingSyncMutation.mutate()}>
-                {billingSyncMutation.isPending ? <Spinner className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
-                Sync now
-              </Button>
-            </div>
-          </div>
-
-          <div className="grid gap-4 xl:grid-cols-4">
-            <MetricCard icon={CloudCog} label="Google spend" value={formatUsd(data.googleBilling.googleCurrentMonthCostMicros)} detail={`gross ${formatUsd(data.googleBilling.googleGrossCostMicros)}`} />
-            <MetricCard icon={Wallet} label="Google remaining" value={formatUsd(data.googleBilling.remainingBudgetMicros)} detail={`cap ${formatUsd(data.googleBilling.monthlyCapMicros)}`} />
-            <MetricCard icon={BrainCircuit} label="SoftLogic charged" value={formatUsd(data.googleBilling.softlogicCurrentMonthCostMicros)} detail="AI credits equivalent" />
-            <MetricCard icon={Database} label="Variance" value={formatUsd(data.googleBilling.varianceMicros)} detail={data.googleBilling.message ?? 'Awaiting sync'} />
-          </div>
-
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              billingMutation.mutate(billingForm);
-            }}
-            className="grid gap-3 lg:grid-cols-[0.8fr_0.8fr_0.8fr_0.8fr_0.6fr_auto]"
-          >
-            <AiField label="Project ID"><Input
-              placeholder="Project ID"
-              value={billingForm.projectId}
-              onChange={(event) => setBillingForm((current) => ({ ...current, projectId: event.target.value }))}
-            /></AiField>
-            <AiField label="Table project"><Input
-              placeholder="Table project"
-              value={billingForm.billingTableProjectId}
-              onChange={(event) => setBillingForm((current) => ({ ...current, billingTableProjectId: event.target.value }))}
-            /></AiField>
-            <AiField label="Dataset ID"><Input
-              placeholder="Dataset ID"
-              value={billingForm.billingDatasetId}
-              onChange={(event) => setBillingForm((current) => ({ ...current, billingDatasetId: event.target.value }))}
-            /></AiField>
-            <AiField label="Table name"><Input
-              placeholder="Table name"
-              value={billingForm.billingTableName}
-              onChange={(event) => setBillingForm((current) => ({ ...current, billingTableName: event.target.value }))}
-            /></AiField>
-            <AiField label="Monthly cap"><Input
-              type="number"
-              min={1}
-              step="0.01"
-              placeholder="Monthly cap"
-              value={billingForm.monthlyCapUsd}
-              onChange={(event) => setBillingForm((current) => ({ ...current, monthlyCapUsd: event.target.value }))}
-            /></AiField>
-            <div className="flex gap-2">
-              <label className="flex h-11 items-center gap-2 rounded-lg border border-line px-3 text-sm text-ink-700">
-                <input
-                  type="checkbox"
-                  checked={billingForm.enabled}
-                  onChange={(event) => setBillingForm((current) => ({ ...current, enabled: event.target.checked }))}
-                />
-                On
-              </label>
-              <Button type="submit" variant="outline" disabled={billingMutation.isPending}>
-                {billingMutation.isPending ? <Spinner className="h-4 w-4" /> : <Save className="h-4 w-4" />}
-                Save
-              </Button>
-            </div>
-          </form>
-
-          <div className="overflow-x-auto scrollbar-thin" role="region" aria-label="Google billing history" tabIndex={0}>
-            <table className="min-w-[860px] text-left text-xs">
-              <thead className="uppercase tracking-wide text-ink-500">
-                <tr>
-                  <th className="py-2 pr-4">Date</th>
-                  <th className="py-2 pr-4">Service</th>
-                  <th className="py-2 pr-4">SKU</th>
-                  <th className="py-2 pr-4">Cost</th>
-                  <th className="py-2 pr-4">Credits</th>
-                  <th className="py-2 pr-4">Net</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.googleBilling.recentRows.length ? (
-                  data.googleBilling.recentRows.map((row) => (
-                    <tr key={row.id} className="border-t border-line">
-                      <td className="py-2 pr-4">{new Date(row.usageDate).toLocaleDateString()}</td>
-                      <td className="py-2 pr-4">{row.serviceDescription}</td>
-                      <td className="py-2 pr-4">{row.skuDescription}</td>
-                      <td className="py-2 pr-4">{formatUsd(row.costMicros)}</td>
-                      <td className="py-2 pr-4">{formatUsd(row.creditsMicros)}</td>
-                      <td className="py-2 pr-4 font-semibold text-ink-900">{formatUsd(row.netCostMicros)}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr className="border-t border-line">
-                    <td className="py-3 pr-4 text-ink-500" colSpan={6}>
-                      {data.googleBilling.lastSyncAt
-                        ? `No Google AI billing rows exported yet. Last sync: ${new Date(data.googleBilling.lastSyncAt).toLocaleString()}. ${data.googleBilling.message ?? ''}`
-                        : 'No Google billing sync has run yet.'}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      ) : null}
-
-      </AiView>
     </Tabs>
   );
 }
@@ -975,22 +818,6 @@ function MetricCard({ icon: Icon, label, value, detail }: { icon: LucideIcon; la
         </div>
       </div>
     </Card>
-  );
-}
-
-function StatusPill({ status }: { status: NonNullable<AiOverview['googleBilling']>['status'] }) {
-  const className =
-    status === 'SUCCESS'
-      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-      : status === 'ERROR'
-        ? 'border-red-200 bg-red-50 text-red-700'
-        : status === 'NEEDS_CONFIGURATION'
-          ? 'border-amber-200 bg-amber-50 text-amber-700'
-          : 'border-line bg-surface-variant text-ink-600';
-  return (
-    <span className={`inline-flex h-10 items-center rounded-lg border px-3 text-sm font-semibold ${className}`}>
-      {status.replaceAll('_', ' ')}
-    </span>
   );
 }
 

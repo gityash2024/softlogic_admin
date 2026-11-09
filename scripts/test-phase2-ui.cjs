@@ -13,11 +13,13 @@ function navigation() {
 test('five groups retain every old bookmark and all focused destinations', () => {
   const nav = navigation();
   assert.equal(nav.AI_NAVIGATION.length, 5);
-  for (const id of ['overview','tiers','credits','plans','organizations','users','ledger','free-health','google-billing','configuration','pricing','billing-settings','gateways','orders']) {
+  for (const id of ['overview','tiers','credits','plans','organizations','users','ledger','free-health','configuration','pricing','billing-settings','gateways','orders']) {
     assert.equal(nav.aiTab(id), id);
     assert(nav.aiGroup(id).tabs.some(tab => tab.id === id));
   }
   assert.equal(nav.aiTab('invalid'), 'overview');
+  assert.equal(nav.aiTab('google-billing'), 'configuration');
+  assert(!nav.AI_NAVIGATION.flatMap(group => group.tabs).some(tab => tab.id === 'google-billing'));
 });
 test('focused views replace the combined billing and configuration pages', () => {
   const page = read('AiPage.tsx');
