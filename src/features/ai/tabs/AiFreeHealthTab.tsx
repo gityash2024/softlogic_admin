@@ -28,8 +28,8 @@ const PROVIDERS: Array<{ value: AiFreeProvider; label: string; hint: string; cap
 ];
 
 const secondsLabel = (seconds: number) => (seconds >= 3600 ? `${Math.round(seconds / 3600)}h` : seconds >= 60 ? `${Math.round(seconds / 60)}m` : `${Math.round(seconds)}s`);
-const isFreeQuotaNotice = (message: string) =>
-  /^(?:rate limited: )?(?:HTTP 429\b|Free (?:quota|rate limit) reached|Model quota:)/i.test(message);
+const isRoutineProviderAttempt = (message: string) =>
+  /^(?:rate limited: )?(?:HTTP 429\b|Free (?:quota(?: or rate limit)?|rate limit) reached|Model quota:|Free provider attempt incomplete$)/i.test(message);
 
 type KeyForm = {
   id?: string;
@@ -115,6 +115,9 @@ export function AiFreeHealthTab() {
 
   const health = healthQuery.data;
   const liveKeys = new Map((health?.keys ?? []).map((key) => [key.id, key]));
+  const recentEvents = (health?.recentEvents ?? []).filter(
+    (event) => event.level === 'error' || !isRoutineProviderAttempt(event.message),
+  );
   const closeForm = () => {
     if (saveMutation.isPending) return;
     if (!formDirty || window.confirm('Discard the unsaved provider key changes?')) setForm(null);
@@ -238,8 +241,6 @@ export function AiFreeHealthTab() {
               ) : (keysQuery.data ?? []).length ? (
                 (keysQuery.data ?? []).map((key) => {
                   const live = liveKeys.get(key.id);
-                  const quotaNotice = isFreeQuotaNotice(live?.lastError ?? '');
-                  const lastError = quotaNotice ? 'Free quota or rate limit reached.' : live?.lastError;
                   return (
                     <tr key={key.id} className="border-t border-line align-top">
                       <td className="py-2 pr-3">
@@ -253,7 +254,7 @@ export function AiFreeHealthTab() {
                           <>
                             {formatCredits(live.requestsToday)} / {formatCredits(live.dailyCap)} requests
                             <span className="block text-ink-400">
-                              {live.errorsToday} errors · {live.avgLatencyMs ? `${live.avgLatencyMs} ms avg` : 'no latency yet'}
+                              {live.avgLatencyMs ? `${live.avgLatencyMs} ms avg` : 'no latency yet'}
                             </span>
                           </>
                         ) : (
@@ -276,7 +277,6 @@ export function AiFreeHealthTab() {
                         ) : (
                           <Badge variant="success">Active</Badge>
                         )}
-                        {lastError ? <p className={`mt-1 max-w-[220px] truncate ${quotaNotice ? 'text-amber-700' : 'text-red-700'}`} title={lastError}>{lastError}</p> : null}
                       </td>
                       <td className="py-2 pr-3 text-xs text-ink-600">
                         {key.lastTestAt ? (
@@ -333,23 +333,18 @@ export function AiFreeHealthTab() {
         </div>
       </Card>
 
-      {health?.reachable && (health.recentEvents ?? []).length ? (
+      {health?.reachable && recentEvents.length > 0 ? (
         <Card className="space-y-3 px-4 py-5 sm:px-6">
-          <SectionHeader title="Recent gateway events" description="The last 50 gateway events, including automatic fallbacks and incidents. No prompt content is stored." />
+          <SectionHeader title="Recent gateway events" description="Recent completed fallbacks and incidents. No prompt content is stored." />
           <div className="max-h-80 space-y-1 overflow-y-auto scrollbar-thin">
-            {(health.recentEvents ?? []).map((event) => {
-              const quotaNotice = isFreeQuotaNotice(event.message);
-              const level = quotaNotice ? 'info' : event.level;
-              const message = quotaNotice && /HTTP 429/i.test(event.message) ? 'Free quota or rate limit reached.' : event.message;
-              return (
+            {recentEvents.map((event) => (
               <div key={event.id} className="grid gap-2 rounded-lg border border-line px-3 py-2 text-xs sm:grid-cols-[150px_70px_110px_1fr]">
                 <span className="text-ink-500">{formatDateTime(event.at * 1000)}</span>
-                <span className={level === 'error' ? 'font-semibold text-red-700' : level === 'warn' ? 'font-semibold text-amber-700' : 'text-ink-500'}>{level}</span>
+                <span className={event.level === 'error' ? 'font-semibold text-red-700' : event.level === 'warn' ? 'font-semibold text-amber-700' : 'text-ink-500'}>{event.level}</span>
                 <span className="text-ink-600">{event.provider ?? '—'}</span>
-                <span className="break-words text-ink-700">{message}</span>
+                <span className="break-words text-ink-700">{event.message}</span>
               </div>
-              );
-            })}
+            ))}
           </div>
         </Card>
       ) : null}
