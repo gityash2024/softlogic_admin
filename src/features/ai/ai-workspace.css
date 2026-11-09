@@ -256,7 +256,7 @@ main:has(> .ai-console) {
 .ai-console-view .ai-metric-label { margin-bottom: 5px; color: var(--ai-muted); }
 .ai-console-view .ai-metric-value { font-size: clamp(21px, 2.1cqw, 28px); font-weight: 630; }
 .ai-console-view .ai-metric-detail { color: var(--ai-muted); }
-.ai-console-view .ai-provider-metric .ai-metric-value { font-size: 21px; }
+.ai-console-view .ai-provider-metric .ai-metric-value { font-size: 1rem; font-weight: 600; letter-spacing: normal; }
 .ai-console-view .ai-provider-metric .ai-metric-value + p { margin-top: 3px; }
 
 :is(.ai-console-view, .ai-console-dialog) .ai-filter-bar {
