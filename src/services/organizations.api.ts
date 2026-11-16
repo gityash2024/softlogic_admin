@@ -1,0 +1,219 @@
+import { api } from '@/lib/api';
+import { downloadAdminExport, getAdminItem, getAdminList, type AdminExportFormat, type AdminListQuery } from './admin-api';
+import type {
+  AdminOrganization,
+  ApiResponse,
+  BrandingMode,
+  OrganizationKind,
+  OrganizationStatus,
+  OrganizationStorageProvider,
+  OrganizationStorageStatus,
+} from '@/types/api';
+
+export interface CreateOrganizationPayload {
+  name: string;
+  slug?: string;
+  kind?: OrganizationKind;
+  parentOrganizationId?: string | null;
+  brandingMode?: BrandingMode;
+  studentLoginEnabled?: boolean;
+  parentLoginEnabled?: boolean;
+  sessionOnlyJoinEnabled?: boolean;
+  teacherOnlyMode?: boolean;
+  teacherUserLimit?: number | null;
+  studentUserLimit?: number | null;
+  parentUserLimit?: number | null;
+  maxChildOrganizations?: number | null;
+  maxChildPartners?: number | null;
+  maxChildUsers?: number | null;
+  licenseSeatMax?: number | null;
+  supportEmail?: string | null;
+  supportPhone?: string | null;
+  storageProviders?: OrganizationStorageProvider[];
+  defaultStorageProvider?: OrganizationStorageProvider | null;
+  storageProvider?: OrganizationStorageProvider | null;
+  storageStatus?: OrganizationStorageStatus;
+  brandName?: string | null;
+  brandPrimaryColor?: string | null;
+  brandAccentColor?: string | null;
+}
+
+export interface UpdateOrganizationPayload {
+  name?: string;
+  slug?: string;
+  status?: OrganizationStatus;
+  settings?: Record<string, unknown>;
+  brandingMode?: BrandingMode;
+  studentLoginEnabled?: boolean;
+  parentLoginEnabled?: boolean;
+  sessionOnlyJoinEnabled?: boolean;
+  teacherOnlyMode?: boolean;
+  teacherUserLimit?: number | null;
+  studentUserLimit?: number | null;
+  parentUserLimit?: number | null;
+  maxChildOrganizations?: number | null;
+  maxChildPartners?: number | null;
+  maxChildUsers?: number | null;
+  licenseSeatMax?: number | null;
+  supportEmail?: string | null;
+  supportPhone?: string | null;
+  storageProviders?: OrganizationStorageProvider[];
+  defaultStorageProvider?: OrganizationStorageProvider | null;
+  storageProvider?: OrganizationStorageProvider | null;
+  storageStatus?: OrganizationStorageStatus;
+  brandName?: string | null;
+  brandPrimaryColor?: string | null;
+  brandAccentColor?: string | null;
+}
+
+export interface UpsertOrganizationStoragePayload {
+  provider: OrganizationStorageProvider;
+  status: OrganizationStorageStatus;
+  externalAccountEmail?: string | null;
+  rootFolderId?: string | null;
+  encryptedTokens?: string | null;
+  lastError?: string | null;
+}
+
+export interface DeleteOrganizationResult {
+  id: string;
+  deletedAt: string;
+  archivedSlug: string;
+  archivedSupportEmail: string | null;
+  affectedUserCount: number;
+  canceledSubscriptionCount: number;
+  canceledCheckoutSessionCount: number;
+  disabledHardwareKeyCount: number;
+  disabledHardwareActivationCount: number;
+  disabledAiCreditAccountCount: number;
+  disconnectedStorageConnectionCount: number;
+}
+
+export interface ArchiveOrganizationWithChildrenResult {
+  parent: DeleteOrganizationResult;
+  children: DeleteOrganizationResult[];
+  archivedChildCount: number;
+}
+
+export interface PlayStoreMigrationCampaign {
+  id: string;
+  organizationId: string;
+  reason: string;
+  startsAt: string;
+  endsAt: string;
+  status: 'SCHEDULED' | 'CANCELLED';
+  effectiveStatus: 'SCHEDULED' | 'CANCELLED' | 'EXPIRED';
+  cancelledAt?: string | null;
+  emailSentAt?: string | null;
+  emailLastError?: string | null;
+}
+
+export interface PlayStoreMigrationStatus {
+  campaign: PlayStoreMigrationCampaign | null;
+  keyCount: number;
+  primaryAdmin: { email: string; name?: string | null } | null;
+}
+
+export interface SchedulePlayStoreMigrationPayload {
+  reason: string;
+  startsAt: string;
+  endsAt: string;
+}
+
+export const organizationsApi = {
+  list: (query?: AdminListQuery) =>
+    getAdminList<AdminOrganization>('/admin/organizations', query),
+  all: async () => {
+    const firstPage = await getAdminList<AdminOrganization>('/admin/organizations', {
+      page: 1,
+      perPage: 100,
+    });
+    const totalPages = Number(firstPage.meta.totalPages ?? 1);
+    if (totalPages <= 1) return firstPage.data;
+
+    const remainingPages = await Promise.all(
+      Array.from({ length: totalPages - 1 }, (_, index) =>
+        getAdminList<AdminOrganization>('/admin/organizations', {
+          page: index + 2,
+          perPage: 100,
+        }),
+      ),
+    );
+    return [firstPage, ...remainingPages].flatMap((page) => page.data);
+  },
+  get: (id: string) => getAdminItem<AdminOrganization>(`/admin/organizations/${id}`),
+  export: (query: AdminListQuery, format: AdminExportFormat) =>
+    downloadAdminExport('/admin/organizations/export', query, format),
+  create: async (payload: CreateOrganizationPayload) => {
+    const res = await api.post<ApiResponse<AdminOrganization>>(
+      '/admin/organizations',
+      payload,
+    );
+    return res.data.data;
+  },
+  update: async (id: string, payload: UpdateOrganizationPayload) => {
+    const res = await api.patch<ApiResponse<AdminOrganization>>(
+      `/admin/organizations/${id}`,
+      payload,
+    );
+    return res.data.data;
+  },
+  delete: async (id: string) => {
+    const res = await api.delete<ApiResponse<DeleteOrganizationResult>>(`/admin/organizations/${id}`);
+    return res.data.data;
+  },
+  archiveWithChildren: async (id: string, childOrganizationIds: string[]) => {
+    const res = await api.post<ApiResponse<ArchiveOrganizationWithChildrenResult>>(
+      `/admin/organizations/${id}/archive-with-children`,
+      { childOrganizationIds },
+    );
+    return res.data.data;
+  },
+  uploadLogo: async (id: string, file: File) => {
+    const formData = new FormData();
+    formData.append('logo', file);
+    const res = await api.post<ApiResponse<AdminOrganization>>(
+      `/admin/organizations/${id}/logo`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+    return res.data.data;
+  },
+  removeLogo: async (id: string) => {
+    const res = await api.delete<ApiResponse<AdminOrganization>>(
+      `/admin/organizations/${id}/logo`,
+    );
+    return res.data.data;
+  },
+  upsertStorage: async (id: string, payload: UpsertOrganizationStoragePayload) => {
+    const res = await api.put<ApiResponse<unknown>>(
+      `/admin/organizations/${id}/storage`,
+      payload,
+    );
+    return res.data.data;
+  },
+  getPlayStoreMigration: async (id: string) => {
+    const res = await api.get<ApiResponse<PlayStoreMigrationStatus>>(
+      `/admin/organizations/${id}/play-store-migration`,
+    );
+    return res.data.data;
+  },
+  schedulePlayStoreMigration: async (id: string, payload: SchedulePlayStoreMigrationPayload) => {
+    const res = await api.post<ApiResponse<PlayStoreMigrationCampaign>>(
+      `/admin/organizations/${id}/play-store-migration`, payload,
+    );
+    return res.data.data;
+  },
+  cancelPlayStoreMigration: async (id: string) => {
+    const res = await api.post<ApiResponse<PlayStoreMigrationCampaign>>(
+      `/admin/organizations/${id}/play-store-migration/cancel`,
+    );
+    return res.data.data;
+  },
+  retryPlayStoreMigrationEmail: async (id: string) => {
+    const res = await api.post<ApiResponse<PlayStoreMigrationCampaign>>(
+      `/admin/organizations/${id}/play-store-migration/retry-email`,
+    );
+    return res.data.data;
+  },
+};

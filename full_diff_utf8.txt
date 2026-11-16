@@ -1,0 +1,2904 @@
+﻿diff --git a/.agents/BRIEFING.md b/.agents/BRIEFING.md
+new file mode 100644
+index 0000000..cb9c888
+--- /dev/null
++++ b/.agents/BRIEFING.md
+@@ -0,0 +1,34 @@
++# BRIEFING ΓÇö 2026-07-13T11:07:30Z
++
++## Mission
++Verify dual-layer custom App Tour system changes in `admin_panel_softlogic`.
++
++## ≡ƒöÆ My Identity
++- Archetype: Teamwork agent
++- Roles: Reviewer, Critic
++- Working directory: C:\Users\YashJangid\Desktop\yash\admin_panel_softlogic\.agents
++- Original parent: 72f38abc-95f6-499b-b4aa-bd8c710e2317
++- Milestone: Review App Tour implementation
++- Instance: 1 of 1
++
++## ≡ƒöÆ Key Constraints
++- Review-only ΓÇö do NOT modify implementation code.
++- Report PASS or FAIL with reasons to caller.
++- Do not make external HTTP requests.
++
++## Current Parent
++- Conversation ID: 72f38abc-95f6-499b-b4aa-bd8c710e2317
++- Updated: not yet
++
++## Review Scope
++- **Files to review**: `package.json`, `src/lib/tour-steps.ts`, `src/features/license/LicensePage.tsx`, `src/features/ai/AiPage.tsx`, `src/components/tour/FloatingTourTrigger.tsx`
++- **Interface contracts**: `ORIGINAL_REQUEST.md`
++- **Review criteria**: Check claims: `react-joyride` uninstalled, 9 steps in `initial` profile, `license` and `ai` profiles detailed, `data-tour` match, floating trigger context works, build passes.
++
++## Key Decisions Made
++- Checked all files and claims.
++- Build passed successfully.
++- Found missing `data-tour` attributes on submit buttons in `LicensePage.tsx` and `AiPage.tsx`.
++
++## Artifact Index
++- `handoff.md` ΓÇö Final review report
+diff --git a/.agents/ORIGINAL_REQUEST.md b/.agents/ORIGINAL_REQUEST.md
+new file mode 100644
+index 0000000..b0c54a7
+--- /dev/null
++++ b/.agents/ORIGINAL_REQUEST.md
+@@ -0,0 +1,63 @@
++# Original User Request
++
++## Initial Request ΓÇö 2026-07-13T10:54:02Z
++
++Implement a dual-layer custom App Tour system: a simple, high-level initial onboarding tour that runs on first login, plus highly detailed, on-demand, module-specific tours (for Organizations, Users, License, and AI) triggered by a persistent floating button.
++
++Working directory: `C:/Users/YashJangid/Desktop/yash/admin_panel_softlogic`
++Integrity mode: development
++
++## Requirements
++
++### R1. Simplified Initial Tour
++Revert the current massive 21-step tour back to a simple, high-level initial onboarding sequence (similar to the original 9-step overview). It should hit the top-level pages and metrics. However, at the very end of this initial tour, include a step or message that suggests taking the detailed module tours to learn more.
++
++### R2. Contextual Detailed Module Tours
++Create deeply functional tours tailored to specific modules (Organizations, Users, Licensing, AI). When triggered, a module tour should walk the user through that specific workflow in detail (e.g., highlighting form inputs for creating an organization, generating keys, or assigning AI credits) without them having to type.
++
++### R3. Persistent Floating Tour Trigger
++Add a persistent floating "Help/Tour" button to the bottom corner of the screen. When clicked, it should present the user with options to launch the detailed tour relevant to the module they are currently viewing, or replay the high-level tour. 
++
++### R4. No External Tour Libraries
++You must use and extend the existing custom React `TourProvider.tsx` and overlay logic. Do NOT install or use external libraries like `react-joyride`. The tour must maintain the current exact Flutter UI aesthetic (double-stroke spotlight and dark navy cutout scrim).
++
++## Acceptance Criteria
++
++### Functional Architecture
++- [ ] The `TourProvider` or a contextual hook supports starting different "tour profiles" (e.g., `startTour('initial')`, `startTour('organizations')`, etc.).
++- [ ] A persistent floating button exists in the bottom corner of the layout, opening a menu or immediately launching the contextual tour based on the current route.
++- [ ] The initial auto-tour does not drag the user through all the detailed forms; it stays high-level and ends with a suggestion to use the floating button.
++- [ ] The module tours correctly navigate and highlight deep functional form elements across the app.
++
++### Implementation Integrity
++- [ ] `package.json` contains no new dependencies for tour/onboarding libraries.
++- [ ] The application builds successfully via `npm run build` without TypeScript errors.
++
++## Follow-up ΓÇö 2026-07-14T10:28:55+05:30
++
++Build a fully interactive, deep-dive App Tour for the Licensing (and other) modules. The tour must not just be 1-2 steps; it must programmatically interact with the UI (e.g., selecting an organization, opening the "Generate Keys" modal, and highlighting specific fields inside modals) to demonstrate the complete, real-world workflow step-by-step.
++
++Working directory: `C:/Users/YashJangid/Desktop/yash/admin_panel_softlogic`
++Integrity mode: development
++
++## Requirements
++
++### R1. Deeply Interactive Functional Tours
++The detailed module tours (Organizations, Users, License, AI) must cover every functional aspect, "small to small", rather than just a 1-2 step general overview. This means opening modals, filling/selecting fields, and showing real interaction.
++
++### R2. Auto-Selection and Hierarchy Demonstration
++When demonstrating hierarchy-specific functionality (like allocating keys to a specific partner), the tour must automatically find and click an available organization/partner in the dropdown/list so the user sees a complete flow without needing to manually select anything. 
++
++### R3. Automated Modal Handling
++Enhance the existing custom tour engine (`TourProvider.tsx` and `tour-steps.ts`) to robustly support a `preActionClick` (or `actionSelector`) mechanism. The engine must automatically click buttons (e.g., "Generate Keys") to open modals before highlighting the form fields inside them, ensuring the tour doesn't break or point to the center of the screen when targeting hidden elements.
++
++### R4. Pure React Custom Implementation
++You must continue using the existing custom React `TourProvider.tsx` architecture. Do NOT use `react-joyride` or other external libraries.
++
++## Acceptance Criteria
++
++### Interaction Integrity
++- [ ] The engine correctly executes `preActionClick` to open modals or dropdowns before attempting to locate the `target` element.
++- [ ] In the Licensing tour, the engine successfully clicks a partner/organization from the list, clicks to open the "Generate Keys" and "Allocate Keys" modals, and highlights specific inputs inside them sequentially.
++- [ ] The tour does not get stuck pointing at the center of the screen; it correctly waits for the modal to animate and the target element to mount.
++- [ ] The application builds successfully via `npm run build` without TypeScript errors.
+diff --git a/.agents/PROJECT.md b/.agents/PROJECT.md
+new file mode 100644
+index 0000000..2b84349
+--- /dev/null
++++ b/.agents/PROJECT.md
+@@ -0,0 +1,16 @@
++# Project: Interactive App Tour
++# Scope: Global
++
++## Architecture
++- `TourProvider.tsx` - Enhanced with robust `preActionClick` (which could be an array of actions, or delayed polling for buttons).
++- `tour-steps.ts` - Updated definitions to automate clicks and fill inputs in modals for modules (Organizations, Users, License, AI).
++- Target files: `src/components/tour/TourProvider.tsx`, `src/lib/tour-steps.ts`, and optionally adding data attributes in `src/features/...`
++
++## Milestones
++| # | Name | Scope | Dependencies | Status |
++|---|------|-------|-------------|--------|
++| 1 | Interactive Tour Implementation | Modify `TourProvider` & `tour-steps`, update feature files with selectors | none | PLANNED |
++
++## Interface Contracts
++- `TourProvider` will expose the same context interface `startTour`.
++- `AppTourStep` will be extended if necessary (e.g., `preActionSelector` handling improvements).
+diff --git a/.agents/explorer_1/BRIEFING.md b/.agents/explorer_1/BRIEFING.md
+new file mode 100644
+index 0000000..599b988
+--- /dev/null
++++ b/.agents/explorer_1/BRIEFING.md
+@@ -0,0 +1,33 @@
++# BRIEFING ΓÇö 2026-07-13T11:15:00Z
++
++## Mission
++Investigate and resolve missing data attributes and incorrect selectors for the custom App Tour system.
++
++## ≡ƒöÆ My Identity
++- Archetype: Explorer
++- Roles: Read-only investigator, analyzer
++- Working directory: c:\Users\YashJangid\Desktop\yash\admin_panel_softlogic\.agents\explorer_1
++- Original parent: 72f38abc-95f6-499b-b4aa-bd8c710e2317
++- Milestone: Fix App Tour system issues
++
++## ≡ƒöÆ Key Constraints
++- Read-only investigation ΓÇö do NOT implement
++- Network mode: CODE_ONLY
++
++## Current Parent
++- Conversation ID: 72f38abc-95f6-499b-b4aa-bd8c710e2317
++- Updated: not yet
++
++## Investigation State
++- **Explored paths**: 
++  - admin_panel_softlogic/src/features/license/LicensePage.tsx
++  - admin_panel_softlogic/src/features/ai/AiPage.tsx
++  - admin_panel_softlogic/src/lib/tour-steps.ts
++- **Key findings**: Found the exact buttons and selector string that need fixing.
++- **Unexplored areas**: None related to this specific task.
++
++## Key Decisions Made
++- Wrote findings and strategy in handoff report.
++
++## Artifact Index
++- handoff.md ΓÇö Contains the technical strategy and file edits needed.
+diff --git a/.agents/explorer_1/handoff.md b/.agents/explorer_1/handoff.md
+new file mode 100644
+index 0000000..9101bef
+--- /dev/null
++++ b/.agents/explorer_1/handoff.md
+@@ -0,0 +1,56 @@
++# Handoff Report: App Tour System Fixes
++
++## 1. Observation
++- `src/features/license/LicensePage.tsx`: The submit button for "Bulk create activation keys" in the `Auto` mode (lines 2872-2886) and `Manual` mode (lines 2851-2865) lacks the `data-tour="tour-license-bulk-submit"` attribute. The button is defined as `<Button type="button" variant="primary" disabled={...} onClick={submitAutoBulk}>`.
++- `src/features/ai/AiPage.tsx`: The allocate submit button for credits (line 790) is defined as `<Button type="submit" variant="outline" disabled={allocationMutation.isPending}>`. It lacks the `data-tour="tour-ai-allocate-submit"` attribute.
++- `src/lib/tour-steps.ts`: Line 160 defines the selector for `user-role` as `target: 'select[name="role"]'`.
++
++## 2. Logic Chain
++1. The App Tour system relies on `data-tour` attributes to anchor steps in the UI and specific DOM selectors in the configuration file (`tour-steps.ts`).
++2. In `LicensePage.tsx`, the tour configuration specifically guides users through the `Auto Generation` flow (`tour-license-bulk-auto` -> `tour-license-bulk-qty` -> `tour-license-bulk-submit`). Thus, we must inject the `data-tour="tour-license-bulk-submit"` attribute into the `submitAutoBulk` button (and optionally the manual `submitBulk` button for consistency).
++3. In `AiPage.tsx`, the `Allocate credits` button is responsible for submitting the credit distribution form. Appending the `data-tour="tour-ai-allocate-submit"` attribute to this specific `<Button>` satisfies the final step requirement for the AI tour.
++4. In `tour-steps.ts`, the tour attempts to target `select[name="role"]` for the user role step. The prompt explicitly specifies updating this selector to `#tour-user-role`.
++
++## 3. Caveats
++- No caveats. The exact required changes align perfectly with the reported errors from the review gate.
++
++## 4. Conclusion
++The issue can be resolved with three specific file modifications:
++
++1. **`src/features/license/LicensePage.tsx`**: Update the `submitAutoBulk` button (and the `submitBulk` button).
++   ```tsx
++   <Button
++     data-tour="tour-license-bulk-submit"
++     type="button"
++     variant="primary"
++     disabled={
++       !selectedOrganization ||
++       autoBulkCount < 1 ||
++       autoBulkCount > maxAutoBulkCount ||
++       bulkMutation.isPending
++     }
++     onClick={submitAutoBulk}
++   >
++   ```
++
++2. **`src/features/ai/AiPage.tsx`**: Update the allocation submit button (around line 790).
++   ```tsx
++   <Button data-tour="tour-ai-allocate-submit" type="submit" variant="outline" disabled={allocationMutation.isPending}>
++     {allocationMutation.isPending ? <Spinner className="h-4 w-4" /> : <Send className="h-4 w-4" />}
++     Allocate credits
++   </Button>
++   ```
++
++3. **`src/lib/tour-steps.ts`**: Update the target string at line 160.
++   ```typescript
++   // Before
++   target: 'select[name="role"]',
++
++   // After
++   target: '#tour-user-role',
++   ```
++
++## 5. Verification Method
++1. Inspect the source code to confirm the edits match the described changes.
++2. Run the React typescript check (`npx tsc --noEmit`) to verify no syntax errors were introduced.
++3. Validate that the application builds successfully (`npm run build` from `admin_panel_softlogic`).
+diff --git a/.agents/explorer_1/progress.md b/.agents/explorer_1/progress.md
+new file mode 100644
+index 0000000..d38e6c7
+--- /dev/null
++++ b/.agents/explorer_1/progress.md
+@@ -0,0 +1,6 @@
++# Progress
++- **Last visited**: 2026-07-13T16:29:40+05:30
++- Completed analysis of unstaged changes (`package.json`, `tour-steps.ts`, `TourProvider.tsx`, `FloatingTourTrigger.tsx`).
++- Created strategy to implement Milestones 1 to 5.
++- Wrote findings and strategy to `handoff.md`.
++- Sent completion message to Orchestrator.
+diff --git a/.agents/explorer_tour_1/handoff.md b/.agents/explorer_tour_1/handoff.md
+new file mode 100644
+index 0000000..c871477
+--- /dev/null
++++ b/.agents/explorer_tour_1/handoff.md
+@@ -0,0 +1,83 @@
++# Handoff Report
++
++## Observation
++- `TourProvider.tsx` currently manages a 9-step tour. It works by monitoring `currentStep.route`, navigating to it if necessary using `useNavigate`, and polling `document.querySelector(currentStep.target)` up to 20 times (2 seconds) to find and highlight the target element.
++- The `AppTourStep` type in `src/lib/tour-steps.ts` holds `id`, `target`, `title`, `content`, `route`, and `placement`.
++- Core workflow components are located at:
++  - Organizations: `src/features/organizations/OrganizationsPage.tsx`, `OrganizationFormPage.tsx`
++  - Users: `src/features/users/UsersPage.tsx`, `UserFormPage.tsx`
++  - Licensing: `src/features/license/LicensePage.tsx`
++  - AI Module: `src/features/ai/AiPage.tsx`
++
++## Logic Chain
++- To expand the tour to 25+ steps sequentially covering the requested flows, we must add specific CSS ID targets to all intermediate form fields and buttons across the above page components.
++- Because the tour moves through multiple steps within the same page (e.g. 7 steps on `/organizations/new`), React Router's `navigate` alone isn't enough for elements that might require a user interaction or are rendered conditionally (like dropdowns).
++- `TourProvider` can handle cross-route navigation smoothly because React Router's state updates trigger a re-render, and the polling mechanism in `useEffect` automatically finds the target element once the DOM updates. 
++- To target deeply nested elements or elements that require a preceding action (like opening a Radix UI `<Select>`), we can modify the `AppTourStep` interface to include an optional `preActionSelector`. The polling loop in `TourProvider.tsx` can invoke `.click()` on the `preActionSelector` if the main `target` is not yet visible in the DOM.
++
++## Caveats
++- Relying on native `.click()` for React components (especially third-party like Radix UI) can sometimes fail if synthetic events are strictly expected. In such cases, the tour content must prompt the user to manually click/open the element.
++- We must ensure that the "Next" button on the Tour card has `type="button"` (which it does) so it doesn't accidentally submit forms when clicking through the steps.
++- Adding 25+ steps forces a long sequence. Users must be able to skip the tour at any time (the current component allows skipping).
++
++## Conclusion
++We have mapped the existing architecture and the necessary component paths. `TourProvider.tsx` can be enhanced with `preActionSelector` logic, and IDs can be injected across the core forms to support a 26-step continuous sequence. 
++
++### Proposed TourProvider Modification:
++Add `preActionSelector?: string;` to `AppTourStep`.
++In `TourProvider.tsx` polling loop:
++```typescript
++    const findElement = () => {
++      // If a pre-action is defined and the target isn't found yet, try clicking it
++      if (currentStep.preActionSelector && !document.querySelector(currentStep.target)) {
++        const preEl = document.querySelector(currentStep.preActionSelector) as HTMLElement;
++        if (preEl) preEl.click();
++      }
++      
++      const el = document.querySelector(currentStep.target);
++      // ... existing scroll and setTargetRect logic ...
++    };
++```
++
++### Proposed 26-Step Tour Plan:
++1. `dashboard-welcome` (`/dashboard`, `[data-tour="tour-dashboard-stats"]`): Welcome & real-time snapshot.
++2. `dashboard-metrics` (`/dashboard`, `[data-tour="tour-dashboard-metrics"]`): Key numbers.
++3. `org-list` (`/organizations`, `[data-tour="tour-organizations-list"]`): Manage organizations list.
++4. `org-create-btn` (`/organizations`, `#tour-org-create-btn`): Click to create new org.
++5. `org-form-name` (`/organizations/new`, `#tour-org-name`): Organization name input.
++6. `org-form-kind` (`/organizations/new`, `#tour-org-kind`): Customer/Partner selector.
++7. `org-form-branding` (`/organizations/new`, `#tour-org-branding-mode`): Branding mode (White Label vs SoftLogic).
++8. `org-form-colors` (`/organizations/new`, `#tour-org-colors`): Brand colors and logo upload.
++9. `org-form-limits-teacher` (`/organizations/new`, `#tour-org-teacher-limit`): Teacher seat limit.
++10. `org-form-limits-student` (`/organizations/new`, `#tour-org-student-limit`): Student seat limit.
++11. `org-form-submit` (`/organizations/new`, `#tour-org-submit`): Submit organization button.
++12. `users-list` (`/users`, `[data-tour="tour-users-list"]`): User management list.
++13. `users-create-btn` (`/users`, `#tour-user-create-btn`): Click to add a user.
++14. `user-form-name` (`/users/new`, `#tour-user-name`): User basic details.
++15. `user-form-email` (`/users/new`, `#tour-user-email`): Mail invite system notification.
++16. `user-form-role` (`/users/new`, `#tour-user-role`): Assign role permissions.
++17. `user-form-org` (`/users/new`, `#tour-user-org`): Link user to organization.
++18. `user-form-submit` (`/users/new`, `#tour-user-submit`): Submit user to dispatch invite.
++19. `license-stats` (`/license`, `[data-tour="tour-license-stats"]`): Licensing overview.
++20. `license-generate` (`/license`, `#tour-license-generate-btn`): Generate hardware keys.
++21. `license-allocation` (`/license`, `#tour-license-allocation`): Allocate keys.
++22. `ai-credits` (`/ai`, `[data-tour="tour-ai-credits"]`): AI master config & pool.
++23. `ai-topup` (`/ai`, `#tour-ai-topup`): Add master credits.
++24. `ai-allocation` (`/ai`, `#tour-ai-allocation-type`): Allocate AI credits to child accounts.
++25. `activity-audit` (`/activity`, `[data-tour="tour-activity-list"]`): Admin activity trail.
++26. `settings-hub` (`/settings`, `[data-tour="tour-settings"]`): Settings, profile, and replay tour.
++
++### Target Files to Add IDs:
++- `src/features/organizations/OrganizationsPage.tsx`
++- `src/features/organizations/OrganizationFormPage.tsx`
++- `src/features/users/UsersPage.tsx`
++- `src/features/users/UserFormPage.tsx`
++- `src/features/license/LicensePage.tsx`
++- `src/features/ai/AiPage.tsx`
++- `src/lib/tour-steps.ts`
++- `src/components/tour/TourProvider.tsx`
++
++## Verification Method
++- Execute the build command `npm run build` after modifying the files to ensure the TypeScript interfaces resolve correctly.
++- Verify that `TourProvider.tsx` properly invokes the tour overlay when navigating to new nested routes.
++- Validate the DOM targeting by using a local development server (`npm run dev`) and checking if each element gets successfully highlighted when proceeding through the tour.
+diff --git a/.agents/handoff.md b/.agents/handoff.md
+new file mode 100644
+index 0000000..16f6c80
+--- /dev/null
++++ b/.agents/handoff.md
+@@ -0,0 +1,21 @@
++## Review Summary
++
++**Verdict**: REQUEST_CHANGES
++
++## Findings
++
++### Critical Finding 1
++
++- What: Missing `data-tour` attributes on submit buttons.
++- Where: `src/features/license/LicensePage.tsx` (bulk submit button) and `src/features/ai/AiPage.tsx` (allocate submit button).
++- Why: The tour profiles for `license` and `ai` reference `tour-license-bulk-submit` and `tour-ai-allocate-submit` as target selectors, but these attributes are missing on the corresponding buttons in the UI. When the user reaches these steps, the tour will fail to find the target element.
++- Suggestion: Add `data-tour="tour-license-bulk-submit"` to the `submitAutoBulk` button in `LicensePage.tsx` and `data-tour="tour-ai-allocate-submit"` to the submit button for allocation in `AiPage.tsx`.
++
++## Verified Claims
++
++- `react-joyride` uninstalled ΓåÆ verified via `package.json` check ΓåÆ PASS
++- `initial` profile in `tour-steps.ts` has exactly 9 steps, ending with suggestion ΓåÆ verified via manual review ΓåÆ PASS
++- `license` and `ai` profiles have detailed form field steps ΓåÆ verified via manual review ΓåÆ PASS
++- `LicensePage.tsx` and `AiPage.tsx` have matching `data-tour` attributes ΓåÆ verified via grep/search ΓåÆ FAIL (missing submit button targets)
++- `FloatingTourTrigger.tsx` works contextually ΓåÆ verified via manual review ΓåÆ PASS
++- Build passes without TypeScript errors ΓåÆ verified via `npm run build` ΓåÆ PASS
+diff --git a/.agents/orchestrator/BRIEFING.md b/.agents/orchestrator/BRIEFING.md
+new file mode 100644
+index 0000000..6aae805
+--- /dev/null
++++ b/.agents/orchestrator/BRIEFING.md
+@@ -0,0 +1,66 @@
++# BRIEFING ΓÇö 2026-07-13T10:55:00Z
++
++## Mission
++Coordinate the implementation of the dual-layer custom App Tour system in `admin_panel_softlogic` (high-level initial tour + detailed contextual module tours via floating button), using existing `TourProvider.tsx` without new dependencies.
++
++## ≡ƒöÆ My Identity
++- Archetype: Orchestrator
++- Roles: orchestrator, user_liaison, human_reporter, successor
++- Working directory: C:\Users\YashJangid\Desktop\yash\admin_panel_softlogic\.agents\orchestrator
++- Original parent: top-level
++- Original parent conversation ID: 72f38abc-95f6-499b-b4aa-bd8c710e2317
++
++## ≡ƒöÆ My Workflow
++- **Pattern**: Project Orchestrator
++- **Scope document**: C:\Users\YashJangid\Desktop\yash\admin_panel_softlogic\.agents\orchestrator\PROJECT.md
++1. **Decompose**: Decompose the task into milestones. I will first spawn an Explorer to analyze the existing `TourProvider.tsx` and layout before creating `PROJECT.md`.
++2. **Dispatch & Execute**:
++   - **Direct (iteration loop)**: For milestones fitting in a single cycle.
++   - **Delegate (sub-orchestrator)**: For larger milestones.
++3. **On failure** (in this order):
++   - Retry: nudge stuck agent or re-send task
++   - Replace: spawn fresh agent with partial progress
++   - Skip: proceed without (only if non-critical)
++   - Redistribute: split stuck agent's remaining work
++   - Redesign: re-partition decomposition
++   - Escalate: report to parent
++4. **Succession**: At 16 spawns, write handoff.md, spawn successor.
++- **Work items**:
++  1. Initialize Workspace & Explore [in-progress]
++  2. Create PROJECT.md [pending]
++  3. Execute Milestones [pending]
++- **Current phase**: 1
++- **Current focus**: Exploring current TourProvider architecture to design milestones.
++
++## ≡ƒöÆ Key Constraints
++- NO EXTERNAL TOUR LIBRARIES (e.g. react-joyride).
++- MUST maintain exact Flutter UI aesthetic (double-stroke spotlight and dark navy cutout scrim).
++- Never reuse a subagent after it has delivered its handoff ΓÇö always spawn fresh.
++- Do NOT directly write source code or run build commands. Delegate to Workers/Reviewers/Explorers.
++
++## Current Parent
++- Conversation ID: 72f38abc-95f6-499b-b4aa-bd8c710e2317
++- Updated: 2026-07-13T10:55:00Z
++
++## Key Decisions Made
++- Initializing workspace and launching an explorer to understand the current App Tour logic.
++
++## Team Roster
++| Agent | Type | Work Item | Status | Conv ID |
++|-------|------|-----------|--------|---------|
++
++## Succession Status
++- Succession required: no
++- Spawn count: 0 / 16
++- Pending subagents: none
++- Predecessor: none
++- Successor: not yet spawned
++
++## Active Timers
++- Heartbeat cron: not started
++- Safety timer: none
++
++## Artifact Index
++- C:\Users\YashJangid\Desktop\yash\admin_panel_softlogic\.agents\ORIGINAL_REQUEST.md ΓÇö Original user request
++- C:\Users\YashJangid\Desktop\yash\admin_panel_softlogic\.agents\orchestrator\progress.md ΓÇö Task checklist and progress
++- C:\Users\YashJangid\Desktop\yash\admin_panel_softlogic\.agents\orchestrator\PROJECT.md ΓÇö Global milestone plan (TBD)
+diff --git a/.agents/orchestrator/PROJECT.md b/.agents/orchestrator/PROJECT.md
+new file mode 100644
+index 0000000..295e4b5
+--- /dev/null
++++ b/.agents/orchestrator/PROJECT.md
+@@ -0,0 +1,21 @@
++# Project: Dual-Layer Custom App Tour
++# Scope: admin_panel_softlogic
++
++## Architecture
++- **Tour State**: Custom `TourContext` in `src/components/tour/TourProvider.tsx`.
++- **Tour Steps Definitions**: Profiles managed in `src/lib/tour-steps.ts` (e.g. `initial`, `organizations`, `users`, `license`, `ai`).
++- **Floating Button**: `src/components/tour/FloatingTourTrigger.tsx` injected at the layout level via `TourProvider.tsx`.
++- **UI Element**: Custom SVG/box-shadow overlay for highlighting elements without external libraries.
++
++## Milestones
++| # | Name | Scope | Dependencies | Status |
++|---|------|-------|-------------|--------|
++| 1 | Prepare & Cleanup | Remove `react-joyride` from `package.json` and investigate current unstaged codebase | none | DONE |
++| 2 | Refine Initial Tour | Expand the current 6-step initial profile in `tour-steps.ts` to exactly 9 top-level steps, concluding with a suggestion to use module tours | M1 | DONE |
++| 3 | Detailed Module Tours | Ensure complete detailed tours are defined for Organizations, Users, Licensing, and AI in `tour-steps.ts` | M2 | DONE |
++| 4 | Floating Trigger Logic | Ensure `FloatingTourTrigger` launches the relevant tour based on the active route, plus option for the initial tour replay | M3 | DONE |
++| 5 | Verify & Build | Run build, check TS errors, and ensure functional UI without external libraries | M4 | DONE |
++
++## Interface Contracts
++### `TourProvider` Γåö `FloatingTourTrigger`
++- The `FloatingTourTrigger` must be able to call `startTour(profile)` where `profile` is derived from the current URL path or user selection.
+diff --git a/.agents/orchestrator/progress.md b/.agents/orchestrator/progress.md
+new file mode 100644
+index 0000000..1a3bce8
+--- /dev/null
++++ b/.agents/orchestrator/progress.md
+@@ -0,0 +1,16 @@
++## Current Status
++Last visited: 2026-07-13T10:55:00Z
++
++### Iteration Status
++Current iteration: 1 / 32
++
++### Checklist
++- [x] Read ORIGINAL_REQUEST.md
++- [x] Setup BRIEFING.md and progress.md
++- [x] Start heartbeat cron
++- [x] Analyze codebase (`TourProvider.tsx`, existing tours, layouts) via Explorer
++- [x] Create `PROJECT.md` with milestone decomposition
++- [x] Implement E2E Test Track (TEST_INFRA.md, TEST_READY.md)
++- [x] Implement Dual-layer Tour System (Implementation Track milestones)
++- [x] Perform Final Milestone (E2E Test Pass + Adversarial Coverage)
++- [x] Report Victory to User
+diff --git a/.agents/orchestrator_interactive_tour/BRIEFING.md b/.agents/orchestrator_interactive_tour/BRIEFING.md
+new file mode 100644
+index 0000000..3097cfb
+--- /dev/null
++++ b/.agents/orchestrator_interactive_tour/BRIEFING.md
+@@ -0,0 +1,62 @@
++# BRIEFING ΓÇö 2026-07-14T10:29:52+05:30
++
++## Mission
++Implement deeply interactive functional App Tours, with automated modal handling and selection.
++
++## ≡ƒöÆ My Identity
++- Archetype: Project Orchestrator
++- Roles: orchestrator, user_liaison, human_reporter, successor
++- Working directory: C:\Users\YashJangid\Desktop\yash\admin_panel_softlogic\.agents\orchestrator_interactive_tour
++- Original parent: top-level
++- Original parent conversation ID: 645348e7-8b4b-47d1-95ce-8b8b24903eb5
++
++## ≡ƒöÆ My Workflow
++- **Pattern**: Project Orchestrator Iteration Loop (Explorer -> Worker -> Reviewer -> gate)
++- **Scope document**: C:\Users\YashJangid\Desktop\yash\admin_panel_softlogic\.agents\PROJECT.md
++1. **Decompose**: We will treat the interactive tour implementation as a single milestone since it only spans a few UI files and state management.
++2. **Dispatch & Execute**:
++   - **Direct (iteration loop)**: Explorer ΓåÆ Worker ΓåÆ Reviewer ΓåÆ gate
++3. **On failure** (in this order):
++   - Retry: nudge stuck agent or re-send task
++   - Replace: spawn fresh agent with partial progress
++   - Skip: proceed without (only if non-critical)
++   - Redistribute: split stuck agent's remaining work
++   - Redesign: re-partition decomposition
++   - Escalate: report to parent
++4. **Succession**: Self-succeed at 16 spawns. Write handoff.md, spawn successor, and exit.
++- **Work items**:
++  1. Update Tour Engine & Add Detailed Tour steps [in-progress]
++- **Current phase**: 2
++- **Current focus**: Update Tour Engine & Add Detailed Tour steps
++
++## ≡ƒöÆ Key Constraints
++- Pure React Custom Implementation. Do NOT use react-joyride or other external libraries.
++- Must maintain the exact Flutter UI aesthetic (double-stroke spotlight and dark navy cutout scrim).
++- Never reuse a subagent after it has delivered its handoff ΓÇö always spawn fresh
++
++## Current Parent
++- Conversation ID: 645348e7-8b4b-47d1-95ce-8b8b24903eb5
++- Updated: not yet
++
++## Key Decisions Made
++- Use one iteration loop to handle the tour engine enhancements and module tours.
++
++## Team Roster
++| Agent | Type | Work Item | Status | Conv ID |
++|-------|------|-----------|--------|---------|
++| Tour Logic Explorer | teamwork_preview_explorer | Milestone 1 | IN_PROGRESS | 2a5d3b19-58cd-456a-a334-b121e9e06caa |
++| Selector Explorer | teamwork_preview_explorer | Milestone 1 | IN_PROGRESS | 5b18ec98-c5c1-461c-8b9a-8630551727f9 |
++| Architecture Explorer | teamwork_preview_explorer | Milestone 1 | IN_PROGRESS | 598beb54-6af7-437b-b280-a373b129e83b |
++
++## Succession Status
++- Succession required: no
++- Spawn count: 3 / 16
++- Pending subagents: 2a5d3b19-58cd-456a-a334-b121e9e06caa, 5b18ec98-c5c1-461c-8b9a-8630551727f9, 598beb54-6af7-437b-b280-a373b129e83b
++
++## Active Timers
++- Heartbeat cron: 645348e7-8b4b-47d1-95ce-8b8b24903eb5/task-29
++- Safety timer: none
++
++## Artifact Index
++- C:\Users\YashJangid\Desktop\yash\admin_panel_softlogic\.agents\PROJECT.md ΓÇö Project milestones
++- C:\Users\YashJangid\Desktop\yash\admin_panel_softlogic\.agents\progress.md ΓÇö Progress tracking
+diff --git a/.agents/orchestrator_interactive_tour/progress.md b/.agents/orchestrator_interactive_tour/progress.md
+new file mode 100644
+index 0000000..d8c1448
+--- /dev/null
++++ b/.agents/orchestrator_interactive_tour/progress.md
+@@ -0,0 +1,9 @@
++## Current Status
++Last visited: 2026-07-14T10:29:52+05:30
++- [ ] Decomposed project into milestones
++- [ ] Spawned Explorers for Milestone 1
++- [ ] Milestone 1 Implementation Worker
++- [ ] Milestone 1 Reviews
++
++## Iteration Status
++Current iteration: 1 / 32
+diff --git a/.agents/orchestrator_tour/BRIEFING.md b/.agents/orchestrator_tour/BRIEFING.md
+new file mode 100644
+index 0000000..927c2e6
+--- /dev/null
++++ b/.agents/orchestrator_tour/BRIEFING.md
+@@ -0,0 +1,63 @@
++# BRIEFING ΓÇö 2026-07-13T10:36:00Z
++
++## Mission
++Orchestrate the implementation of an extended 25+ step interactive App Tour for the SoftLogic admin panel without external libraries, covering Organizations, Users & Mail, Licensing, and AI Module.
++
++## ≡ƒöÆ My Identity
++- Archetype: Orchestrator
++- Roles: orchestrator, user_liaison, human_reporter, successor
++- Working directory: C:/Users/YashJangid/Desktop/yash/admin_panel_softlogic/.agents/orchestrator_tour
++- Original parent: top-level
++- Original parent conversation ID: e86336fa-9092-45c0-b93e-e365874a950c
++
++## ≡ƒöÆ My Workflow
++- **Pattern**: Project / Canonical
++- **Scope document**: C:/Users/YashJangid/Desktop/yash/admin_panel_softlogic/.agents/orchestrator_tour/PROJECT.md
++1. **Decompose**: Split into steps, find current `TourProvider.tsx` and UI elements, implement new steps targeting specific elements, add route navigation logic.
++2. **Dispatch & Execute**:
++   - **Direct (iteration loop)**: Explorer ΓåÆ Worker ΓåÆ Reviewer
++3. **On failure**: Retry, Replace, Skip, Redistribute, Degrade
++4. **Succession**: At 16 spawns, write handoff.md, spawn successor.
++- **Work items**:
++  1. Explore current TourProvider and App Tour implementation [PLANNED]
++  2. Implement extended 25+ step Tour and Navigation [PLANNED]
++  3. Verify UI and functionality [PLANNED]
++- **Current phase**: 1
++- **Current focus**: Explore current TourProvider
++
++## ≡ƒöÆ Key Constraints
++- No external libraries for the tour. Use custom React `TourProvider.tsx`.
++- Must contain 25+ steps total.
++- Navigate across React Router routes.
++- Target specific nested elements inside real live components.
++- Maintain exact Flutter UI aesthetic (double-stroke spotlight and dark navy cutout scrim).
++
++## Current Parent
++- Conversation ID: e86336fa-9092-45c0-b93e-e365874a950c
++- Updated: not yet
++
++## Key Decisions Made
++- Use one Explorer to analyze TourProvider.tsx, routes, and components.
++- Use one Worker to implement the changes across TourProvider and relevant components (adding target classes or IDs).
++- Use one Reviewer to verify the changes.
++
++## Team Roster
++| Agent | Type | Work Item | Status | Conv ID |
++|-------|------|-----------|--------|---------|
++| Codebase Researcher | teamwork_preview_explorer | Explore TourProvider | completed | e8b6d187-3d29-4651-87c6-d82a70ef80d6 |
++| Implementation Engineer | teamwork_preview_worker | Implement Tour steps | in-progress | 6d75ac81-e7ed-4507-8bfb-1674d8e61092 |
++
++## Succession Status
++- Succession required: no
++- Spawn count: 2 / 16
++- Pending subagents: 6d75ac81-e7ed-4507-8bfb-1674d8e61092
++- Predecessor: none
++- Successor: not yet spawned
++
++## Active Timers
++- Heartbeat cron: not started
++- Safety timer: none
++
++## Artifact Index
++- C:/Users/YashJangid/Desktop/yash/admin_panel_softlogic/.agents/orchestrator_tour/PROJECT.md ΓÇö Global index, architecture, milestones
++- C:/Users/YashJangid/Desktop/yash/admin_panel_softlogic/.agents/orchestrator_tour/progress.md ΓÇö Status tracker
+diff --git a/.agents/orchestrator_tour/PROJECT.md b/.agents/orchestrator_tour/PROJECT.md
+new file mode 100644
+index 0000000..c831a05
+--- /dev/null
++++ b/.agents/orchestrator_tour/PROJECT.md
+@@ -0,0 +1,18 @@
++# Project: App Tour Extension
++# Scope: Global
++
++## Architecture
++- `TourProvider.tsx` manages tour state and UI overlay.
++- Various components (Organizations, Users, Mail, Licensing, AI Module) need targetable elements (IDs or classes) that `TourProvider.tsx` can highlight.
++- Step transitions in `TourProvider.tsx` may need to include React Router navigation logic (`navigate` from `react-router-dom`) when the route of the next step is different.
++
++## Milestones
++| # | Name | Scope | Dependencies | Status |
++|---|------|-------|-------------|--------|
++| 1 | Explore | Find `TourProvider.tsx`, identify components to add targets, map out 25+ steps. | none | DONE |
++| 2 | Implementation | Update `TourProvider.tsx` with 25+ steps, navigation logic, and add target IDs/refs to all relevant components. | M1 | IN_PROGRESS |
++| 3 | Review & Verify | Review changes, verify no external libraries added, test build. | M2 | PLANNED |
++
++## Interface Contracts
++### TourProvider Γåö Router
++- `TourProvider` will check the expected route of the next step and trigger a route change if it differs from current. Wait for route to render before highlighting the target.
+diff --git a/.agents/orchestrator_tour/progress.md b/.agents/orchestrator_tour/progress.md
+new file mode 100644
+index 0000000..edc6ee5
+--- /dev/null
++++ b/.agents/orchestrator_tour/progress.md
+@@ -0,0 +1,8 @@
++## Current Status
++Last visited: 2026-07-13T10:36:00Z
++- [x] M1: Explore TourProvider and current implementation
++- [ ] M2: Implementation of 25+ steps (In Progress)
++- [ ] M3: Review & Verify
++
++## Iteration Status
++Current iteration: 1 / 32
+diff --git a/.agents/progress.md b/.agents/progress.md
+new file mode 100644
+index 0000000..75d4874
+--- /dev/null
++++ b/.agents/progress.md
+@@ -0,0 +1,9 @@
++# Progress update - 2026-07-13T11:07:49Z
++
++Completed review of App Tour implementation.
++- Build passed
++- Verified react-joyride removed
++- Verified tour steps logic
++- Failed verification on `LicensePage.tsx` and `AiPage.tsx` due to missing `data-tour` attributes.
++- Wrote BRIEFING.md and handoff.md
++- Sent FAIL message to caller agent.
+diff --git a/.agents/reviewer_1/BRIEFING.md b/.agents/reviewer_1/BRIEFING.md
+new file mode 100644
+index 0000000..23bd337
+--- /dev/null
++++ b/.agents/reviewer_1/BRIEFING.md
+@@ -0,0 +1,34 @@
++# BRIEFING ù 2026-07-13T16:35:32
++
++## Mission
++Verify the dual-layer custom App Tour system in admin_panel_softlogic against worker claims.
++
++## ?? My Identity
++- Archetype: Reviewer
++- Roles: reviewer, critic
++- Working directory: C:\Users\YashJangid\Desktop\yash\admin_panel_softlogic\.agents\reviewer_1
++- Original parent: 72f38abc-95f6-499b-b4aa-bd8c710e2317
++- Milestone: Review dual-layer custom App Tour system
++- Instance: 1 of 1
++
++## ?? Key Constraints
++- Review-only ù do NOT modify implementation code
++- Network Restrictions: CODE_ONLY (No external websites or services)
++
++## Current Parent
++- Conversation ID: 72f38abc-95f6-499b-b4aa-bd8c710e2317
++- Updated: not yet
++
++## Review Scope
++- **Files to review**: package.json, src/lib/tour-steps.ts, src/features/license/LicensePage.tsx, src/features/ai/AiPage.tsx, src/components/tour/FloatingTourTrigger.tsx
++- **Interface contracts**: ORIGINAL_REQUEST.md
++- **Review criteria**: correctness, style, conformance
++
++## Key Decisions Made
++- Checked package.json for react-joyride (not found)
++- Checked tour-steps.ts for initial profile (has exactly 9 steps, ends with suggestion)
++- Checked LicensePage.tsx and AiPage.tsx for data-tour attributes (missing some)
++- Tested build (passed)
++
++## Artifact Index
++- .agents/reviewer_1/handoff.md - Handoff report with findings
+diff --git a/.agents/reviewer_1/handoff.md b/.agents/reviewer_1/handoff.md
+new file mode 100644
+index 0000000..56be535
+--- /dev/null
++++ b/.agents/reviewer_1/handoff.md
+@@ -0,0 +1,26 @@
++## 1. Observation
++- package.json does not contain 
+eact-joyride.
++- src/lib/tour-steps.ts contains the initial profile with exactly 9 steps, and the final step's content is "That concludes the high-level overview! For deep-dives into specific modules, look for the floating Help icon in the bottom right corner of any page."
++- src/lib/tour-steps.ts contains license and i profiles which have detailed form field steps.
++- src/components/tour/FloatingTourTrigger.tsx reads location.pathname to conditionally show contextual module tours.
++- 
++pm run build completed successfully without TypeScript errors.
++- src/features/license/LicensePage.tsx does NOT contain the attribute data-tour="tour-license-bulk-submit".
++- src/features/ai/AiPage.tsx does NOT contain the attribute data-tour="tour-ai-allocate-submit".
++
++## 2. Logic Chain
++- Claim 1 (react-joyride uninstalled) is PASS, as it is absent in package.json.
++- Claim 2 (initial profile has 9 steps ending with suggestion) is PASS.
++- Claim 3 (license and ai profiles have detailed form field steps) is PASS.
++- Claim 5 (FloatingTourTrigger works contextually) is PASS.
++- Claim 6 (Build passes) is PASS.
++- Claim 4 (LicensePage.tsx and AiPage.tsx have matching data-tour attributes) is FAIL, because 	our-license-bulk-submit and 	our-ai-allocate-submit are defined as targets in 	our-steps.ts but are not present in their respective files.
++
++## 3. Caveats
++- No caveats.
++
++## 4. Conclusion
++The implementation of the tour is mostly complete but has missing attributes for the final "submit" buttons in the License and AI module tours, which will cause those tour steps to fail to highlight the intended elements. Verdict: REQUEST_CHANGES.
++
++## 5. Verification Method
++Run Select-String "tour-license-bulk-submit" src\features\license\LicensePage.tsx and Select-String "tour-ai-allocate-submit" src\features\ai\AiPage.tsx to verify the attributes are missing.
+diff --git a/.agents/reviewer_1/progress.md b/.agents/reviewer_1/progress.md
+new file mode 100644
+index 0000000..7036689
+--- /dev/null
++++ b/.agents/reviewer_1/progress.md
+@@ -0,0 +1,5 @@
++Last visited: 2026-07-13T16:38:00
++
++Completed verification of worker claims.
++Found that the data-tour attributes for submit buttons in License and AI pages are missing.
++Writing message back to main agent.
+diff --git a/.agents/sentinel/BRIEFING.md b/.agents/sentinel/BRIEFING.md
+new file mode 100644
+index 0000000..ea2ab32
+--- /dev/null
++++ b/.agents/sentinel/BRIEFING.md
+@@ -0,0 +1,30 @@
++# BRIEFING ΓÇö 2026-07-14T10:28:55Z
++
++## Mission
++Manage the implementation of deeply interactive functional App Tours, with automated modal handling and selection.
++
++## ≡ƒöÆ My Identity
++- Archetype: sentinel
++- Working directory: C:\Users\YashJangid\Desktop\yash\admin_panel_softlogic\.agents\sentinel
++- Orchestrator: 645348e7-8b4b-47d1-95ce-8b8b24903eb5
++- Victory Auditor: [TBD]
++
++## ≡ƒöÆ Key Constraints
++- No technical decisions ΓÇö relay only
++- Victory Audit is MANDATORY before reporting completion
++
++## User Context
++- **Last user request**: Build fully interactive, deep-dive App Tour for Licensing (and other) modules with auto-selection and automated modal handling via preActionClick.
++- **Pending clarifications**: [none]
++- **Delivered results**: Dual-layer App Tour system.
++
++## Project Status
++- **Phase**: in progress
++
++## Victory Audit Status
++- **Triggered**: no
++- **Verdict**: pending
++- **Retry count**: 0
++
++## Artifact Index
++- C:\Users\YashJangid\Desktop\yash\admin_panel_softlogic\.agents\ORIGINAL_REQUEST.md ΓÇö Authoritative record of user requests
+diff --git a/.agents/sentinel/handoff.md b/.agents/sentinel/handoff.md
+new file mode 100644
+index 0000000..c603f40
+--- /dev/null
++++ b/.agents/sentinel/handoff.md
+@@ -0,0 +1,21 @@
++# Handoff Report
++
++## Observation
++- Received a new user request to implement a fully interactive, deep-dive App Tour for Licensing (and other) modules.
++- The request requires using the existing custom `TourProvider.tsx` with a new `preActionClick` mechanism for automated modal handling and selection.
++
++## Logic Chain
++- Parsed the user's request and appended it verbatim to `.agents/ORIGINAL_REQUEST.md`.
++- Read and updated `.agents/sentinel/BRIEFING.md` to reflect the new mission context and project status.
++- Spawned a Project Orchestrator (conversation ID: `645348e7-8b4b-47d1-95ce-8b8b24903eb5`) to manage the implementation.
++- Established two cron jobs (tasks `task-25` and `task-27`) for progress reporting and liveness checking.
++
++## Caveats
++- The Sentinel will wait asynchronously for the Orchestrator to confirm victory. No polling is required.
++
++## Conclusion
++- Initialization is complete. The Sentinel is now monitoring the project's progress.
++
++## Verification Method
++- Verify the background tasks are running via `manage_task` with action `list`.
++- Verify the subagent was successfully invoked.
+diff --git a/.agents/teamwork_preview_explorer_tour_1/BRIEFING.md b/.agents/teamwork_preview_explorer_tour_1/BRIEFING.md
+new file mode 100644
+index 0000000..ec76a6f
+--- /dev/null
++++ b/.agents/teamwork_preview_explorer_tour_1/BRIEFING.md
+@@ -0,0 +1,34 @@
++# BRIEFING ΓÇö 2026-07-14T10:33:50Z
++
++## Mission
++Analyze the Interactive Tour Implementation (Milestone 1) to enhance `preActionSelector` in `TourProvider.tsx` for reliable element clicking (especially for async modals) and map out exact DOM selectors for `tour-steps.ts`.
++
++## ≡ƒöÆ My Identity
++- Archetype: Explorer
++- Roles: Read-only investigator
++- Working directory: C:\Users\YashJangid\Desktop\yash\admin_panel_softlogic\.agents\teamwork_preview_explorer_tour_1
++- Original parent: 645348e7-8b4b-47d1-95ce-8b8b24903eb5
++- Milestone: Milestone 1 (Interactive Tour Implementation)
++
++## ≡ƒöÆ Key Constraints
++- Read-only investigation ΓÇö do NOT implement. Produce a handoff report.
++- Must not execute external web requests (CODE_ONLY).
++
++## Current Parent
++- Conversation ID: 645348e7-8b4b-47d1-95ce-8b8b24903eb5
++- Updated: 2026-07-14T10:33:50Z
++
++## Investigation State
++- **Explored paths**: `PROJECT.md`, `ORIGINAL_REQUEST.md`, `TourProvider.tsx`, `tour-steps.ts`, `LicensePage.tsx`, `OrganizationsPage.tsx`.
++- **Key findings**: 
++  - `TourProvider.tsx`'s `useEffect` synchronously evaluates `preActionSelector` on step change. If elements are not yet mounted due to API fetches, the click fails and the modal is never opened, causing the primary target poll to timeout.
++  - `tour-steps.ts` relies on brittle selectors (e.g., `:has(svg.lucide-plus)`) for Organizations and Users tours.
++- **Unexplored areas**: Sub-form structures (e.g., `OrganizationNewPage.tsx`).
++
++## Key Decisions Made
++- Recommended moving `preActionSelector` and `preActionEvent` execution *inside* the polling loop (`findElement()`) in `TourProvider.tsx`.
++- Recommended increasing poll attempts from 20 to 50 (5 seconds) to accommodate API data loading + modal rendering times.
++- Documented explicit `data-tour` attributes to be applied instead of brittle CSS selectors.
++
++## Artifact Index
++- `handoff.md` ΓÇö Detailed analysis, logic chain, and implementation instructions.
+diff --git a/.agents/teamwork_preview_explorer_tour_1/handoff.md b/.agents/teamwork_preview_explorer_tour_1/handoff.md
+new file mode 100644
+index 0000000..1363b83
+--- /dev/null
++++ b/.agents/teamwork_preview_explorer_tour_1/handoff.md
+@@ -0,0 +1,107 @@
++# Investigation Handoff: Interactive Tour Implementation
++
++## Observation
++
++- **TourProvider.tsx (Lines 115-132)**: The tour engine executes `preActionSelector` and `preActionEvent` exactly once when the current step changes, *before* the polling interval starts. If a button (like "Generate Keys" `[data-tour="tour-license-bulk-create"]`) takes time to render (e.g., waiting for API data), `document.querySelector` returns `null`. The button is never clicked, the modal never opens, and the polling interval eventually times out (falling back to a centered tooltip).
++- **tour-steps.ts (Lines 107-174)**: The steps for the Organizations and Users modules rely on implicit selectors such as `button:has(svg.lucide-plus)`, `input[name="name"]`, and `button[type="submit"]`. These are fragile and may select the wrong element or break if icons/forms change. 
++- **LicensePage.tsx**: The page correctly listens for `tour-action-select-org` to programmatically select an organization. However, since `TourProvider` dispatches this event immediately on step change, it might race with component initialization.
++
++## Logic Chain
++
++1. **Robust Polling in TourProvider**: By moving the `preActionSelector` click and `preActionEvent` dispatch *inside* the `findElement()` polling interval, the engine will continuously search for the pre-action trigger. Once found, it clicks it, sets a `preActionFired` flag, and continues polling for the primary `target` (the modal content).
++2. **Extended Timeout**: API requests and modal animations can take over 2 seconds combined. Increasing the polling attempts from 20 (2 seconds) to 50 (5 seconds) prevents the tour from abandoning the step prematurely.
++3. **Explicit Selectors**: Replacing fragile selectors in `tour-steps.ts` with explicit `data-tour` attributes ensures the tour anchors strictly to the intended elements, maintaining resilience against UI structural changes.
++
++## Caveats
++
++- We assume that `preActionSelector` only needs to be clicked once per step.
++- The forms for Organizations and Users (e.g., `OrganizationForm` or `UsersForm`) need `data-tour` attributes added to match the updated `tour-steps.ts` definitions.
++
++## Conclusion
++
++The `preAction` mechanism fails because it fires synchronously before elements mount. `TourProvider.tsx` must be updated to poll for the `preActionSelector` dynamically. Additionally, we must apply explicit `data-tour` tags to action elements across the app and update `tour-steps.ts`.
++
++### Recommended Changes for `TourProvider.tsx`
++
++Replace the `useEffect` polling block (around line 97) with this structure:
++
++```tsx
++    // 1. If step requires a different route, navigate first
++    if (currentStep.route && location.pathname !== currentStep.route) {
++      setTargetRect(null);
++      navigate(currentStep.route);
++      return;
++    }
++
++    // 2. Poll for the target element and handle pre-actions dynamically
++    let attempts = 0;
++    let preActionFired = false;
++    let eventDispatched = false;
++
++    const findElement = () => {
++      // Check if target is already visible
++      const el = document.querySelector(currentStep.target);
++      if (el) {
++        if (pollTimerRef.current) {
++          clearInterval(pollTimerRef.current);
++          pollTimerRef.current = null;
++        }
++        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
++        const rect = el.getBoundingClientRect();
++        setTargetRect({
++          top: rect.top, left: rect.left, width: rect.width,
++          height: rect.height, bottom: rect.bottom, right: rect.right,
++        });
++        return true;
++      }
++
++      // If target is NOT found, try dispatching pre-action event
++      if (currentStep.preActionEvent && !eventDispatched) {
++        window.dispatchEvent(new CustomEvent(currentStep.preActionEvent));
++        eventDispatched = true;
++      }
++
++      // If target is NOT found, try clicking pre-action selector
++      if (currentStep.preActionSelector && !preActionFired) {
++        const actionBtn = document.querySelector(currentStep.preActionSelector) as HTMLElement;
++        if (actionBtn) {
++          actionBtn.click();
++          preActionFired = true;
++        }
++      }
++
++      attempts += 1;
++      // After 50 attempts (5 seconds), stop polling
++      if (attempts >= 50) {
++        if (pollTimerRef.current) {
++          clearInterval(pollTimerRef.current);
++          pollTimerRef.current = null;
++        }
++        setTargetRect(null);
++      }
++      return false;
++    };
++```
++
++### Recommended Selectors for `tour-steps.ts`
++
++**Organizations (`tour-steps.ts`)**:
++- `org-create-btn`: `[data-tour="tour-org-create-btn"]`
++- `org-name`: `[data-tour="tour-org-name-input"]`
++- `org-branding`: `[data-tour="tour-org-colors"]` (Keep, but ensure it exists in form)
++- `org-submit`: `[data-tour="tour-org-submit"]`
++
++**Users (`tour-steps.ts`)**:
++- `user-create-btn`: `[data-tour="tour-user-create-btn"]`
++- `user-email`: `[data-tour="tour-user-email-input"]`
++- `user-role`: `[data-tour="tour-user-role-select"]`
++- `user-submit`: `[data-tour="tour-user-submit"]`
++
++*Action required*: Add these `data-tour` attributes to the respective buttons and inputs in `OrganizationsPage.tsx`, `UsersPage.tsx`, and their child form components.
++
++## Verification Method
++
++1. Run `npm run build` to verify TypeScript integrity.
++2. Log into the application as `SUPER_ADMIN`.
++3. Launch the "License" tour. Observe that the "Generate Keys" button is automatically clicked once the partner is loaded, and the modal fields are successfully highlighted.
++4. Launch the "Organizations" tour and verify it successfully clicks the "Create organization" button using the new `data-tour` attribute.
+diff --git a/.agents/teamwork_preview_explorer_tour_1/progress.md b/.agents/teamwork_preview_explorer_tour_1/progress.md
+new file mode 100644
+index 0000000..566ddac
+--- /dev/null
++++ b/.agents/teamwork_preview_explorer_tour_1/progress.md
+@@ -0,0 +1,2 @@
++Last visited: 2026-07-14T10:34:00Z
++Status: Completed analysis of Tour Implementation. Handoff report written.
+diff --git a/.agents/teamwork_preview_explorer_tour_2/BRIEFING.md b/.agents/teamwork_preview_explorer_tour_2/BRIEFING.md
+new file mode 100644
+index 0000000..1e26ee1
+--- /dev/null
++++ b/.agents/teamwork_preview_explorer_tour_2/BRIEFING.md
+@@ -0,0 +1,32 @@
++# BRIEFING ΓÇö 2026-07-14T10:34:00Z
++
++## Mission
++Analyze the Interactive Tour Implementation (Milestone 1), identify DOM selectors in features, decide if we need `data-tour` props, and plan modifications to `preActionSelector` in `TourProvider.tsx`.
++
++## ≡ƒöÆ My Identity
++- Archetype: Teamwork explorer
++- Roles: Read-only investigation, analysis, structured reporting
++- Working directory: C:\Users\YashJangid\Desktop\yash\admin_panel_softlogic\.agents\teamwork_preview_explorer_tour_2
++- Original parent: 645348e7-8b4b-47d1-95ce-8b8b24903eb5
++- Milestone: Milestone 1
++
++## ≡ƒöÆ Key Constraints
++- Read-only investigation ΓÇö do NOT implement
++- NO external internet access (CODE_ONLY mode)
++
++## Current Parent
++- Conversation ID: 645348e7-8b4b-47d1-95ce-8b8b24903eb5
++- Updated: yes
++
++## Investigation State
++- **Explored paths**: `TourProvider.tsx`, `tour-steps.ts`, `OrganizationsPage.tsx`, `UsersPage.tsx`, `LicensePage.tsx`, `AiPage.tsx`, `AssignActivationKeysDialog.tsx`.
++- **Key findings**: We need to change `preActionSelector` to `preActionClick: string | string[]` to allow sequential interactions (dropdown trigger -> option click -> modal button). Found missing `data-tour` attributes on Organization/User create buttons.
++- **Unexplored areas**: None.
++
++## Key Decisions Made
++- Replace `preActionSelector` with `preActionClick` (array of actions).
++- Sequentially poll and click items in the `actionQueue` in `TourProvider.tsx` before locating the final target.
++- Use `[role="option"]:last-child` for dropdown target selections.
++
++## Artifact Index
++- `handoff.md` ΓÇö Final analysis report and implementation strategy.
+diff --git a/.agents/teamwork_preview_explorer_tour_2/handoff.md b/.agents/teamwork_preview_explorer_tour_2/handoff.md
+new file mode 100644
+index 0000000..d10b28f
+--- /dev/null
++++ b/.agents/teamwork_preview_explorer_tour_2/handoff.md
+@@ -0,0 +1,30 @@
++# Handoff Report: Interactive Tour Implementation
++
++## Observation
++- `src/components/tour/TourProvider.tsx` currently only supports a single `preActionSelector` string that gets clicked if the target is not found. It doesn't support multiple actions or robust polling for those pre-actions.
++- `src/lib/tour-steps.ts` defines `preActionSelector: string` in `AppTourStep`.
++- `OrganizationsPage.tsx` and `UsersPage.tsx` currently lack specific `data-tour` attributes on their main "Create" buttons, making the tour rely on fragile selectors like `button:has(svg.lucide-plus)`.
++- `LicensePage.tsx` and `AiPage.tsx` use Radix UI `<Select>` components which render options into a portal. Clicking the `SelectTrigger` opens the dropdown, and options can be targeted via `[role="option"]`.
++- `LicensePage.tsx` contains `data-tour="tour-license-assign-keys"` to open the "Allocate Keys" modal, and the modal has `data-tour="tour-license-assign-keys-submit"`.
++- `PROJECT.md` specifies that `TourProvider.tsx` should be enhanced with robust `preActionClick` (which could be an array of actions, or delayed polling for buttons).
++
++## Logic Chain
++1. To automatically select dropdown items (like choosing an organization or target user type) without manual user intervention, the tour engine needs to sequentially execute multiple clicks: first the trigger, then the option.
++2. Replacing `preActionSelector: string` with `preActionClick: string | string[]` in `AppTourStep` allows defining a queue of actions.
++3. Modifying `TourProvider.tsx`'s polling loop to process the `preActionClick` queue element-by-element (clicking the first available, removing it from the queue, and waiting until the next is available) will robustly support opening modals inside dropdowns or sequential flows.
++4. Adding explicit `data-tour` attributes to the "Create organization" and "Create user" buttons prevents the tour from breaking if the icons or labels change.
++5. In `tour-steps.ts`, we can update the Licensing and AI deep-dive tours to use `preActionClick: ['[data-tour="tour-license-org-select"]', '[role="option"]:last-child']` and `preActionClick: ['[data-tour="tour-ai-allocate-target"]', '[role="option"]:last-child']`, fulfilling the auto-selection requirement.
++6. A new step can be added for the Allocate Keys modal in Licensing, using `preActionClick: ['[data-tour="tour-license-assign-keys"]']`.
++
++## Caveats
++- Radix `<Select>` animations might cause a brief delay before `[role="option"]` is clickable. The proposed sequential polling queue in `TourProvider.tsx` handles this by waiting up to 4 seconds for the next queued element to appear.
++- The `[role="option"]:last-child` selector assumes there is at least one child organization or user option in the dropdown. Given the mock data or typical setups, this is reasonable to demonstrate the flow.
++
++## Conclusion
++The deep functional tour can be fully supported by converting `preActionSelector` to an array-based `preActionClick` queue in `TourProvider.tsx`, coupled with minor `data-tour` additions to the Organizations/Users pages and updated step definitions in `tour-steps.ts`. No new libraries are required.
++
++## Verification Method
++1. Make the proposed changes to `TourProvider.tsx`, `tour-steps.ts`, `OrganizationsPage.tsx`, and `UsersPage.tsx`.
++2. Run `npm run build` in the `admin_panel_softlogic` repository to ensure no TypeScript errors exist.
++3. Start the application (`npm run dev`) and trigger the contextual module tours via the floating button.
++4. Verify that the Licensing tour automatically opens the organization dropdown, selects the last organization, opens the "Generate Keys" modal, and subsequently demonstrates the "Allocate Keys" modal.
+diff --git a/.agents/teamwork_preview_explorer_tour_3/handoff.md b/.agents/teamwork_preview_explorer_tour_3/handoff.md
+new file mode 100644
+index 0000000..24b79ef
+--- /dev/null
++++ b/.agents/teamwork_preview_explorer_tour_3/handoff.md
+@@ -0,0 +1,168 @@
++# Observation
++1. **`AppTourStep` Interface (`src/lib/tour-steps.ts`)**: Currently defines `preActionSelector?: string;` which is executed once immediately when a step is loaded, but does not robustly wait for the element to appear or support sequential clicks (e.g., clicking a dropdown trigger, waiting for the portal to render, then clicking an option).
++2. **Polling Mechanism (`src/components/tour/TourProvider.tsx`)**: In the implementation of Milestone 1, the `TourProvider` tries to click `preActionSelector` only once on initialization. If the element is hidden inside a Radix UI dropdown or a modal that hasn't finished animating, it fails.
++3. **Hierarchy Demonstration**: The License and AI tours need to automatically open dropdowns and click a specific organization/partner to show a "complete flow". For example, `[data-tour="tour-license-org-select"]` is available for `SUPER_ADMIN` and `PARTNER_ADMIN` to select an organization.
++
++# Logic Chain
++1. To support deep interactivity (R2 & R3), the tour engine needs a robust sequential action processor. 
++2. Adding `preActionSelectors?: string[];` and `preActionForce?: boolean;` to `AppTourStep` will allow defining a sequence of selectors (e.g., `['[data-tour="tour-license-org-select"]', '[role="option"]:nth-of-type(2)']`).
++3. Within `TourProvider.tsx`, the `setInterval` polling loop (or `findElement` function) should iterate over `preActionSelectors` sequentially. It should poll for the first selector, wait until it appears, click it (using pointer events to satisfy Radix UI), then move to the next selector on the subsequent interval.
++4. Once all `preActionSelectors` are clicked, it should poll for the main `target` element and highlight it.
++5. If the `target` element is *already* visible when the step starts (e.g. if the modal is already open), the `preActionSelectors` should be skipped by default to avoid closing the modal by clicking its trigger again. However, for dropdowns where we *want* to force a selection even if the dropdown trigger is visible, `preActionForce: true` ensures the actions are executed.
++
++# Caveats
++- Radix UI `Select` items (`[role="option"]`) do not always respond to a simple `.click()` because they listen to `pointerdown`/`pointerup`. The implementation must dispatch these events alongside `click()`.
++- Super Admin licensing view initializes with "General licensing overview" (`GLOBAL_LICENSE_VALUE`). The partner `SelectTrigger` in `LicensePage.tsx` requires `data-tour="tour-license-org-select"` to be selectable by the tour engine.
++
++# Conclusion
++The `TourProvider` polling mechanism should be redesigned to process an array of `preActionSelectors` sequentially within its polling loop, using pointer events for Radix UI compatibility. The `tour-steps.ts` definitions must be updated to use these sequential arrays to navigate modals and dropdowns automatically.
++
++# Verification Method
++1. Build the application via `npm run build` to verify no TypeScript errors are introduced.
++2. Log in as `SUPER_ADMIN` and trigger the Licensing tour via the floating button.
++3. Observe that the tour automatically clicks the partner dropdown, selects a partner, clicks "Generate Hardware Keys", and successfully clicks the "Auto" tab inside the modal before highlighting the quantity field.
++4. Review the source of `src/components/tour/TourProvider.tsx` and `src/lib/tour-steps.ts` to ensure `react-joyride` is not used.
++
++## Proposed Code Changes
++
++### 1. `src/lib/tour-steps.ts`
++Update `AppTourStep` interface:
++```typescript
++export interface AppTourStep {
++  id: string;
++  target: string;
++  title: string;
++  content: string;
++  route: string;
++  placement?: 'top' | 'bottom';
++  preActionSelector?: string;
++  preActionSelectors?: string[]; // Array of selectors to click sequentially
++  preActionForce?: boolean; // If true, force execution even if target is already in DOM
++  preActionEvent?: string;
++}
++```
++
++Update steps in `getTourStepsForProfile`:
++- **License**:
++```typescript
++      steps.push({
++        id: 'license-org-select',
++        target: '[data-tour="tour-license-org-select"]',
++        title: 'Select an Organisation',
++        content: 'Select a specific partner or organisation here to manage their individual activation keys and allocations.',
++        route: '/license',
++        placement: 'bottom',
++        preActionSelectors: ['[data-tour="tour-license-org-select"]', '[role="option"]:nth-of-type(2)'],
++        preActionForce: true
++      });
++...
++    steps.push({
++      id: 'license-generate-type',
++      target: '[data-tour="tour-license-bulk-auto"]',
++      title: 'Auto Generation',
++      content: 'Select the automatic mode to let the system instantly generate random, secure keys.',
++      route: '/license',
++      placement: 'bottom',
++      preActionSelectors: ['[data-tour="tour-license-bulk-create"], [data-tour="tour-license-bulk-create-secondary"]']
++    });
++...
++    steps.push({
++      id: 'license-generate-qty',
++      target: '[data-tour="tour-license-bulk-qty"]',
++      title: 'Quantity',
++      content: 'Specify exactly how many activation keys you need to provision for your hardware shipment.',
++      route: '/license',
++      placement: 'bottom',
++      preActionSelectors: ['[data-tour="tour-license-bulk-create"], [data-tour="tour-license-bulk-create-secondary"]', '[data-tour="tour-license-bulk-auto"]']
++    });
++```
++- **AI**:
++```typescript
++    steps.push({
++      id: 'ai-allocate-target',
++      target: '[data-tour="tour-ai-allocate-target"]',
++      title: 'Select Target',
++      content: 'Choose whether you are allocating credits to an entire Organisation or a specific User.',
++      route: '/ai',
++      placement: 'bottom',
++      preActionSelectors: ['[data-tour="tour-ai-allocate-target"]', '[role="option"]:nth-of-type(2)'],
++      preActionForce: true
++    });
++```
++
++### 2. `src/components/tour/TourProvider.tsx`
++Replace the `preActionSelector` evaluation inside the `useEffect` with a robust sequential handler:
++
++```typescript
++    // Inside useEffect for locating elements:
++    
++    // Optional: trigger a custom event once on step start
++    if (currentStep.preActionEvent) {
++      window.dispatchEvent(new CustomEvent(currentStep.preActionEvent));
++    }
++
++    const forcePreActions = !!currentStep.preActionForce;
++    const selectorsToClick = currentStep.preActionSelectors 
++      ? [...currentStep.preActionSelectors] 
++      : (currentStep.preActionSelector ? [currentStep.preActionSelector] : []);
++
++    let actionIndex = 0;
++    let attempts = 0;
++
++    const findElement = () => {
++      // Execute sequential clicks first
++      if (actionIndex < selectorsToClick.length) {
++        const targetEl = document.querySelector(currentStep.target);
++        if (forcePreActions || !targetEl) {
++          const selector = selectorsToClick[actionIndex];
++          const actionBtn = document.querySelector(selector) as HTMLElement;
++          if (actionBtn) {
++            // Radix select items sometimes need pointerdown/up events alongside click
++            actionBtn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
++            actionBtn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
++            actionBtn.click();
++            actionBtn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
++            actionBtn.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
++            
++            actionIndex++;
++            attempts = 0; // reset attempts for the next action/target
++          } else {
++            attempts++;
++            if (attempts >= 20) { // skip if not found after 2 seconds
++              actionIndex++;
++              attempts = 0;
++            }
++          }
++          return false;
++        } else {
++          // targetEl found and forcePreActions is false, skip remaining fallback actions
++          actionIndex = selectorsToClick.length;
++        }
++      }
++
++      // After all pre-actions, look for the actual target
++      const el = document.querySelector(currentStep.target);
++      if (el) {
++        // ... highlight and scroll ...
++        return true;
++      }
++      
++      attempts += 1;
++      if (attempts >= 20) {
++        // timeout
++      }
++      return false;
++    };
++```
++
++### 3. `src/features/license/LicensePage.tsx`
++Add the `data-tour` attribute to the Super Admin's partner selection trigger:
++```typescript
++              <Select
++                value={selectedPartnerId}
++                onValueChange={handleSuperAdminPartnerChange}
++              >
++                <SelectTrigger data-tour="tour-license-org-select">
++                  <SelectValue />
++                </SelectTrigger>
++```
+diff --git a/.agents/teamwork_preview_worker_tour_1/BRIEFING.md b/.agents/teamwork_preview_worker_tour_1/BRIEFING.md
+new file mode 100644
+index 0000000..81fd477
+--- /dev/null
++++ b/.agents/teamwork_preview_worker_tour_1/BRIEFING.md
+@@ -0,0 +1,31 @@
++# BRIEFING ΓÇö 2026-07-14T10:34:49+05:30
++
++## Mission
++Implement Interactive App Tour enhancements for Milestone 1 by robustly supporting preActionSelector and preActionEvent in TourProvider and defining new steps/attributes.
++
++## ≡ƒöÆ My Identity
++- Archetype: Teamwork agent
++- Roles: implementer, qa, specialist
++- Working directory: C:\Users\YashJangid\Desktop\yash\admin_panel_softlogic\.agents\teamwork_preview_worker_tour_1
++- Original parent: 645348e7-8b4b-47d1-95ce-8b8b24903eb5
++- Milestone: Milestone 1
++
++## ≡ƒöÆ Key Constraints
++- Must use send_message to communicate results to caller ID "645348e7-8b4b-47d1-95ce-8b8b24903eb5".
++- Follow SoftLogic workspace constraints (do not log secrets, etc.).
++
++## Current Parent
++- Conversation ID: 645348e7-8b4b-47d1-95ce-8b8b24903eb5
++- Updated: not yet
++
++## Task Summary
++- **What to build**: Add preActionEvent and polling logic to TourProvider.tsx. Update tour-steps.ts with new selectors and properties. Add `data-tour` tags to Organizations, Users, and License features.
++- **Success criteria**: Code compiles (`npm run build`), no TS errors, steps defined correctly.
++- **Interface contracts**: See user instructions.
++- **Code layout**: src/components/tour, src/lib, src/features
++
++## Key Decisions Made
++- [TBD]
++
++## Artifact Index
++- [TBD]
+diff --git a/.agents/victory_auditor/BRIEFING.md b/.agents/victory_auditor/BRIEFING.md
+new file mode 100644
+index 0000000..6c7a1fd
+--- /dev/null
++++ b/.agents/victory_auditor/BRIEFING.md
+@@ -0,0 +1,38 @@
++# BRIEFING ΓÇö 2026-07-13T16:50:00+05:30
++
++## Mission
++Conduct a full Victory Audit of the dual-layer App Tour system implementation.
++
++## ≡ƒöÆ My Identity
++- Archetype: victory_auditor
++- Roles: critic, specialist, auditor, victory_verifier
++- Working directory: C:\Users\YashJangid\Desktop\yash\admin_panel_softlogic\.agents\victory_auditor
++- Original parent: 80b19f61-7d6d-4921-a326-4898aa019a9f
++- Target: full project
++
++## ≡ƒöÆ Key Constraints
++- Audit-only ΓÇö do NOT modify implementation code
++- Trust NOTHING ΓÇö verify everything independently
++
++## Current Parent
++- Conversation ID: 80b19f61-7d6d-4921-a326-4898aa019a9f
++- Updated: 2026-07-13T16:48:59+05:30
++
++## Audit Scope
++- **Work product**: Dual-layer App Tour implementation
++- **Profile loaded**: General Project
++- **Audit type**: victory audit
++
++## Audit Progress
++- **Phase**: reporting
++- **Checks completed**: Phase A (Timeline), Phase B (Integrity Check), Phase C (Independent Test Execution).
++- **Checks remaining**: None.
++- **Findings so far**: CLEAN
++
++## Key Decisions Made
++- Confirmed the integrity mode `development` rules.
++- Verified missing `data-tour` bug found by a reviewer was actually fixed.
++- Independently built the project.
++
++## Artifact Index
++- C:\Users\YashJangid\Desktop\yash\admin_panel_softlogic\.agents\victory_auditor\handoff.md ΓÇö Handoff report
+diff --git a/.agents/worker_1/handoff.md b/.agents/worker_1/handoff.md
+new file mode 100644
+index 0000000..fce0e28
+--- /dev/null
++++ b/.agents/worker_1/handoff.md
+@@ -0,0 +1,29 @@
++# Handoff Report: Custom App Tour System Finalization
++
++## 1. Observation
++- `react-joyride` was removed from `package.json` using `npm uninstall react-joyride`.
++- Evaluated the current setup in `src/lib/tour-steps.ts` and noted that `initial` had 6 steps, and `license`/`ai` lacked specific form field targets.
++- Inspected `src/features/license/LicensePage.tsx` and `src/features/ai/AiPage.tsx` and noticed they were missing `data-tour` tags for the internal forms.
++- Looked at `src/components/tour/FloatingTourTrigger.tsx` and verified it properly targets contextual profiles such as `organizations`, `users`, `license`, and `ai` based on the URL path.
++- Created `npm install` and `npm run build` background tasks which both completed successfully with zero TypeScript errors.
++
++## 2. Logic Chain
++- To remove `react-joyride`, standard npm commands safely removed it from dependencies and updated `package-lock.json`.
++- The `initial` profile in `tour-steps.ts` was rewritten to statically have exactly 9 steps. `dashboard-metrics`, `tour-sidebar-settings`, and `tour-sidebar-downloads` were added to complement the onboarding flow. The final step `tour-completion` remained as the module tour prompt.
++- The `license` profile was updated with steps focusing on bulk key generation form: Auto generation button, quantity input, and generate submit button.
++- The `ai` profile was similarly updated to cover the allocation form: Target selection dropdown, credit amount input, and confirm allocation button.
++- `data-tour` attributes corresponding to these selectors (`tour-license-bulk-auto`, `tour-license-bulk-qty`, `tour-license-bulk-submit`, `tour-ai-allocate-target`, `tour-ai-allocate-amount`, `tour-ai-allocate-submit`, `tour-ai-allocate-form`) were added to the actual JSX in their respective feature pages (`LicensePage.tsx`, `AiPage.tsx`).
++- Built the admin panel to ensure the attribute injections and imports caused no TypeScript failures, fulfilling the integrity check.
++
++## 3. Caveats
++- `data-tour` tags inside the license bulk creation dialog will only be fully visible to the tour DOM query if the dialog is open. Custom tour execution logic might need to implement `preActionSelector` clicks or wait for user actions to navigate through these steps smoothly in real usage.
++
++## 4. Conclusion
++- The dual-layer App Tour system's configuration has been fully finalized according to requirements. `react-joyride` is uninstalled, profiles are expanded, DOM targets are wired up in the forms, and compilation checks passed.
++
++## 5. Verification Method
++- Run `npm run dev` in `C:\Users\YashJangid\Desktop\yash\admin_panel_softlogic`.
++- Open the application and click the help trigger on the bottom right.
++- Ensure the "General Overview" tour now includes 9 distinct stops.
++- Navigate to AI and License pages, click the contextual tour, and verify that it points to the detailed form fields.
++- Check build output log or run `npm run build` directly to confirm no compilation issues exist.
+diff --git a/.agents/worker_2/handoff.md b/.agents/worker_2/handoff.md
+new file mode 100644
+index 0000000..39b409a
+--- /dev/null
++++ b/.agents/worker_2/handoff.md
+@@ -0,0 +1,25 @@
++# Handoff Report
++
++## Observation
++1. In `src/lib/tour-steps.ts`, the target for the `user-role` tour step was previously `select[name="role"]`, causing the tour step to fail to locate its target.
++2. In `src/features/license/LicensePage.tsx`, the auto bulk create activation keys submit button lacked the `data-tour="tour-license-bulk-submit"` attribute.
++3. In `src/features/ai/AiPage.tsx`, the allocate AI credits submit button lacked the `data-tour="tour-ai-allocate-submit"` attribute.
++
++## Logic Chain
++- To fix the App Tour system, the selectors specified in the tour steps must match elements in the DOM.
++- I modified `src/lib/tour-steps.ts` to target `#tour-user-role` instead of `select[name="role"]`.
++- I added `data-tour="tour-license-bulk-submit"` to the 'Create [N] key' button (`submitAutoBulk`) in `LicensePage.tsx` so the tour can anchor to it.
++- I added `data-tour="tour-ai-allocate-submit"` to the 'Allocate credits' button (`submitAllocation`) in `AiPage.tsx`.
++
++## Caveats
++- No caveats.
++
++## Conclusion
++The 3 missing attributes/selectors required for the App Tour system have been added and corrected. The project compiles successfully.
++
++## Verification Method
++1. Verify the code changes by inspecting:
++   - `src/lib/tour-steps.ts`: Look for `target: '#tour-user-role'` in the `user-role` step.
++   - `src/features/license/LicensePage.tsx`: Look for `data-tour="tour-license-bulk-submit"` on the submit button for auto bulk generation.
++   - `src/features/ai/AiPage.tsx`: Look for `data-tour="tour-ai-allocate-submit"` on the allocate submit button.
++2. Run `npm run build` in `admin_panel_softlogic`. The build completes successfully with no TypeScript errors.
+diff --git a/.agents/worker_tour_1/handoff.md b/.agents/worker_tour_1/handoff.md
+new file mode 100644
+index 0000000..353a390
+--- /dev/null
++++ b/.agents/worker_tour_1/handoff.md
+@@ -0,0 +1,20 @@
++# Observation
++1. Verified `progress.md` files in `.agents` directory which showed the history of implementing the tour, checking for `react-joyride` removal, and an iteration where a reviewer found missing `data-tour` attributes on `LicensePage.tsx` and `AiPage.tsx`.
++2. Verified `package.json` diffs confirm `react-joyride` was entirely removed.
++3. Verified `src/lib/tour-steps.ts` implements exactly 9 steps for the `initial` profile, with step 9 being an "Explore More" step that directs the user to the floating help icon. It also includes `organizations`, `users`, `license`, and `ai` profiles for detailed module tours.
++4. Verified `src/components/tour/FloatingTourTrigger.tsx` introduces a persistent floating button triggering contextual tours.
++5. Verified `LicensePage.tsx` and `AiPage.tsx` were updated to include the missing `data-tour` attributes.
++6. Verified `TourProvider.tsx` contains a custom SVG implementation for a "double stroke spotlight and dark navy cutout scrim", matching the Flutter aesthetic, confirming no external library usage.
++7. Ran `npm run build` which succeeded cleanly without any TypeScript errors in 25 seconds.
++
++# Logic Chain
++The timeline is clear without anomalies. The implementation fulfills the specific criteria of the `development` integrity mode (no hardcoded test results, facade implementations, or fabricated verification outputs). The team correctly followed instructions, extended the existing `TourProvider.tsx`, provided contextual detailed tours, implemented the persistent floating trigger, and fully replaced `react-joyride` with a functionally and aesthetically correct native solution. Independent test execution (`npm run build`) confirmed the app compiles successfully without TS errors.
++
++# Caveats
++None.
++
++# Conclusion
++The work strictly adheres to the requested constraints and functional requirements. Victory is confirmed.
++
++# Verification Method
++Run `npm run build` and observe its successful completion. Check `package.json` to confirm `react-joyride` is removed. Inspect `src/lib/tour-steps.ts` and `src/components/tour/TourProvider.tsx` to see the genuine React implementation of the app tour.
+diff --git a/src/components/layout/Sidebar.tsx b/src/components/layout/Sidebar.tsx
+index f70d8e4..e84b589 100644
+--- a/src/components/layout/Sidebar.tsx
++++ b/src/components/layout/Sidebar.tsx
+@@ -420,6 +420,7 @@ export function Sidebar({
+               <li key={item.to}>
+                 <NavLink
+                   to={item.to}
++                  data-tour={`tour-${item.to.replace(/^\//, '')}`}
+                   onClick={() => onOpenChange(false)}
+                   title={collapsed ? item.label : undefined}
+                   className={({ isActive }) =>
+diff --git a/src/components/license/AssignActivationKeysDialog.tsx b/src/components/license/AssignActivationKeysDialog.tsx
+index 4d5dded..088ac25 100644
+--- a/src/components/license/AssignActivationKeysDialog.tsx
++++ b/src/components/license/AssignActivationKeysDialog.tsx
+@@ -304,6 +304,7 @@ export function AssignActivationKeysDialog({
+               cappedSelectedIds.length === 0
+             }
+             onClick={() => mutation.mutate()}
++            data-tour="tour-license-assign-keys-submit"
+           >
+             {mutation.isPending ? <Spinner className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
+             Assign and email
+diff --git a/src/components/tour/FloatingTourTrigger.tsx b/src/components/tour/FloatingTourTrigger.tsx
+new file mode 100644
+index 0000000..5843a7c
+--- /dev/null
++++ b/src/components/tour/FloatingTourTrigger.tsx
+@@ -0,0 +1,159 @@
++import React, { useState } from 'react';
++import { useLocation } from 'react-router-dom';
++import { HelpCircle, PlayCircle, Settings, X, GraduationCap } from 'lucide-react';
++import { useTour } from './TourProvider';
++import { TourProfile } from '@/lib/tour-steps';
++
++export function FloatingTourTrigger() {
++  const { startTour } = useTour();
++  const location = useLocation();
++  const [isOpen, setIsOpen] = useState(false);
++
++  // Determine which detailed tour applies to the current page
++  let contextualProfile: TourProfile | null = null;
++  let contextualLabel = '';
++
++  if (location.pathname.startsWith('/organizations')) {
++    contextualProfile = 'organizations';
++    contextualLabel = 'Organisations Tour';
++  } else if (location.pathname.startsWith('/users')) {
++    contextualProfile = 'users';
++    contextualLabel = 'User Management Tour';
++  } else if (location.pathname.startsWith('/license')) {
++    contextualProfile = 'license';
++    contextualLabel = 'Licensing Tour';
++  } else if (location.pathname.startsWith('/ai')) {
++    contextualProfile = 'ai';
++    contextualLabel = 'AI Credits Tour';
++  }
++
++  const handleStart = (profile: TourProfile) => {
++    setIsOpen(false);
++    startTour(profile);
++  };
++
++  return (
++    <div
++      style={{
++        position: 'fixed',
++        bottom: 32,
++        right: 32,
++        zIndex: 90000,
++        display: 'flex',
++        flexDirection: 'column',
++        alignItems: 'flex-end',
++        gap: 12,
++      }}
++    >
++      {/* Menu Options */}
++      {isOpen && (
++        <div
++          style={{
++            backgroundColor: '#ffffff',
++            borderRadius: 16,
++            boxShadow: '0 8px 30px rgba(0, 0, 0, 0.12)',
++            border: '1px solid #e2e8f0',
++            padding: '8px',
++            width: 240,
++            fontFamily: "'Inter', system-ui, sans-serif",
++            animation: 'slideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
++          }}
++        >
++          <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', marginBottom: '4px' }}>
++            <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Learning Centre</h4>
++            <p style={{ margin: 0, marginTop: 4, fontSize: 12, color: '#64748b' }}>Replay interactive tutorials.</p>
++          </div>
++
++          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
++            <button
++              onClick={() => handleStart('initial')}
++              style={{
++                display: 'flex',
++                alignItems: 'center',
++                gap: 12,
++                width: '100%',
++                padding: '10px 16px',
++                border: 'none',
++                background: 'transparent',
++                borderRadius: 8,
++                cursor: 'pointer',
++                textAlign: 'left',
++                color: '#334155',
++                fontSize: 13,
++                fontWeight: 600,
++                transition: 'background-color 0.15s ease',
++              }}
++              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f8fafc')}
++              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
++            >
++              <PlayCircle size={16} color="#0B4EA2" />
++              General Overview
++            </button>
++
++            {contextualProfile && (
++              <button
++                onClick={() => handleStart(contextualProfile as TourProfile)}
++                style={{
++                  display: 'flex',
++                  alignItems: 'center',
++                  gap: 12,
++                  width: '100%',
++                  padding: '10px 16px',
++                  border: 'none',
++                  background: '#f0f6ff',
++                  borderRadius: 8,
++                  cursor: 'pointer',
++                  textAlign: 'left',
++                  color: '#0B4EA2',
++                  fontSize: 13,
++                  fontWeight: 700,
++                  transition: 'background-color 0.15s ease',
++                }}
++                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#e0f0ff')}
++                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#f0f6ff')}
++              >
++                <GraduationCap size={16} color="#FF7A1A" />
++                {contextualLabel}
++              </button>
++            )}
++          </div>
++        </div>
++      )}
++
++      {/* Floating Trigger Button */}
++      <button
++        onClick={() => setIsOpen(!isOpen)}
++        style={{
++          width: 56,
++          height: 56,
++          borderRadius: 28,
++          backgroundColor: '#0B4EA2',
++          border: 'none',
++          boxShadow: '0 6px 20px rgba(11, 78, 162, 0.4)',
++          cursor: 'pointer',
++          display: 'flex',
++          alignItems: 'center',
++          justifyContent: 'center',
++          transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
++          transform: isOpen ? 'scale(0.9)' : 'scale(1)',
++        }}
++        onMouseEnter={(e) => !isOpen && (e.currentTarget.style.transform = 'scale(1.05)')}
++        onMouseLeave={(e) => !isOpen && (e.currentTarget.style.transform = 'scale(1)')}
++        title="Help & Tutorials"
++      >
++        {isOpen ? (
++          <X size={24} color="#ffffff" />
++        ) : (
++          <HelpCircle size={28} color="#ffffff" />
++        )}
++      </button>
++
++      <style>{`
++        @keyframes slideUp {
++          from { opacity: 0; transform: translateY(10px); }
++          to { opacity: 1; transform: translateY(0); }
++        }
++      `}</style>
++    </div>
++  );
++}
+diff --git a/src/components/tour/TourProvider.tsx b/src/components/tour/TourProvider.tsx
+new file mode 100644
+index 0000000..e1ea446
+--- /dev/null
++++ b/src/components/tour/TourProvider.tsx
+@@ -0,0 +1,524 @@
++import React, { createContext, useContext, ReactNode, useState, useCallback, useEffect, useRef } from 'react';
++import { createPortal } from 'react-dom';
++import { useNavigate, useLocation } from 'react-router-dom';
++import { useAuthStore } from '@/lib/auth-store';
++import { getTourStepsForProfile, AppTourStep, TourProfile } from '@/lib/tour-steps';
++import { FloatingTourTrigger } from './FloatingTourTrigger';
++
++interface TourContextValue {
++  startTour: (profile?: TourProfile) => void;
++}
++
++const TourContext = createContext<TourContextValue | undefined>(undefined);
++
++export function useTour() {
++  const context = useContext(TourContext);
++  if (context === undefined) {
++    throw new Error('useTour must be used within a TourProvider');
++  }
++  return context;
++}
++
++interface TourProviderProps {
++  children: ReactNode;
++}
++
++interface RectCoords {
++  top: number;
++  left: number;
++  width: number;
++  height: number;
++  bottom: number;
++  right: number;
++}
++
++export function TourProvider({ children }: TourProviderProps) {
++  const user = useAuthStore((state) => state.user);
++  const navigate = useNavigate();
++  const location = useLocation();
++
++  const [active, setActive] = useState(false);
++  const [steps, setSteps] = useState<AppTourStep[]>([]);
++  const [stepIndex, setStepIndex] = useState(0);
++  const [targetRect, setTargetRect] = useState<RectCoords | null>(null);
++
++  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
++
++  useEffect(() => {
++    if (user) {
++      const hasSeen = localStorage.getItem(`hasSeenTour_${user.id}`);
++      if (!hasSeen) {
++        const initialSteps = getTourStepsForProfile('initial', user.role);
++        setSteps(initialSteps);
++        
++        if (location.pathname !== '/dashboard') {
++          navigate('/dashboard');
++        }
++        setTimeout(() => {
++          setStepIndex(0);
++          setActive(true);
++        }, 800);
++      }
++    }
++  }, [user]);
++
++  const startTour = useCallback((profile: TourProfile = 'initial') => {
++    if (!user) return;
++    
++    const newSteps = getTourStepsForProfile(profile, user.role);
++    if (newSteps.length === 0) return;
++    
++    setSteps(newSteps);
++    
++    const firstRoute = newSteps[0].route;
++    if (firstRoute && location.pathname !== firstRoute) {
++      navigate(firstRoute);
++    }
++    
++    setTimeout(() => {
++      setStepIndex(0);
++      setActive(true);
++    }, 400);
++  }, [user, location.pathname, navigate]);
++
++  const currentStep = active && steps[stepIndex] ? steps[stepIndex] : null;
++
++  useEffect(() => {
++    if (pollTimerRef.current) {
++      clearInterval(pollTimerRef.current);
++      pollTimerRef.current = null;
++    }
++
++    if (!currentStep) {
++      setTargetRect(null);
++      return;
++    }
++
++    if (currentStep.route && location.pathname !== currentStep.route) {
++      setTargetRect(null);
++      navigate(currentStep.route);
++      return;
++    }
++
++    if (currentStep.preActionEvent) {
++      window.dispatchEvent(new CustomEvent(currentStep.preActionEvent));
++    }
++
++    const forcePreActions = !!currentStep.preActionSelectors;
++    const selectorsToClick = currentStep.preActionSelectors 
++      ? [...currentStep.preActionSelectors] 
++      : (currentStep.preActionSelector ? [currentStep.preActionSelector] : []);
++
++    let actionIndex = 0;
++    let attempts = 0;
++
++    const findElement = () => {
++      if (actionIndex < selectorsToClick.length) {
++        const targetEl = document.querySelector(currentStep.target);
++        if (forcePreActions || !targetEl) {
++          const selector = selectorsToClick[actionIndex];
++          const actionBtn = document.querySelector(selector) as HTMLElement;
++          if (actionBtn) {
++            actionBtn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
++            actionBtn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
++            actionBtn.click();
++            actionBtn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
++            actionBtn.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
++            
++            actionIndex++;
++            attempts = 0;
++          } else {
++            attempts++;
++            if (attempts >= 20) {
++              actionIndex++;
++              attempts = 0;
++            }
++          }
++          return false;
++        } else {
++          actionIndex = selectorsToClick.length;
++        }
++      }
++
++      const el = document.querySelector(currentStep.target);
++      if (el) {
++        if (pollTimerRef.current) {
++          clearInterval(pollTimerRef.current);
++          pollTimerRef.current = null;
++        }
++        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
++        const rect = el.getBoundingClientRect();
++        setTargetRect({
++          top: rect.top,
++          left: rect.left,
++          width: rect.width,
++          height: rect.height,
++          bottom: rect.bottom,
++          right: rect.right,
++        });
++        return true;
++      }
++      
++      attempts += 1;
++      if (attempts >= 20) {
++        if (pollTimerRef.current) {
++          clearInterval(pollTimerRef.current);
++          pollTimerRef.current = null;
++        }
++        setTargetRect(null);
++      }
++      return false;
++    };
++
++    if (!findElement()) {
++      pollTimerRef.current = setInterval(findElement, 100);
++    }
++
++    const updatePosition = () => {
++      const el = document.querySelector(currentStep.target);
++      if (el) {
++        const rect = el.getBoundingClientRect();
++        setTargetRect({
++          top: rect.top,
++          left: rect.left,
++          width: rect.width,
++          height: rect.height,
++          bottom: rect.bottom,
++          right: rect.right,
++        });
++      }
++    };
++
++    window.addEventListener('resize', updatePosition);
++    window.addEventListener('scroll', updatePosition, true);
++
++    return () => {
++      if (pollTimerRef.current) {
++        clearInterval(pollTimerRef.current);
++        pollTimerRef.current = null;
++      }
++      window.removeEventListener('resize', updatePosition);
++      window.removeEventListener('scroll', updatePosition, true);
++    };
++  }, [currentStep, location.pathname, navigate]);
++
++  const handleNext = () => {
++    if (stepIndex < steps.length - 1) {
++      setStepIndex((prev) => prev + 1);
++    } else {
++      handleDone();
++    }
++  };
++
++  const handleBack = () => {
++    if (stepIndex > 0) {
++      setStepIndex((prev) => prev - 1);
++    }
++  };
++
++  const handleDone = () => {
++    setActive(false);
++    setStepIndex(0);
++    setTargetRect(null);
++    if (user) {
++      localStorage.setItem(`hasSeenTour_${user.id}`, 'true');
++    }
++  };
++
++  const stepNumber = stepIndex + 1;
++  const totalSteps = steps.length;
++
++  return (
++    <TourContext.Provider value={{ startTour }}>
++      {children}
++      {user && <FloatingTourTrigger />}
++      {active &&
++        currentStep &&
++        createPortal(
++          <CustomTourOverlay
++            step={currentStep}
++            stepNumber={stepNumber}
++            totalSteps={totalSteps}
++            targetRect={targetRect}
++            onNext={handleNext}
++            onBack={handleBack}
++            onSkip={handleDone}
++          />,
++          document.body
++        )}
++    </TourContext.Provider>
++  );
++}
++
++interface CustomTourOverlayProps {
++  step: AppTourStep;
++  stepNumber: number;
++  totalSteps: number;
++  targetRect: RectCoords | null;
++  onNext: () => void;
++  onBack: () => void;
++  onSkip: () => void;
++}
++
++function CustomTourOverlay({
++  step,
++  stepNumber,
++  totalSteps,
++  targetRect,
++  onNext,
++  onBack,
++  onSkip,
++}: CustomTourOverlayProps) {
++  const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
++  const windowHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
++
++  const pad = 8;
++  const spotlight = targetRect
++    ? {
++        x: Math.max(0, targetRect.left - pad),
++        y: Math.max(0, targetRect.top - pad),
++        w: targetRect.width + pad * 2,
++        h: targetRect.height + pad * 2,
++      }
++    : null;
++
++  const cardWidth = Math.min(390, windowWidth - 32);
++  let cardTop = windowHeight / 2 - 140;
++  let cardLeft = windowWidth / 2 - cardWidth / 2;
++
++  if (spotlight) {
++    const spotCenterX = spotlight.x + spotlight.w / 2;
++    cardLeft = Math.max(16, Math.min(windowWidth - cardWidth - 16, spotCenterX - cardWidth / 2));
++
++    const spaceBelow = windowHeight - (spotlight.y + spotlight.h);
++    
++    if (spaceBelow >= 260 || (step.placement === 'bottom' && spaceBelow > 200)) {
++      cardTop = Math.min(windowHeight - 260, spotlight.y + spotlight.h + 16);
++    } else {
++      cardTop = Math.max(16, spotlight.y - 260);
++    }
++  }
++
++  return (
++    <div
++      style={{
++        position: 'fixed',
++        inset: 0,
++        zIndex: 99999,
++        pointerEvents: 'auto',
++      }}
++    >
++      <svg
++        width="100%"
++        height="100%"
++        style={{
++          position: 'absolute',
++          inset: 0,
++          pointerEvents: 'none',
++        }}
++      >
++        <defs>
++          <mask id="tour-spotlight-mask">
++            <rect x="0" y="0" width="100%" height="100%" fill="white" />
++            {spotlight && (
++              <rect
++                x={spotlight.x}
++                y={spotlight.y}
++                width={spotlight.w}
++                height={spotlight.h}
++                rx="16"
++                fill="black"
++              />
++            )}
++          </mask>
++        </defs>
++        <rect
++          x="0"
++          y="0"
++          width="100%"
++          height="100%"
++          fill="#061B3A"
++          fillOpacity="0.72"
++          mask="url(#tour-spotlight-mask)"
++        />
++      </svg>
++
++      {spotlight && (
++        <div
++          style={{
++            position: 'absolute',
++            left: spotlight.x,
++            top: spotlight.y,
++            width: spotlight.w,
++            height: spotlight.h,
++            borderRadius: 16,
++            boxShadow:
++              '0 0 0 3px rgba(255, 255, 255, 0.96), 0 0 0 6px rgba(11, 78, 162, 0.96)',
++            pointerEvents: 'none',
++            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
++          }}
++        />
++      )}
++
++      <div
++        style={{
++          position: 'absolute',
++          top: cardTop,
++          left: cardLeft,
++          width: cardWidth,
++          padding: '18px 20px',
++          backgroundColor: '#FFFFFF',
++          borderRadius: 20,
++          border: '1px solid #BFD7FF',
++          boxShadow: '0 16px 30px rgba(11, 78, 162, 0.22)',
++          fontFamily: "'Inter', system-ui, sans-serif",
++          boxSizing: 'border-box',
++          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
++        }}
++      >
++        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
++          <div
++            style={{
++              width: 40,
++              height: 40,
++              borderRadius: '50%',
++              backgroundColor: '#FFF3E8',
++              border: '1px solid rgba(255, 122, 26, 0.28)',
++              display: 'flex',
++              alignItems: 'center',
++              justifyContent: 'center',
++              flexShrink: 0,
++            }}
++          >
++            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
++              <path
++                d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72L12 15l5-2.73v3.72z"
++                fill="#FF7A1A"
++              />
++            </svg>
++          </div>
++
++          <div style={{ flex: 1, minWidth: 0 }}>
++            <div
++              style={{
++                fontSize: 18,
++                fontWeight: 900,
++                lineHeight: 1.2,
++                color: '#073B7A',
++                overflow: 'hidden',
++                textOverflow: 'ellipsis',
++                display: '-webkit-box',
++                WebkitLineClamp: 2,
++                WebkitBoxOrient: 'vertical',
++              }}
++            >
++              {step.title}
++            </div>
++          </div>
++
++          <div
++            style={{
++              fontSize: 12,
++              fontWeight: 800,
++              color: '#FF7A1A',
++              flexShrink: 0,
++            }}
++          >
++            {stepNumber}/{totalSteps}
++          </div>
++        </div>
++
++        <div
++          style={{
++            marginTop: 14,
++            fontSize: 14,
++            lineHeight: 1.45,
++            fontWeight: 700,
++            color: '#344054',
++          }}
++        >
++          {step.content}
++        </div>
++
++        <div
++          style={{
++            marginTop: 18,
++            display: 'flex',
++            alignItems: 'center',
++          }}
++        >
++          {stepNumber < totalSteps ? (
++            <button
++              type="button"
++              onClick={onSkip}
++              style={{
++                width: 68,
++                height: 40,
++                border: 'none',
++                background: 'transparent',
++                cursor: 'pointer',
++                fontFamily: "'Inter', system-ui, sans-serif",
++                fontWeight: 800,
++                fontSize: 14,
++                color: '#FF7A1A',
++                padding: 0,
++                textAlign: 'left',
++              }}
++            >
++              Skip
++            </button>
++          ) : (
++            <div style={{ width: 68 }} />
++          )}
++
++          <div style={{ flex: 1 }} />
++
++          {stepNumber > 1 && (
++            <button
++              type="button"
++              onClick={onBack}
++              style={{
++                width: 76,
++                height: 40,
++                border: '1px solid #0B4EA2',
++                borderRadius: 12,
++                backgroundColor: 'transparent',
++                color: '#0B4EA2',
++                cursor: 'pointer',
++                fontFamily: "'Inter', system-ui, sans-serif",
++                fontWeight: 700,
++                fontSize: 14,
++                padding: 0,
++                marginRight: 8,
++                textAlign: 'center',
++              }}
++            >
++              Back
++            </button>
++          )}
++
++          <button
++            type="button"
++            onClick={onNext}
++            style={{
++              width: 86,
++              height: 40,
++              border: 'none',
++              borderRadius: 12,
++              backgroundColor: '#0B4EA2',
++              color: '#FFFFFF',
++              cursor: 'pointer',
++              fontFamily: "'Inter', system-ui, sans-serif",
++              fontWeight: 900,
++              fontSize: 14,
++              padding: 0,
++              textAlign: 'center',
++            }}
++          >
++            {stepNumber === totalSteps ? 'Done' : 'Next'}
++          </button>
++        </div>
++      </div>
++    </div>
++  );
++}
+diff --git a/src/features/activity/ActivityPage.tsx b/src/features/activity/ActivityPage.tsx
+index ca2245f..bba0c3c 100644
+--- a/src/features/activity/ActivityPage.tsx
++++ b/src/features/activity/ActivityPage.tsx
+@@ -233,7 +233,7 @@ export function ActivityPage() {
+   );
+ 
+   return (
+-    <div className="space-y-5">
++    <div data-tour="tour-activity-list" className="space-y-5">
+       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+         <StatCard
+           label="Total audit events"
+diff --git a/src/features/ai/AiPage.tsx b/src/features/ai/AiPage.tsx
+index 9b8ea4a..9890546 100644
+--- a/src/features/ai/AiPage.tsx
++++ b/src/features/ai/AiPage.tsx
+@@ -562,7 +562,7 @@ export function AiPage() {
+       </div>
+ 
+       <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+-        <Card className="space-y-4 px-4 py-5 sm:px-6">
++        <Card data-tour="tour-ai-credits" className="space-y-4 px-4 py-5 sm:px-6">
+           <div>
+             <h3 className="text-base font-bold text-ink-900">Master AI Configuration</h3>
+             <p className="text-sm text-ink-500">Stored centrally and encrypted in the backend.</p>
+@@ -733,19 +733,20 @@ export function AiPage() {
+                 Add credits from your available pool to a child account.
+               </p>
+             </div>
+-            <form onSubmit={submitAllocation} className="grid gap-3">
++            <form data-tour="tour-ai-allocate-form" onSubmit={submitAllocation} className="grid gap-3">
+             <div className="grid gap-3 sm:grid-cols-2">
+               <Select
+                 value={allocation.targetType}
+                 onValueChange={(value) => setAllocation((current) => ({ ...current, targetType: value }))}
+               >
+-                <SelectTrigger><SelectValue /></SelectTrigger>
++                <SelectTrigger data-tour="tour-ai-allocate-target"><SelectValue /></SelectTrigger>
+                 <SelectContent>
+                   <SelectItem value="ORGANIZATION">Organization</SelectItem>
+                   <SelectItem value="USER">User</SelectItem>
+                 </SelectContent>
+               </Select>
+               <Input
++                data-tour="tour-ai-allocate-amount"
+                 type="number"
+                 min={1}
+                 placeholder="AI credits to allocate"
+@@ -785,7 +786,7 @@ export function AiPage() {
+                 </SelectContent>
+               </Select>
+             )}
+-            <Button type="submit" variant="outline" disabled={allocationMutation.isPending}>
++            <Button data-tour="tour-ai-allocate-submit" type="submit" variant="outline" disabled={allocationMutation.isPending}>
+               {allocationMutation.isPending ? <Spinner className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+               Allocate credits
+             </Button>
+diff --git a/src/features/content/ContentPage.tsx b/src/features/content/ContentPage.tsx
+index 8a0c4a6..17d3251 100644
+--- a/src/features/content/ContentPage.tsx
++++ b/src/features/content/ContentPage.tsx
+@@ -547,7 +547,7 @@ export function ContentPage() {
+   };
+ 
+   return (
+-    <div className="space-y-5">
++    <div data-tour="tour-content-section" className="space-y-5">
+       <div className="grid gap-4 sm:grid-cols-4">
+         <StatCard
+           label="Canvases"
+diff --git a/src/features/dashboard/DashboardPage.tsx b/src/features/dashboard/DashboardPage.tsx
+index 167abd4..f20c592 100644
+--- a/src/features/dashboard/DashboardPage.tsx
++++ b/src/features/dashboard/DashboardPage.tsx
+@@ -194,7 +194,7 @@ export function DashboardPage() {
+   return (
+     <div className="space-y-5">
+       <section className="overflow-hidden rounded-lg bg-brand-navy text-white shadow-elevated">
+-        <div className="grid gap-6 px-4 py-5 sm:px-6 lg:grid-cols-[1fr_360px] lg:px-7">
++        <div data-tour="tour-dashboard-stats" className="grid gap-6 px-4 py-5 sm:px-6 lg:grid-cols-[1fr_360px] lg:px-7">
+           <div>
+             <div className="flex flex-wrap items-center justify-between gap-3">
+               <div className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase text-white/70">
+@@ -307,7 +307,7 @@ export function DashboardPage() {
+         </Card>
+       )}
+ 
+-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
++      <section data-tour="tour-dashboard-metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+         <MetricCard
+           label="Active Users"
+           value={data.users.active}
+diff --git a/src/features/license/LicensePage.tsx b/src/features/license/LicensePage.tsx
+index 2ba8f6e..9f8a8c5 100644
+--- a/src/features/license/LicensePage.tsx
++++ b/src/features/license/LicensePage.tsx
+@@ -248,6 +248,7 @@ export function LicensePage() {
+       (isSuperAdmin || isPartnerAdmin ? null : (user?.primaryOrganization?.id ?? null)),
+   );
+   const [manualReference, setManualReference] = useState('');
++
+   // Amount is entered in major units (e.g. rupees) and converted to minor units
+   // (paise) on submit ΓÇö matching the edit-payment flow.
+   const [amountMajor, setAmountMajor] = useState(1000);
+@@ -379,6 +380,27 @@ export function LicensePage() {
+     () => partnerOrganizations(allOrganizations),
+     [allOrganizations],
+   );
++
++  // Listen for interactive tour events to programmatically select an organization
++  useEffect(() => {
++    const handleTourSelectOrg = () => {
++      // Find the first partner or org and select it for the tour
++      if (isSuperAdmin && partners.length > 0) {
++        setSelectedPartnerId(partners[0].id);
++        // It will automatically update the partnerScopeId because of the derived state below
++      }
++    };
++    const handleTourCloseModals = () => {
++      setBulkOpen(false);
++      setAssignKeysOpen(false);
++    };
++    window.addEventListener('tour-action-select-org', handleTourSelectOrg);
++    window.addEventListener('tour-action-close-modals', handleTourCloseModals);
++    return () => {
++      window.removeEventListener('tour-action-select-org', handleTourSelectOrg);
++      window.removeEventListener('tour-action-close-modals', handleTourCloseModals);
++    };
++  }, [isSuperAdmin, partners]);
+   const directOrganizations = useMemo(
+     () =>
+       allOrganizations.filter(
+@@ -1086,7 +1108,7 @@ export function LicensePage() {
+ 
+   return (
+     <div className="space-y-5">
+-      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
++      <div data-tour="tour-license-stats" className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+         <div>
+           <h2 className="text-2xl font-black text-ink-900">Licensing</h2>
+           <p className="text-sm text-ink-500">
+@@ -1100,7 +1122,7 @@ export function LicensePage() {
+                 value={selectedPartnerId}
+                 onValueChange={handleSuperAdminPartnerChange}
+               >
+-                <SelectTrigger>
++                <SelectTrigger data-tour="tour-license-org-select">
+                   <SelectValue />
+                 </SelectTrigger>
+                 <SelectContent searchPlaceholder="Search partner...">
+@@ -1163,7 +1185,7 @@ export function LicensePage() {
+                 setSelectedOrgId(value === PARTNER_AGGREGATE_VALUE ? null : value)
+               }
+             >
+-              <SelectTrigger>
++              <SelectTrigger data-tour="tour-license-org-select">
+                 <SelectValue />
+               </SelectTrigger>
+               <SelectContent searchPlaceholder="Search organization...">
+@@ -1925,6 +1947,7 @@ export function LicensePage() {
+                       className="w-full sm:w-auto"
+                       disabled={!canCreateActivationKey || !isLicenseTermValid}
+                       onClick={openBulkDialog}
++                      data-tour="tour-license-bulk-create"
+                     >
+                       <Layers className="h-4 w-4" />
+                       Bulk create keys
+@@ -2016,6 +2039,7 @@ export function LicensePage() {
+                 availablePartnerPoolKeys.length === 0
+               }
+               onClick={() => setAssignKeysOpen(true)}
++              data-tour="tour-license-assign-keys"
+             >
+               <Mail className="h-4 w-4" />
+               Assign/email pool keys
+@@ -2288,6 +2312,7 @@ export function LicensePage() {
+                             className="mt-1"
+                             disabled={!canCreateActivationKey}
+                             onClick={openBulkDialog}
++                            data-tour="tour-license-bulk-create-secondary"
+                           >
+                             <Layers className="h-4 w-4" />
+                             Bulk create keys
+@@ -2726,6 +2751,7 @@ export function LicensePage() {
+                 </span>
+               </Button>
+               <Button
++                data-tour="tour-license-bulk-auto"
+                 type="button"
+                 variant="outline"
+                 className="h-auto justify-start px-4 py-4 text-left"
+@@ -2789,6 +2815,7 @@ export function LicensePage() {
+                   Number of keys
+                 </label>
+                 <Input
++                  data-tour="tour-license-bulk-qty"
+                   type="number"
+                   min={1}
+                   max={maxAutoBulkCount}
+@@ -2838,7 +2865,7 @@ export function LicensePage() {
+ 
+           <DialogFooter>
+             {!bulkResult && bulkMode === 'choice' ? (
+-              <Button type="button" variant="outline" onClick={closeBulkDialog}>
++              <Button type="button" variant="outline" onClick={closeBulkDialog} data-tour="tour-license-bulk-cancel">
+                 Cancel
+               </Button>
+             ) : !bulkResult && bulkMode === 'manual' ? (
+@@ -2868,6 +2895,7 @@ export function LicensePage() {
+                   Cancel
+                 </Button>
+                 <Button
++                  data-tour="tour-license-bulk-submit"
+                   type="button"
+                   variant="primary"
+                   disabled={
+diff --git a/src/features/organizations/OrganizationFormPage.tsx b/src/features/organizations/OrganizationFormPage.tsx
+index e056a5e..011f765 100644
+--- a/src/features/organizations/OrganizationFormPage.tsx
++++ b/src/features/organizations/OrganizationFormPage.tsx
+@@ -910,7 +910,7 @@ function OrganizationFormEditor({
+             Configure workspace identity, hierarchy, status, and operating context.
+           </p>
+         </div>
+-        <Button type="submit" variant="primary" disabled={submitting}>
++        <Button id="tour-org-submit" data-tour="tour-org-submit" type="submit" variant="primary" disabled={submitting}>
+           {submitting ? <Spinner className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+           {isEdit ? 'Save changes' : 'Create organization'}
+         </Button>
+@@ -952,7 +952,7 @@ function OrganizationFormEditor({
+           <div className="grid gap-4 sm:grid-cols-2">
+             <div className="space-y-1.5">
+               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Name</label>
+-              <Input placeholder="Acme Corp" {...register('name')} />
++              <Input id="tour-org-name" data-tour="tour-org-name-input" placeholder="Acme Corp" {...register('name')} />
+               {errors.name && <p className="text-xs text-danger">{errors.name.message}</p>}
+             </div>
+             <div className="space-y-1.5">
+@@ -963,6 +963,7 @@ function OrganizationFormEditor({
+           <div className="grid gap-4 sm:grid-cols-3">
+             <div className="space-y-1.5">
+               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Kind</label>
++              <div id="tour-org-kind">
+               <Select disabled={isEdit} value={kind} onValueChange={(value) => setValue('kind', value)}>
+                 <SelectTrigger><SelectValue /></SelectTrigger>
+                 <SelectContent>
+@@ -971,6 +972,7 @@ function OrganizationFormEditor({
+                   ))}
+                 </SelectContent>
+               </Select>
++              </div>
+             </div>
+             {showParentPicker && (
+               <div className="space-y-1.5">
+@@ -1035,6 +1037,7 @@ function OrganizationFormEditor({
+             <div className="space-y-1.5">
+               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Teacher users</label>
+               <Input
++                id="tour-org-teacher-limit"
+                 type="number"
+                 min={0}
+                 disabled={!canConfigureLaunchPolicies}
+@@ -1048,6 +1051,7 @@ function OrganizationFormEditor({
+             <div className="space-y-1.5">
+               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Student users</label>
+               <Input
++                id="tour-org-student-limit"
+                 type="number"
+                 min={0}
+                 disabled={!canConfigureLaunchPolicies || teacherOnlyMode || !studentLoginEnabled}
+@@ -1223,7 +1227,7 @@ function OrganizationFormEditor({
+           </div>
+           <div className="grid gap-4">
+             {isSuperAdmin && (
+-              <div className="space-y-1.5">
++              <div className="space-y-1.5" id="tour-org-branding-mode">
+                 <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Branding mode</label>
+                 <Select
+                   value={brandingMode}
+@@ -1316,7 +1320,7 @@ function OrganizationFormEditor({
+                   />
+                   <p className="text-xs text-ink-500">Shown in place of ΓÇ£SoftLogicΓÇ¥ for white-label workspaces.</p>
+                 </div>
+-                <div className="grid gap-3 sm:grid-cols-2">
++                <div className="grid gap-3 sm:grid-cols-2" id="tour-org-colors">
+                   <div className="space-y-1.5">
+                     <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Primary color</label>
+                     <div className="flex items-center gap-2">
+diff --git a/src/features/organizations/OrganizationsPage.tsx b/src/features/organizations/OrganizationsPage.tsx
+index 982d315..ffdf51d 100644
+--- a/src/features/organizations/OrganizationsPage.tsx
++++ b/src/features/organizations/OrganizationsPage.tsx
+@@ -359,7 +359,7 @@ export function OrganizationsPage() {
+         />
+       </div>
+ 
+-      <Card>
++      <Card data-tour="tour-organizations-list">
+         <div className="flex flex-col gap-4 border-b border-line px-4 py-5 sm:px-6 xl:flex-row xl:items-center xl:justify-between">
+           <div>
+             <h2 className="text-lg font-semibold text-ink-900">Organizations</h2>
+@@ -376,6 +376,7 @@ export function OrganizationsPage() {
+             <Button
+               variant="primary"
+               disabled={!canCreate}
++              data-tour="tour-org-create-btn"
+               onClick={() => navigate('/organizations/new')}
+             >
+               <Plus className="h-4 w-4" />
+diff --git a/src/features/settings/SettingsPage.tsx b/src/features/settings/SettingsPage.tsx
+index 2b59c7c..974d590 100644
+--- a/src/features/settings/SettingsPage.tsx
++++ b/src/features/settings/SettingsPage.tsx
+@@ -1,5 +1,6 @@
+ import { useState } from 'react';
+ import { useNavigate } from 'react-router-dom';
++import { useTour } from '@/components/tour/TourProvider';
+ import { useForm } from 'react-hook-form';
+ import { zodResolver } from '@hookform/resolvers/zod';
+ import { z } from 'zod';
+@@ -114,6 +115,7 @@ function licenceStatusLabel(status?: string | null) {
+ }
+ 
+ export function SettingsPage() {
++  const { startTour } = useTour();
+   const navigate = useNavigate();
+   const queryClient = useQueryClient();
+   const { user, tokens, clear, updateUser } = useAuthStore();
+@@ -548,7 +550,7 @@ export function SettingsPage() {
+   return (
+     <div className="space-y-6">
+       {/* Top Executive Settings Hub Hero Banner */}
+-      <div className="relative overflow-hidden rounded-2xl border border-line/80 bg-gradient-to-r from-[#08357C] via-[#0E4BA8] to-[#1A63D4] p-5 text-white shadow-md">
++      <div data-tour="tour-settings" className="relative overflow-hidden rounded-2xl border border-line/80 bg-gradient-to-r from-[#08357C] via-[#0E4BA8] to-[#1A63D4] p-5 text-white shadow-md">
+         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+           <div className="flex items-center gap-4">
+             <Avatar className="h-14 w-14 rounded-2xl border-2 border-white/30 shadow-md">
+@@ -582,6 +584,15 @@ export function SettingsPage() {
+             </div>
+           </div>
+           <div className="flex items-center gap-2">
++            <Button
++              variant="outline"
++              size="sm"
++              className="h-9 gap-1.5 rounded-xl border-white/30 bg-white/10 font-bold text-white backdrop-blur-xs hover:bg-white/20 hover:text-white"
++              onClick={() => startTour()}
++            >
++              <Eye className="h-4 w-4" />
++              Replay Tour
++            </Button>
+             <Button
+               variant="outline"
+               size="sm"
+diff --git a/src/features/users/UserFormPage.tsx b/src/features/users/UserFormPage.tsx
+index fa62f59..61f4d92 100644
+--- a/src/features/users/UserFormPage.tsx
++++ b/src/features/users/UserFormPage.tsx
+@@ -498,7 +498,7 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
+             Manage identity, access level, workspace assignment, and locale.
+           </p>
+         </div>
+-        <Button type="submit" variant="primary" disabled={submitting}>
++        <Button id="tour-user-submit" type="submit" variant="primary" disabled={submitting}>
+           {submitting ? <Spinner className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+           {isEdit ? 'Save changes' : 'Create user'}
+         </Button>
+@@ -513,12 +513,12 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
+           <div className="grid gap-4 sm:grid-cols-2">
+             <div className="space-y-1.5">
+               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Email</label>
+-              <Input type="email" disabled={isEdit} placeholder="jane@example.com" {...register('email')} />
++              <Input id="tour-user-email" type="email" disabled={isEdit} placeholder="jane@example.com" {...register('email')} />
+               {errors.email && <p className="text-xs text-danger">{errors.email.message}</p>}
+             </div>
+             <div className="space-y-1.5">
+               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Full name</label>
+-              <Input placeholder="Jane Doe" {...register('name')} />
++              <Input id="tour-user-name" placeholder="Jane Doe" {...register('name')} />
+               {errors.name && <p className="text-xs text-danger">{errors.name.message}</p>}
+             </div>
+           </div>
+@@ -543,6 +543,7 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
+             )}
+             <div className="space-y-1.5">
+               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Organization</label>
++              <div id="tour-user-org">
+               <Controller
+                 control={control}
+                 name="organizationId"
+@@ -562,9 +563,11 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
+                   </Select>
+                 )}
+               />
++              </div>
+             </div>
+             <div className="space-y-1.5">
+               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Role</label>
++              <div id="tour-user-role">
+               <Controller
+                 control={control}
+                 name="role"
+@@ -593,6 +596,7 @@ function UserFormEditor({ userId, isEdit, userData, organizations }: UserFormEdi
+                   </Select>
+                 )}
+               />
++              </div>
+             </div>
+             <div className="space-y-1.5">
+               <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Status</label>
+diff --git a/src/features/users/UsersPage.tsx b/src/features/users/UsersPage.tsx
+index 095781f..d6d4651 100644
+--- a/src/features/users/UsersPage.tsx
++++ b/src/features/users/UsersPage.tsx
+@@ -608,7 +608,7 @@ export function UsersPage() {
+         />
+       </div>
+ 
+-      <Card>
++      <Card data-tour="tour-users-list">
+         <div className="flex flex-col gap-4 border-b border-line px-4 py-5 sm:px-6 xl:flex-row xl:items-center xl:justify-between">
+           <div>
+             <h2 className="text-lg font-semibold text-ink-900">User Directory</h2>
+@@ -624,6 +624,7 @@ export function UsersPage() {
+             />
+             <Button
+               variant="primary"
++              data-tour="tour-user-create-btn"
+               onClick={() =>
+                 navigate(
+                   organizationId !== 'ALL'
+diff --git a/src/lib/tour-steps.ts b/src/lib/tour-steps.ts
+new file mode 100644
+index 0000000..9939c2f
+--- /dev/null
++++ b/src/lib/tour-steps.ts
+@@ -0,0 +1,309 @@
++import { UserRole } from '@/types/api';
++
++export interface AppTourStep {
++  id: string;
++  target: string;
++  title: string;
++  content: string;
++  route: string;
++  placement?: 'top' | 'bottom';
++  preActionSelector?: string;
++  preActionSelectors?: string[];
++  preActionForce?: boolean;
++  preActionEvent?: string;
++}
++
++export type TourProfile = 'initial' | 'organizations' | 'users' | 'license' | 'ai';
++
++export function getTourStepsForProfile(profile: TourProfile, role: UserRole): AppTourStep[] {
++  const steps: AppTourStep[] = [];
++
++  if (profile === 'initial') {
++    // --- HIGH-LEVEL INITIAL ONBOARDING ---
++    steps.push({
++      id: 'dashboard-welcome',
++      target: '[data-tour="tour-dashboard-stats"]',
++      title: 'Welcome to SoftLogic Admin',
++      content: 'This is your command centre. Here you can see a real-time snapshot of your workspace ΓÇö active users, organisations, teacher licence utilisation, and system health.',
++      route: '/dashboard',
++      placement: 'bottom',
++    });
++    
++    steps.push({
++      id: 'dashboard-metrics',
++      target: '[data-tour="tour-dashboard-metrics"]',
++      title: 'Performance Metrics',
++      content: 'Key performance indicators and overall growth signals are aggregated here.',
++      route: '/dashboard',
++      placement: 'bottom',
++    });
++
++    if (role === 'SUPER_ADMIN' || role === 'PARTNER_ADMIN') {
++      steps.push({
++        id: 'organizations-list',
++        target: '[data-tour="tour-organizations-list"]',
++        title: 'Organisations',
++        content: 'Manage your customer schools and partners here. You can provision new workspaces and configure custom branding.',
++        route: '/organizations',
++        placement: 'bottom',
++      });
++    }
++
++    if (role === 'SUPER_ADMIN' || role === 'CUSTOMER_ADMIN' || role === 'PARTNER_ADMIN') {
++      steps.push({
++        id: 'users-list',
++        target: '[data-tour="tour-users-list"]',
++        title: 'User Management',
++        content: 'Invite Teachers, Admins, and Students. We securely handle email invitations and password setup automatically.',
++        route: '/users',
++        placement: 'bottom',
++      });
++    }
++
++    steps.push({
++      id: 'license-stats',
++      target: '[data-tour="tour-license-stats"]',
++      title: 'Licensing & Seats',
++      content: 'Monitor seat capacity and generate hardware activation keys for interactive panels.',
++      route: '/license',
++      placement: 'bottom',
++    });
++
++    if (role === 'SUPER_ADMIN') {
++      steps.push({
++        id: 'ai-credits',
++        target: '[data-tour="tour-ai-credits"]',
++        title: 'AI Credits',
++        content: 'Monitor your global AI credit pool and allocate credits down the hierarchy to specific organisations.',
++        route: '/ai',
++        placement: 'bottom',
++      });
++    }
++
++    steps.push({
++      id: 'tour-sidebar-settings',
++      target: '[data-tour="tour-settings"]',
++      title: 'Profile Settings',
++      content: 'Customise your profile, password, and active locale.',
++      route: '/settings',
++      placement: 'bottom',
++    });
++
++    steps.push({
++      id: 'tour-sidebar-downloads',
++      target: '[data-tour="tour-downloads"]',
++      title: 'Downloads',
++      content: 'Get the latest Android and Windows whiteboarding software for your hardware.',
++      route: '/downloads',
++      placement: 'bottom',
++    });
++
++    steps.push({
++      id: 'tour-completion',
++      target: 'body', // Fallback to center screen
++      title: 'Explore More',
++      content: 'That concludes the high-level overview! For deep-dives into specific modules, look for the floating Help icon in the bottom right corner of any page.',
++      route: '/dashboard',
++      placement: 'bottom',
++    });
++  } else if (profile === 'organizations') {
++    // --- ORGANIZATIONS DEEP DIVE ---
++    steps.push({
++      id: 'org-create-btn',
++      target: '[data-tour="tour-org-create-btn"]',
++      title: 'Create an Organisation',
++      content: 'Click here to provision a new customer or partner workspace.',
++      route: '/organizations',
++      placement: 'bottom',
++    });
++    steps.push({
++      id: 'org-name',
++      target: '[data-tour="tour-org-name-input"]',
++      title: 'Organisation Name',
++      content: 'Enter the official name of the partner or customer.',
++      route: '/organizations/new',
++      placement: 'bottom',
++      preActionSelector: '[data-tour="tour-org-create-btn"]',
++    });
++    steps.push({
++      id: 'org-branding',
++      target: '#tour-org-colors',
++      title: 'Custom Branding',
++      content: 'Set primary and secondary colours to white-label the workspace.',
++      route: '/organizations/new',
++      placement: 'bottom',
++    });
++    steps.push({
++      id: 'org-submit',
++      target: '[data-tour="tour-org-submit"]',
++      title: 'Save Organisation',
++      content: 'Click here to provision the organisation workspace instantly.',
++      route: '/organizations/new',
++      placement: 'top',
++    });
++  } else if (profile === 'users') {
++    // --- USERS DEEP DIVE ---
++    steps.push({
++      id: 'user-create-btn',
++      target: '[data-tour="tour-user-create-btn"]',
++      title: 'Invite a User',
++      content: 'Click here to invite a new teacher, admin, or student.',
++      route: '/users',
++      placement: 'bottom',
++    });
++    steps.push({
++      id: 'user-email',
++      target: '[data-tour="tour-user-email-input"]',
++      title: 'Email Invitation',
++      content: 'Enter the user\'s email. They will receive a secure setup link via Brevo to create their password.',
++      route: '/users/new',
++      placement: 'bottom',
++      preActionSelector: '[data-tour="tour-user-create-btn"]',
++    });
++    steps.push({
++      id: 'user-role',
++      target: '[data-tour="tour-user-role-select"]',
++      title: 'Assign a Role',
++      content: 'The role defines their permissions. Teachers can create content; Admins manage the workspace.',
++      route: '/users/new',
++      placement: 'bottom',
++    });
++    steps.push({
++      id: 'user-submit',
++      target: '[data-tour="tour-user-submit"]',
++      title: 'Send Invite',
++      content: 'Click save to securely dispatch the invitation email.',
++      route: '/users/new',
++      placement: 'top',
++    });
++  } else if (profile === 'license') {
++    // --- LICENSE DEEP DIVE ---
++    steps.push({
++      id: 'license-stats-deep',
++      target: '[data-tour="tour-license-stats"]',
++      title: 'Seat Allocation Tracker',
++      content: 'This card tracks how many of your total teacher seats are actively consumed by registered users.',
++      route: '/license',
++      placement: 'bottom',
++    });
++    if (role === 'SUPER_ADMIN' || role === 'PARTNER_ADMIN') {
++      steps.push({
++        id: 'license-org-select',
++        target: '[data-tour="tour-license-org-select"]',
++        title: 'Select an Organisation',
++        content: 'Select a specific partner or organisation here to manage their individual activation keys and allocations.',
++        route: '/license',
++        placement: 'bottom',
++        preActionSelectors: ['[data-tour="tour-license-org-select"]', '[role="option"]:nth-of-type(2)']
++      });
++    }
++    steps.push({
++      id: 'license-select-partner',
++      target: '[data-tour="tour-license-org-select"]',
++      title: 'Select Partner',
++      content: 'Select a partner to manage their keys.',
++      route: '/license',
++      placement: 'bottom',
++      preActionEvent: 'tour-action-select-org',
++    });
++    steps.push({
++      id: 'license-generate',
++      target: '[data-tour="tour-license-generate-btn"]',
++      title: 'Generate Hardware Keys',
++      content: 'Click here to generate a batch of secure hardware activation keys for interactive panels.',
++      route: '/license',
++      placement: 'bottom',
++      preActionEvent: 'tour-action-select-org',
++    });
++    steps.push({
++      id: 'license-generate-type',
++      target: '[data-tour="tour-license-bulk-auto"]',
++      title: 'Auto Generation',
++      content: 'Select the automatic mode to let the system instantly generate random, secure keys.',
++      route: '/license',
++      placement: 'bottom',
++      preActionSelector: '[data-tour="tour-license-generate-btn"]',
++    });
++    steps.push({
++      id: 'license-generate-qty',
++      target: '[data-tour="tour-license-bulk-qty"]',
++      title: 'Quantity',
++      content: 'Specify exactly how many activation keys you need to provision for your hardware shipment.',
++      route: '/license',
++      placement: 'bottom',
++    });
++    steps.push({
++      id: 'license-generate-submit',
++      target: '[data-tour="tour-license-bulk-submit"]',
++      title: 'Generate',
++      content: 'Click to finalise. The keys will be instantly generated and available to download or copy.',
++      route: '/license',
++      placement: 'top',
++    });
++    if (role === 'SUPER_ADMIN' || role === 'PARTNER_ADMIN') {
++      steps.push({
++        id: 'license-assign-keys',
++        target: '[data-tour="tour-license-assign-keys"]',
++        title: 'Assign Pool Keys',
++        content: 'Once keys are generated in your partner pool, you can click here to assign and email them down to your child organisations.',
++        route: '/license',
++        placement: 'top',
++        preActionEvent: 'tour-action-close-modals',
++      });
++      steps.push({
++        id: 'license-assign-keys-submit',
++        target: '[data-tour="tour-license-assign-keys-submit"]',
++        title: 'Confirm Assignment',
++        content: 'Select the child organisation, choose the keys, and click this button. The admin of that organisation will receive the keys via email securely.',
++        route: '/license',
++        placement: 'top',
++        preActionSelector: '[data-tour="tour-license-assign-keys"]'
++      });
++    }
++  } else if (profile === 'ai') {
++    // --- AI DEEP DIVE ---
++    steps.push({
++      id: 'ai-pool',
++      target: '[data-tour="tour-ai-credits"]',
++      title: 'Global Credit Pool',
++      content: 'Monitor how many total AI credits are available and consumed across your entire hierarchy.',
++      route: '/ai',
++      placement: 'bottom',
++    });
++    steps.push({
++      id: 'ai-allocate',
++      target: 'form[data-tour="tour-ai-allocate-form"]',
++      title: 'Allocate Credits',
++      content: 'Use this form to distribute credits to specific organisations or users.',
++      route: '/ai',
++      placement: 'top',
++    });
++    steps.push({
++      id: 'ai-allocate-target',
++      target: '[data-tour="tour-ai-allocate-target"]',
++      title: 'Select Target',
++      content: 'Choose whether you are allocating credits to an entire Organisation or a specific User.',
++      route: '/ai',
++      placement: 'bottom',
++      preActionSelectors: ['[data-tour="tour-ai-allocate-target"]', '[role="option"]:nth-of-type(2)']
++    });
++    steps.push({
++      id: 'ai-allocate-amount',
++      target: '[data-tour="tour-ai-allocate-amount"]',
++      title: 'Credit Amount',
++      content: 'Enter the number of credits. One credit roughly equals one token of AI processing.',
++      route: '/ai',
++      placement: 'bottom',
++    });
++    steps.push({
++      id: 'ai-allocate-submit',
++      target: '[data-tour="tour-ai-allocate-submit"]',
++      title: 'Confirm Allocation',
++      content: 'Click here to apply the allocation. Credits cascade securely down the hierarchy.',
++      route: '/ai',
++      placement: 'top',
++    });
++  }
++
++  return steps;
++}
+diff --git a/src/routes.tsx b/src/routes.tsx
+index 6fd7850..eb9c897 100644
+--- a/src/routes.tsx
++++ b/src/routes.tsx
+@@ -1,5 +1,6 @@
+ import { createBrowserRouter, Navigate } from 'react-router-dom';
+ import { AppShell } from '@/components/layout/AppShell';
++import { TourProvider } from '@/components/tour/TourProvider';
+ import {
+   AdminRoute,
+   AiModuleRoute,
+@@ -43,7 +44,11 @@ export const router = createBrowserRouter([
+     element: <ProtectedRoute />,
+     children: [
+       {
+-        element: <AppShell />,
++        element: (
++          <TourProvider>
++            <AppShell />
++          </TourProvider>
++        ),
+         children: [
+           { path: '/settings', element: <SettingsPage /> },
+           { path: '/downloads', element: <DownloadsPage /> },

@@ -1,0 +1,1481 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useForm, type Resolver } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, Building2, Image as ImageIcon, Save } from 'lucide-react';
+import { toast } from 'sonner';
+
+import { organizationsApi, type UpdateOrganizationPayload } from '@/services/organizations.api';
+import { aiApi } from '@/services/ai.api';
+import { useAuthStore } from '@/lib/auth-store';
+import { canCreateOrganizationKind } from '@/lib/role-access';
+import { descendantOrganizationIds, organizationDepth } from '@/lib/admin-hierarchy';
+import { extractApiError } from '@/lib/api';
+import {
+  BRANDING_MODE_LABEL,
+  ORG_KIND_LABEL,
+  STORAGE_STATUS_LABEL,
+  type AdminOrganization,
+  type BrandingMode,
+  type OrganizationKind,
+  type OrganizationStatus,
+  type OrganizationStorageProvider,
+  type OrganizationStorageStatus,
+} from '@/types/api';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Spinner } from '@/components/ui/spinner';
+import { AiCreditInfoButton } from '@/components/ai/AiCreditInfoButton';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ConfirmSubmitDialog, type ConfirmRow } from '@/components/ui/confirm-submit-dialog';
+
+const optionalNonNegativeInt = z.preprocess((value) => {
+  if (value === '' || value === null || value === undefined) return null;
+  if (typeof value === 'number' && Number.isNaN(value)) return null;
+  return value;
+}, z.number().int().min(0).nullable().optional());
+
+const schema = z.object({
+    name: z.string().min(1, 'Name is required'),
+    slug: z.string().optional(),
+    kind: z.string().min(1),
+    parentOrganizationId: z.string().optional(),
+    status: z.string().optional(),
+    brandingMode: z.string().optional(),
+    brandName: z.string().optional(),
+    brandPrimaryColor: z.string().optional(),
+    brandAccentColor: z.string().optional(),
+    studentLoginEnabled: z.boolean().optional(),
+    parentLoginEnabled: z.boolean().optional(),
+    sessionOnlyJoinEnabled: z.boolean().optional(),
+    teacherOnlyMode: z.boolean().optional(),
+    teacherUserLimit: z.number().int().min(0).optional().nullable(),
+    studentUserLimit: z.number().int().min(0).optional().nullable(),
+    parentUserLimit: z.number().int().min(0).optional().nullable(),
+    maxChildOrganizations: optionalNonNegativeInt,
+    maxChildPartners: optionalNonNegativeInt,
+    maxChildUsers: optionalNonNegativeInt,
+    licenseSeatMax: optionalNonNegativeInt,
+    supportEmail: z.string().trim().min(1, 'Support email is required').email('Enter a valid support email'),
+    supportPhone: z.string().min(1, 'Support phone is required'),
+    storageProviders: z.array(z.string()).optional(),
+    defaultStorageProvider: z.string().optional(),
+    storageStatus: z.string().optional(),
+    aiCreditTokens: z.number().int().min(0).optional().nullable(),
+});
+
+type FormValues = z.infer<typeof schema>;
+
+const STORAGE_PROVIDER_OPTIONS: Array<{
+  value: OrganizationStorageProvider;
+  label: string;
+}> = [
+  { value: 'GOOGLE_DRIVE', label: 'Google Drive' },
+  { value: 'DROPBOX', label: 'Dropbox' },
+  { value: 'ONEDRIVE', label: 'OneDrive' },
+];
+
+export function OrganizationFormPage() {
+  const { id } = useParams();
+  const isEdit = Boolean(id);
+  const { user: actor } = useAuthStore();
+
+  const organizationQuery = useQuery({
+    queryKey: ['organizations', id],
+    queryFn: () => organizationsApi.get(id!),
+    enabled: isEdit,
+  });
+  const orgsQuery = useQuery({
+    queryKey: ['organizations', 'all'],
+    queryFn: organizationsApi.all,
+    enabled: actor?.role === 'SUPER_ADMIN' || actor?.role === 'PARTNER_ADMIN',
+  });
+
+  // Gate the form mount on the org being loaded so useForm captures correct
+  // defaults on its first (and only) call. Without this, Radix Selects do not
+  // reliably sync to a later reset() — which previously left the branding mode
+  // blank on the edit screen even though it was saved.
+  if (isEdit && (organizationQuery.isLoading || !organizationQuery.data)) {
+    return <div className="flex h-64 items-center justify-center"><Spinner className="h-7 w-7 text-brand-primary" /></div>;
+  }
+
+  return (
+    <OrganizationFormEditor
+      isEdit={isEdit}
+      organizationId={id ?? null}
+      organization={organizationQuery.data ?? null}
+      partnerOrganizations={orgsQuery.data ?? []}
+    />
+  );
+}
+
+interface OrganizationFormEditorProps {
+  isEdit: boolean;
+  organizationId: string | null;
+  organization: AdminOrganization | null;
+  partnerOrganizations: AdminOrganization[];
+}
+
+function OrganizationFormEditor({
+  isEdit,
+  organizationId,
+  organization,
+  partnerOrganizations,
+}: OrganizationFormEditorProps) {
+  const navigate = useNavigate();
+  const { user: actor } = useAuthStore();
+  const queryClient = useQueryClient();
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const pendingAiCreditTokensRef = useRef<number | null>(0);
+  const pendingAiCreditSourceAccountIdRef = useRef<string | null>(null);
+  const initializedAiCreditsRef = useRef(false);
+  const initializedPartnerPolicyRef = useRef(false);
+  const { allowedKinds } = canCreateOrganizationKind(actor?.role);
+  const isSuperAdmin = actor?.role === 'SUPER_ADMIN';
+  const canConfigureLaunchPolicies =
+    isSuperAdmin || (actor?.role === 'PARTNER_ADMIN' && !isEdit);
+  const canConfigureStorage =
+    actor?.role === 'SUPER_ADMIN' || actor?.role === 'PARTNER_ADMIN';
+  const aiOverviewQuery = useQuery({
+    queryKey: ['ai-allocation-overview'],
+    queryFn: aiApi.allocationOverview,
+  });
+  const partnerWorkspace =
+    actor?.role === 'PARTNER_ADMIN'
+      ? partnerOrganizations.find(
+          (item) => item.id === actor.primaryOrganization?.id,
+        ) ?? actor.primaryOrganization
+      : null;
+  const partnerTeacherOnlyMode = Boolean(partnerWorkspace?.teacherOnlyMode);
+
+  const defaultValues: FormValues = useMemo(() => {
+    if (organization) {
+      return {
+        name: organization.name,
+        slug: organization.slug,
+        kind: organization.kind,
+        parentOrganizationId: organization.parentOrganizationId ?? 'NONE',
+        status: organization.status,
+        brandingMode:
+          organization.brandingMode === 'WHITE_LABEL' ? 'WHITE_LABEL' : 'SOFTLOGIC',
+        brandName: organization.brandName ?? '',
+        brandPrimaryColor:
+          organization.brandPrimaryColor?.toUpperCase() === '#08357C'
+            ? '#1149B5'
+            : (organization.brandPrimaryColor ?? ''),
+        brandAccentColor:
+          organization.brandAccentColor?.toUpperCase() === '#F97316'
+            ? '#FF7A00'
+            : (organization.brandAccentColor ?? ''),
+        studentLoginEnabled: organization.studentLoginEnabled,
+        parentLoginEnabled: organization.parentLoginEnabled,
+        sessionOnlyJoinEnabled: organization.sessionOnlyJoinEnabled,
+        teacherOnlyMode: organization.teacherOnlyMode,
+        teacherUserLimit: organization.teacherUserLimit ?? 0,
+        studentUserLimit: organization.studentUserLimit ?? 0,
+        parentUserLimit: organization.parentUserLimit ?? 0,
+        maxChildOrganizations: organization.maxChildOrganizations ?? null,
+        maxChildPartners: organization.maxChildPartners ?? null,
+        maxChildUsers: organization.maxChildUsers ?? null,
+        licenseSeatMax:
+          organization.licenseSeatMax != null && organization.licenseSeatMax > 0
+            ? organization.licenseSeatMax
+            : null,
+        supportEmail: organization.supportEmail ?? '',
+        supportPhone: organization.supportPhone ?? '',
+        storageProviders:
+          organization.storageProviders?.length
+            ? organization.storageProviders
+            : organization.storageProvider
+              ? [organization.storageProvider]
+              : [],
+        defaultStorageProvider:
+          organization.defaultStorageProvider ??
+          organization.storageProvider ??
+          'NONE',
+        storageStatus: organization.storageStatus,
+        aiCreditTokens: 0,
+      };
+    }
+    return {
+      name: '',
+      slug: '',
+      kind: allowedKinds[0] ?? 'CUSTOMER',
+      parentOrganizationId:
+        actor?.role === 'PARTNER_ADMIN'
+          ? partnerWorkspace?.id ?? 'NONE'
+          : 'NONE',
+      status: 'ACTIVE',
+      brandingMode: 'SOFTLOGIC',
+      brandName: '',
+      brandPrimaryColor: '',
+      brandAccentColor: '',
+      studentLoginEnabled:
+        actor?.role === 'PARTNER_ADMIN' && !partnerTeacherOnlyMode
+          ? Boolean(partnerWorkspace?.studentLoginEnabled)
+          : false,
+      parentLoginEnabled:
+        actor?.role === 'PARTNER_ADMIN' && !partnerTeacherOnlyMode
+          ? Boolean(partnerWorkspace?.parentLoginEnabled)
+          : false,
+      sessionOnlyJoinEnabled: true,
+      teacherOnlyMode:
+        actor?.role === 'PARTNER_ADMIN' ? partnerTeacherOnlyMode : false,
+      teacherUserLimit: 0,
+      studentUserLimit: 0,
+      parentUserLimit: 0,
+      maxChildOrganizations: null,
+      maxChildPartners: null,
+      maxChildUsers: null,
+      licenseSeatMax: null,
+      supportEmail: '',
+      supportPhone: '',
+      storageProviders: [],
+      defaultStorageProvider: 'NONE',
+      storageStatus: 'NOT_CONFIGURED',
+      aiCreditTokens: 0,
+    };
+    // Captured once at mount; the wrapper guarantees `organization` is loaded
+    // before this editor mounts, so reset()-after-mount is not needed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema) as Resolver<FormValues>,
+    defaultValues,
+  });
+  const [selectedLogoFile, setSelectedLogoFile] = useState<File | null>(null);
+  const selectedLogoPreviewUrl = useMemo(
+    () => (selectedLogoFile ? URL.createObjectURL(selectedLogoFile) : null),
+    [selectedLogoFile],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (selectedLogoPreviewUrl) URL.revokeObjectURL(selectedLogoPreviewUrl);
+    };
+  }, [selectedLogoPreviewUrl]);
+
+  const createMutation = useMutation({
+    mutationFn: organizationsApi.create,
+    onSuccess: async (created) => {
+      if (selectedLogoFile) {
+        try {
+          await organizationsApi.uploadLogo(created.id, selectedLogoFile);
+        } catch (error) {
+          toast.warning(
+            `Organization created, but the logo could not be uploaded: ${extractApiError(error)}`,
+          );
+        }
+      }
+      const tokensToAllocate = pendingAiCreditTokensRef.current;
+      const sourceAccountId = pendingAiCreditSourceAccountIdRef.current;
+      pendingAiCreditTokensRef.current = 0;
+      pendingAiCreditSourceAccountIdRef.current = null;
+      if (tokensToAllocate !== null && tokensToAllocate > 0) {
+        await aiApi.setAllocation({
+          sourceAccountId: sourceAccountId ?? undefined,
+          scope: 'ORGANIZATION',
+          organizationId: created.id,
+          allocatedTokens: tokensToAllocate,
+          reason: 'Organization create allocation',
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ['organizations'] });
+      queryClient.invalidateQueries({ queryKey: ['ai-allocation-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
+      if (created.setupEmailSent === false) {
+        toast.warning('Organization created, but setup email could not be delivered');
+      } else if (created.setupEmailSent) {
+        toast.success('Organization created and setup email sent');
+      } else {
+        toast.success('Organization created');
+      }
+      navigate('/organizations');
+    },
+    onError: (error) => toast.error(extractApiError(error)),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ organizationId: orgId, payload }: { organizationId: string; payload: UpdateOrganizationPayload }) =>
+      organizationsApi.update(orgId, payload),
+    onSuccess: async (updated) => {
+      const tokensToAllocate = pendingAiCreditTokensRef.current;
+      const sourceAccountId = pendingAiCreditSourceAccountIdRef.current;
+      pendingAiCreditTokensRef.current = 0;
+      pendingAiCreditSourceAccountIdRef.current = null;
+      if (tokensToAllocate !== null) {
+        await aiApi.setAllocation({
+          sourceAccountId: sourceAccountId ?? undefined,
+          scope: 'ORGANIZATION',
+          organizationId: updated.id,
+          allocatedTokens: tokensToAllocate,
+          reason: 'Organization edit allocation',
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ['organizations'] });
+      queryClient.invalidateQueries({ queryKey: ['ai-allocation-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
+      if (updated.setupEmailSent === false) {
+        toast.warning('Organization updated, but setup email could not be delivered');
+      } else if (updated.setupEmailSent) {
+        toast.success('Organization updated and setup email sent');
+      } else {
+        toast.success('Organization updated');
+      }
+      navigate('/organizations');
+    },
+    onError: (error) => toast.error(extractApiError(error)),
+  });
+
+  const uploadLogoMutation = useMutation({
+    mutationFn: (file: File) => organizationsApi.uploadLogo(organizationId!, file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organizations'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
+      toast.success('Logo updated');
+    },
+    onError: (error) => toast.error(extractApiError(error)),
+  });
+
+  const removeLogoMutation = useMutation({
+    mutationFn: () => organizationsApi.removeLogo(organizationId!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organizations'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
+      toast.success('Logo removed');
+    },
+    onError: (error) => toast.error(extractApiError(error)),
+  });
+
+  const kind = watch('kind');
+  const parentOrganizationId = watch('parentOrganizationId');
+  const status = watch('status');
+  const brandingMode = watch('brandingMode');
+  const brandPrimaryColor = watch('brandPrimaryColor');
+  const brandAccentColor = watch('brandAccentColor');
+  const storageProviders = watch('storageProviders') ?? [];
+  const defaultStorageProvider = watch('defaultStorageProvider');
+  const storageStatus = watch('storageStatus');
+  const aiCreditTokens = Number(watch('aiCreditTokens') ?? 0);
+  const studentLoginEnabled = watch('studentLoginEnabled');
+  const parentLoginEnabled = watch('parentLoginEnabled');
+  const teacherOnlyMode = watch('teacherOnlyMode');
+  const teacherUserLimit = Number(watch('teacherUserLimit') ?? 0);
+  const studentUserLimit = Number(watch('studentUserLimit') ?? 0);
+  const parentUserLimit = Number(watch('parentUserLimit') ?? 0);
+  const maxChildOrganizations = watch('maxChildOrganizations');
+  const maxChildPartners = watch('maxChildPartners');
+  const totalUserLimit = teacherUserLimit + studentUserLimit + parentUserLimit;
+  const derivedMaxChildUsers = kind === 'PARTNER' ? totalUserLimit : null;
+  const showPartnerGovernance = isSuperAdmin && kind === 'PARTNER';
+  // Parent picker options: all partners for superadmin; the actor's own subtree
+  // partners for a partner admin creating a nested customer/sub-partner.
+  const parentPartnerOptions = useMemo(() => {
+    const partners = partnerOrganizations.filter((org) => org.kind === 'PARTNER');
+    if (actor?.role === 'PARTNER_ADMIN' && partnerWorkspace) {
+      const scope = descendantOrganizationIds(partnerOrganizations, partnerWorkspace.id);
+      return partners.filter((org) => scope.has(org.id));
+    }
+    return partners;
+  }, [partnerOrganizations, actor?.role, partnerWorkspace]);
+  const canPickParent =
+    !isEdit && (isSuperAdmin || actor?.role === 'PARTNER_ADMIN');
+  const showParentPicker = kind === 'CUSTOMER' || kind === 'PARTNER';
+  const submitting = createMutation.isPending || updateMutation.isPending;
+  const isWhiteLabel = brandingMode === 'WHITE_LABEL';
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingValues, setPendingValues] = useState<FormValues | null>(null);
+  const sourceAiAccount =
+    actor?.role === 'SUPER_ADMIN'
+      ? aiOverviewQuery.data?.master
+      : aiOverviewQuery.data?.accounts.find(
+          (account) =>
+            account.scope === 'ORGANIZATION' &&
+            account.organizationId === actor?.primaryOrganization?.id,
+        );
+  const currentOrgAiAccount = organizationId
+    ? aiOverviewQuery.data?.accounts.find(
+        (account) => account.scope === 'ORGANIZATION' && account.organizationId === organizationId,
+      )
+    : null;
+  const canAssignOrgAiCredits = !currentOrgAiAccount || currentOrgAiAccount.id !== sourceAiAccount?.id;
+  const sourceAvailableAiTokens = canAssignOrgAiCredits ? sourceAiAccount?.availableTokens ?? 0 : 0;
+  const currentAssignedAiTokens = currentOrgAiAccount?.allocatedTokens ?? 0;
+  const assignableAiTokens = sourceAvailableAiTokens + currentAssignedAiTokens;
+  const aiAllocationDelta = aiCreditTokens - currentAssignedAiTokens;
+  const afterAiAllocation = Math.max(assignableAiTokens - aiCreditTokens, 0);
+  const partnerRoleLimitTotal =
+    (partnerWorkspace?.teacherUserLimit ?? 0) +
+    (partnerWorkspace?.studentUserLimit ?? 0) +
+    (partnerWorkspace?.parentUserLimit ?? 0);
+  const partnerTotalChildUserLimit =
+    partnerWorkspace?.maxChildUsers ?? (partnerRoleLimitTotal > 0 ? partnerRoleLimitTotal : null);
+  const activePartnerChildren = partnerWorkspace
+    ? partnerOrganizations.filter(
+        (item) =>
+          item.parentOrganizationId === partnerWorkspace.id &&
+          item.status === 'ACTIVE' &&
+          !item.deletedAt,
+      )
+    : [];
+  const allocatedChildRoles = activePartnerChildren.reduce(
+    (totals, child) => ({
+      teacher: totals.teacher + (child.teacherUserLimit ?? 0),
+      student: totals.student + (child.studentUserLimit ?? 0),
+      parent: totals.parent + (child.parentUserLimit ?? 0),
+    }),
+    { teacher: 0, student: 0, parent: 0 },
+  );
+  const allocatedChildUsers =
+    allocatedChildRoles.teacher + allocatedChildRoles.student + allocatedChildRoles.parent;
+  const remainingPartnerRole = (
+    roleKey: 'teacherUserLimit' | 'studentUserLimit' | 'parentUserLimit',
+    allocated: number,
+  ) => {
+    const limit = partnerWorkspace?.[roleKey] ?? null;
+    return limit === null ? null : Math.max(limit - allocated, 0);
+  };
+  const partnerCapacity = {
+    childOrganizations: {
+      used: activePartnerChildren.length,
+      limit: partnerWorkspace?.maxChildOrganizations ?? null,
+      remaining:
+        partnerWorkspace?.maxChildOrganizations === null ||
+        partnerWorkspace?.maxChildOrganizations === undefined
+          ? null
+          : Math.max(
+              partnerWorkspace.maxChildOrganizations - activePartnerChildren.length,
+              0,
+            ),
+    },
+    teacher: {
+      used: allocatedChildRoles.teacher,
+      limit: partnerWorkspace?.teacherUserLimit ?? null,
+      remaining: remainingPartnerRole('teacherUserLimit', allocatedChildRoles.teacher),
+    },
+    student: {
+      used: allocatedChildRoles.student,
+      limit: partnerWorkspace?.studentUserLimit ?? null,
+      remaining: remainingPartnerRole('studentUserLimit', allocatedChildRoles.student),
+    },
+    parent: {
+      used: allocatedChildRoles.parent,
+      limit: partnerWorkspace?.parentUserLimit ?? null,
+      remaining: remainingPartnerRole('parentUserLimit', allocatedChildRoles.parent),
+    },
+    totalUsers: {
+      used: allocatedChildUsers,
+      limit: partnerTotalChildUserLimit,
+      remaining:
+        partnerTotalChildUserLimit === null
+          ? null
+          : Math.max(partnerTotalChildUserLimit - allocatedChildUsers, 0),
+    },
+  };
+
+  const partnerCapacityRows = [
+    { label: 'Child organizations', ...partnerCapacity.childOrganizations },
+    { label: 'Teachers', ...partnerCapacity.teacher },
+    { label: 'Students', ...partnerCapacity.student },
+    { label: 'Parents', ...partnerCapacity.parent },
+    { label: 'Total child users', ...partnerCapacity.totalUsers },
+  ];
+  useEffect(() => {
+    if (!isEdit || initializedAiCreditsRef.current || !aiOverviewQuery.data) return;
+    setValue('aiCreditTokens', currentAssignedAiTokens, { shouldDirty: false });
+    initializedAiCreditsRef.current = true;
+  }, [aiOverviewQuery.data, currentAssignedAiTokens, isEdit, setValue]);
+
+  useEffect(() => {
+    if (
+      isEdit ||
+      actor?.role !== 'PARTNER_ADMIN' ||
+      initializedPartnerPolicyRef.current ||
+      !partnerWorkspace
+    ) {
+      return;
+    }
+    const teacherOnly = Boolean(partnerWorkspace.teacherOnlyMode);
+    setValue('teacherOnlyMode', teacherOnly, { shouldDirty: false });
+    setValue('studentLoginEnabled', teacherOnly ? false : Boolean(partnerWorkspace.studentLoginEnabled), {
+      shouldDirty: false,
+    });
+    setValue('parentLoginEnabled', teacherOnly ? false : Boolean(partnerWorkspace.parentLoginEnabled), {
+      shouldDirty: false,
+    });
+    if (teacherOnly) {
+      setValue('studentUserLimit', 0, { shouldDirty: false });
+      setValue('parentUserLimit', 0, { shouldDirty: false });
+    }
+    initializedPartnerPolicyRef.current = true;
+  }, [actor?.role, isEdit, partnerWorkspace, setValue]);
+
+  useEffect(() => {
+    if (!teacherOnlyMode) return;
+    if (studentLoginEnabled) setValue('studentLoginEnabled', false, { shouldDirty: true });
+    if (parentLoginEnabled) setValue('parentLoginEnabled', false, { shouldDirty: true });
+    if (studentUserLimit !== 0) setValue('studentUserLimit', 0, { shouldDirty: true });
+    if (parentUserLimit !== 0) setValue('parentUserLimit', 0, { shouldDirty: true });
+  }, [
+    parentLoginEnabled,
+    parentUserLimit,
+    setValue,
+    studentLoginEnabled,
+    studentUserLimit,
+    teacherOnlyMode,
+  ]);
+
+  useEffect(() => {
+    if (!parentLoginEnabled || teacherOnlyMode || studentLoginEnabled) return;
+    setValue('studentLoginEnabled', true, { shouldDirty: true });
+  }, [parentLoginEnabled, setValue, studentLoginEnabled, teacherOnlyMode]);
+
+  useEffect(() => {
+    if (studentLoginEnabled || teacherOnlyMode) return;
+    if (parentLoginEnabled) setValue('parentLoginEnabled', false, { shouldDirty: true });
+    if (studentUserLimit !== 0) setValue('studentUserLimit', 0, { shouldDirty: true });
+    if (parentUserLimit !== 0) setValue('parentUserLimit', 0, { shouldDirty: true });
+  }, [
+    parentLoginEnabled,
+    parentUserLimit,
+    setValue,
+    studentLoginEnabled,
+    studentUserLimit,
+    teacherOnlyMode,
+  ]);
+
+  useEffect(() => {
+    if (parentLoginEnabled || teacherOnlyMode) return;
+    if (parentUserLimit !== 0) setValue('parentUserLimit', 0, { shouldDirty: true });
+  }, [parentLoginEnabled, parentUserLimit, setValue, teacherOnlyMode]);
+
+  useEffect(() => {
+    if (
+      defaultStorageProvider &&
+      defaultStorageProvider !== 'NONE' &&
+      !storageProviders.includes(defaultStorageProvider)
+    ) {
+      setValue('defaultStorageProvider', storageProviders[0] ?? 'NONE');
+    }
+  }, [defaultStorageProvider, setValue, storageProviders]);
+
+  const toggleStorageProvider = (provider: OrganizationStorageProvider) => {
+    const selected = new Set(storageProviders);
+    if (selected.has(provider)) {
+      selected.delete(provider);
+    } else {
+      selected.add(provider);
+    }
+    const next = Array.from(selected);
+    setValue('storageProviders', next, { shouldDirty: true });
+    if (!next.length) {
+      setValue('defaultStorageProvider', 'NONE', { shouldDirty: true });
+      setValue('storageStatus', 'NOT_CONFIGURED', { shouldDirty: true });
+    } else if (
+      !defaultStorageProvider ||
+      defaultStorageProvider === 'NONE' ||
+      !next.includes(defaultStorageProvider)
+    ) {
+      setValue('defaultStorageProvider', next[0], { shouldDirty: true });
+    }
+    if (next.length && storageStatus === 'NOT_CONFIGURED') {
+      setValue('storageStatus', 'PENDING', { shouldDirty: true });
+    }
+  };
+
+  const onSubmit = (values: FormValues) => {
+    if (canConfigureLaunchPolicies) {
+      const hasMode =
+        Boolean(values.studentLoginEnabled) ||
+        Boolean(values.parentLoginEnabled) ||
+        Boolean(values.teacherOnlyMode);
+      if (!hasMode) {
+        toast.error('Select a customer mode');
+        return;
+      }
+      if ((values.teacherUserLimit ?? 0) < 1) {
+        toast.error('Teacher users must be at least 1');
+        return;
+      }
+      if (
+        !values.teacherOnlyMode &&
+        values.studentLoginEnabled &&
+        (values.studentUserLimit ?? 0) < 1
+      ) {
+        toast.error('Student users must be at least 1');
+        return;
+      }
+      if (
+        !values.teacherOnlyMode &&
+        values.parentLoginEnabled &&
+        (values.parentUserLimit ?? 0) < 1
+      ) {
+        toast.error('Parent users must be at least 1');
+        return;
+      }
+    }
+    if (actor?.role === 'PARTNER_ADMIN' && !isEdit) {
+      const requested = {
+        teacher: Number(values.teacherUserLimit ?? 0),
+        student: values.teacherOnlyMode ? 0 : Number(values.studentUserLimit ?? 0),
+        parent: values.teacherOnlyMode ? 0 : Number(values.parentUserLimit ?? 0),
+      };
+      if (partnerCapacity.childOrganizations.remaining === 0) {
+        toast.error('No child organization slots remain');
+        return;
+      }
+      const roleChecks = [
+        ['Teacher', requested.teacher, partnerCapacity.teacher.remaining],
+        ['Student', requested.student, partnerCapacity.student.remaining],
+        ['Parent', requested.parent, partnerCapacity.parent.remaining],
+      ] as const;
+      for (const [label, requestedCount, remaining] of roleChecks) {
+        if (remaining !== null && requestedCount > remaining) {
+          toast.error(`Only ${remaining} ${label.toLowerCase()} allocation(s) remain`);
+          return;
+        }
+      }
+      const requestedTotal = requested.teacher + requested.student + requested.parent;
+      if (
+        partnerCapacity.totalUsers.remaining !== null &&
+        requestedTotal > partnerCapacity.totalUsers.remaining
+      ) {
+        toast.error(
+          `Only ${partnerCapacity.totalUsers.remaining} total child user allocation(s) remain`,
+        );
+        return;
+      }
+    }
+    if (canAssignOrgAiCredits && (values.aiCreditTokens ?? 0) > assignableAiTokens) {
+      toast.error(`Only ${assignableAiTokens.toLocaleString('en-IN')} AI credits are assignable`);
+      return;
+    }
+    setPendingValues(values);
+    setConfirmOpen(true);
+  };
+
+  const partnerLimitFor = (field: 'teacherUserLimit' | 'studentUserLimit' | 'parentUserLimit') =>
+    actor?.role === 'PARTNER_ADMIN'
+      ? partnerWorkspace?.[field] ?? undefined
+      : undefined;
+
+  const runSubmit = () => {
+    const values = pendingValues;
+    if (!values) return;
+    pendingAiCreditTokensRef.current = canAssignOrgAiCredits
+      ? Number(values.aiCreditTokens ?? 0)
+      : null;
+    pendingAiCreditSourceAccountIdRef.current = canAssignOrgAiCredits
+      ? sourceAiAccount?.id === 'master'
+        ? null
+        : sourceAiAccount?.id ?? null
+      : null;
+    const normalizedTeacherOnly = Boolean(values.teacherOnlyMode);
+    const normalizedParentLogin =
+      !normalizedTeacherOnly && Boolean(values.parentLoginEnabled);
+    const normalizedStudentLogin =
+      !normalizedTeacherOnly &&
+      (Boolean(values.studentLoginEnabled) || normalizedParentLogin);
+    const submittedTeacherUserLimit = Number(values.teacherUserLimit ?? 0);
+    const submittedStudentUserLimit = normalizedTeacherOnly
+      ? 0
+      : normalizedStudentLogin
+        ? Number(values.studentUserLimit ?? 0)
+        : 0;
+    const submittedParentUserLimit = normalizedTeacherOnly
+      ? 0
+      : normalizedParentLogin
+        ? Number(values.parentUserLimit ?? 0)
+        : 0;
+    const submittedTotalUserLimit =
+      submittedTeacherUserLimit + submittedStudentUserLimit + submittedParentUserLimit;
+    const commercialPayload = canConfigureLaunchPolicies
+      ? {
+          ...(isSuperAdmin
+            ? {
+                brandingMode: values.brandingMode as BrandingMode,
+                brandName: values.brandName?.trim() ? values.brandName.trim() : null,
+                brandPrimaryColor: values.brandPrimaryColor?.trim()
+                  ? values.brandPrimaryColor.trim()
+                  : null,
+                brandAccentColor: values.brandAccentColor?.trim()
+                  ? values.brandAccentColor.trim()
+                  : null,
+                licenseSeatMax:
+                  typeof values.licenseSeatMax === 'number' &&
+                  !Number.isNaN(values.licenseSeatMax) &&
+                  values.licenseSeatMax > 0
+                    ? values.licenseSeatMax
+                    : null,
+                ...(values.kind === 'PARTNER'
+                  ? {
+                      maxChildOrganizations: values.maxChildOrganizations ?? null,
+                      maxChildPartners: values.maxChildPartners ?? null,
+                      maxChildUsers: submittedTotalUserLimit,
+                    }
+                  : {}),
+              }
+            : {}),
+          studentLoginEnabled: normalizedStudentLogin,
+          parentLoginEnabled: normalizedParentLogin,
+          sessionOnlyJoinEnabled: Boolean(values.sessionOnlyJoinEnabled),
+          teacherOnlyMode: normalizedTeacherOnly,
+          teacherUserLimit: submittedTeacherUserLimit,
+          studentUserLimit: submittedStudentUserLimit,
+          parentUserLimit: submittedParentUserLimit,
+        }
+      : {};
+    const storagePayload = canConfigureStorage
+      ? {
+          storageProviders: (values.storageProviders ?? []) as OrganizationStorageProvider[],
+          defaultStorageProvider:
+            values.defaultStorageProvider && values.defaultStorageProvider !== 'NONE'
+              ? (values.defaultStorageProvider as OrganizationStorageProvider)
+              : null,
+          storageStatus: values.storageProviders?.length
+            ? ((values.storageStatus && values.storageStatus !== 'NOT_CONFIGURED'
+                ? values.storageStatus
+                : 'PENDING') as OrganizationStorageStatus)
+            : 'NOT_CONFIGURED',
+        }
+      : {};
+
+    if (isEdit && organizationId) {
+      updateMutation.mutate({
+        organizationId,
+        payload: {
+          name: values.name,
+          slug: values.slug,
+          status: values.status as OrganizationStatus,
+          supportPhone: values.supportPhone || null,
+          ...commercialPayload,
+          ...storagePayload,
+        },
+      });
+    } else {
+      createMutation.mutate({
+        name: values.name,
+        slug: values.slug || undefined,
+        kind: values.kind as OrganizationKind,
+        parentOrganizationId:
+          values.parentOrganizationId &&
+          values.parentOrganizationId !== 'NONE'
+            ? values.parentOrganizationId
+            : null,
+        supportEmail: values.supportEmail || null,
+        supportPhone: values.supportPhone || null,
+        ...commercialPayload,
+        ...storagePayload,
+      });
+    }
+  };
+
+  const providerLabel = (val: string) =>
+    STORAGE_PROVIDER_OPTIONS.find((option) => option.value === val)?.label ?? val;
+
+  const buildRows = (v: FormValues): ConfirmRow[] => {
+    const rows: ConfirmRow[] = [
+      { label: 'Name', value: v.name },
+      { label: 'Slug', value: v.slug || '—' },
+      { label: 'Kind', value: ORG_KIND_LABEL[v.kind as OrganizationKind] ?? v.kind },
+    ];
+    if (!isEdit && v.kind === 'CUSTOMER') {
+      const parentName =
+        v.parentOrganizationId && v.parentOrganizationId !== 'NONE'
+          ? partnerOrganizations.find((o) => o.id === v.parentOrganizationId)?.name ??
+            v.parentOrganizationId
+          : 'No partner workspace (direct customer)';
+      rows.push({ label: 'Partner workspace', value: parentName });
+    }
+    rows.push({ label: 'Status', value: v.status === 'INACTIVE' ? 'Inactive' : 'Active' });
+    rows.push({
+      label: 'Support email',
+      value: (isEdit ? organization?.supportEmail : v.supportEmail) || '—',
+    });
+    rows.push({ label: 'Support phone', value: v.supportPhone || '—' });
+    if (isSuperAdmin) {
+      rows.push({
+        label: 'Branding mode',
+        value: BRANDING_MODE_LABEL[v.brandingMode as BrandingMode],
+      });
+      if (v.brandingMode !== 'SOFTLOGIC') {
+        if (v.brandName?.trim()) rows.push({ label: 'Brand name', value: v.brandName.trim() });
+        if (v.brandPrimaryColor?.trim())
+          rows.push({ label: 'Primary color', value: v.brandPrimaryColor.trim() });
+        if (v.brandAccentColor?.trim())
+          rows.push({ label: 'Accent color', value: v.brandAccentColor.trim() });
+      }
+    }
+    if (canConfigureLaunchPolicies) {
+      rows.push({ label: 'Student login', value: v.studentLoginEnabled ? 'Enabled' : 'Disabled' });
+      rows.push({ label: 'Parent login', value: v.parentLoginEnabled ? 'Enabled' : 'Disabled' });
+      rows.push({
+        label: 'Teacher-only mode',
+        value: v.teacherOnlyMode ? 'Enabled' : 'Disabled',
+      });
+      rows.push({ label: 'Teacher users', value: Number(v.teacherUserLimit ?? 0) });
+      rows.push({ label: 'Student users', value: Number(v.studentUserLimit ?? 0) });
+      rows.push({ label: 'Parent users', value: Number(v.parentUserLimit ?? 0) });
+      rows.push({
+        label: 'Total users',
+        value:
+          Number(v.teacherUserLimit ?? 0) +
+          Number(v.studentUserLimit ?? 0) +
+          Number(v.parentUserLimit ?? 0),
+      });
+      if (isSuperAdmin && v.kind === 'PARTNER') {
+        rows.push({
+          label: 'Max child organizations',
+          value: v.maxChildOrganizations ?? 'No limit',
+        });
+        rows.push({
+          label: 'Managed customer user capacity',
+          value:
+            Number(v.teacherUserLimit ?? 0) +
+            Number(v.studentUserLimit ?? 0) +
+            Number(v.parentUserLimit ?? 0),
+        });
+      }
+    }
+    if ((v.aiCreditTokens ?? 0) > 0) {
+      rows.push({ label: 'Assigned AI credits', value: Number(v.aiCreditTokens ?? 0) });
+      rows.push({
+        label: 'AI credits after allocation',
+        value: Math.max(assignableAiTokens - Number(v.aiCreditTokens ?? 0), 0),
+      });
+    }
+    rows.push({
+      label: 'AI allocation change',
+      value:
+        Number(v.aiCreditTokens ?? 0) - currentAssignedAiTokens === 0
+          ? 'No change'
+          : Number(v.aiCreditTokens ?? 0) - currentAssignedAiTokens,
+    });
+    if (canConfigureStorage) {
+      const providers = (v.storageProviders ?? []) as string[];
+      rows.push({
+        label: 'Storage providers',
+        value: providers.length ? providers.map(providerLabel).join(', ') : 'None',
+      });
+      if (providers.length) {
+        rows.push({
+          label: 'Default provider',
+          value:
+            v.defaultStorageProvider && v.defaultStorageProvider !== 'NONE'
+              ? providerLabel(v.defaultStorageProvider)
+              : 'Not configured',
+        });
+        rows.push({
+          label: 'Storage status',
+          value:
+            STORAGE_STATUS_LABEL[
+              ((v.storageStatus && v.storageStatus !== 'NOT_CONFIGURED'
+                ? v.storageStatus
+                : 'PENDING') as OrganizationStorageStatus)
+            ],
+        });
+      }
+    }
+    return rows;
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <Button type="button" variant="ghost" size="sm" onClick={() => navigate('/organizations')}>
+            <ArrowLeft className="h-4 w-4" />
+            Organizations
+          </Button>
+          <h2 className="mt-2 text-2xl font-black text-ink-900">
+            {isEdit ? 'Edit organization' : 'Create organization'}
+          </h2>
+          <p className="text-sm text-ink-500">
+            Configure workspace identity, hierarchy, status, and operating context.
+          </p>
+        </div>
+        <Button id="tour-org-submit" data-tour="tour-org-submit" type="submit" variant="primary" disabled={submitting}>
+          {submitting ? <Spinner className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+          {isEdit ? 'Save changes' : 'Create organization'}
+        </Button>
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
+        <Card className="space-y-5 px-4 py-5 sm:px-6">
+          {actor?.role === 'PARTNER_ADMIN' && !isEdit && (
+            <div className="rounded-lg border border-line bg-surface-variant px-4 py-4">
+              <div>
+                <h3 className="text-sm font-bold text-ink-900">Available partner capacity</h3>
+                <p className="text-xs text-ink-500">
+                  Requested child limits are taken from this remaining allocation.
+                </p>
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                {partnerCapacityRows.map((row) => {
+                  return (
+                    <div key={row.label}>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                        {row.label}
+                      </p>
+                      <p className="mt-1 text-sm font-bold text-ink-900">
+                        {row.used}/{row.limit ?? 'No limit'}
+                      </p>
+                      <p className="text-xs text-ink-500">
+                        {row.remaining === null ? 'Unlimited remaining' : `${row.remaining} left`}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          <div>
+            <h3 className="text-base font-bold text-ink-900">Organization Profile</h3>
+            <p className="text-sm text-ink-500">Public admin identity and routing details.</p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Name</label>
+              <Input id="tour-org-name" data-tour="tour-org-name-input" placeholder="Acme Corp" {...register('name')} />
+              {errors.name && <p className="text-xs text-danger">{errors.name.message}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Slug</label>
+              <Input placeholder="acme-corp" {...register('slug')} />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Kind</label>
+              <div id="tour-org-kind">
+              <Select disabled={isEdit} value={kind} onValueChange={(value) => setValue('kind', value)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {allowedKinds.map((allowedKind) => (
+                    <SelectItem key={allowedKind} value={allowedKind}>{allowedKind}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              </div>
+            </div>
+            {showParentPicker && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Partner workspace</label>
+                <Select
+                  disabled={!canPickParent}
+                  value={parentOrganizationId}
+                  onValueChange={(value) => setValue('parentOrganizationId', value)}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {isSuperAdmin && (
+                      <SelectItem value="NONE">No parent (top-level)</SelectItem>
+                    )}
+                    {parentPartnerOptions.map((org) => {
+                      const depth = organizationDepth(partnerOrganizations, org.id);
+                      return (
+                        <SelectItem key={org.id} value={org.id}>
+                          {`${'  '.repeat(depth)}${org.name}`}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-ink-500">
+                  {kind === 'PARTNER'
+                    ? 'Assign this partner under a parent partner workspace (nested partner).'
+                    : 'Assign this customer workspace under a partner workspace.'}
+                </p>
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Status</label>
+              <Select value={status} onValueChange={(value) => setValue('status', value)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ACTIVE">Active</SelectItem>
+                  <SelectItem value="INACTIVE">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Support email</label>
+              <Input
+                type="email"
+                disabled={isEdit}
+                placeholder="support@school.edu"
+                {...register('supportEmail')}
+              />
+              {errors.supportEmail && (
+                <p className="text-xs text-danger">{errors.supportEmail.message}</p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Support phone</label>
+              <Input placeholder="+91 98765 43210" {...register('supportPhone')} />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Teacher users</label>
+              <Input
+                id="tour-org-teacher-limit"
+                type="number"
+                min={0}
+                disabled={!canConfigureLaunchPolicies}
+                max={partnerLimitFor('teacherUserLimit')}
+                {...register('teacherUserLimit', { valueAsNumber: true })}
+              />
+              {errors.teacherUserLimit && (
+                <p className="text-xs text-danger">{errors.teacherUserLimit.message}</p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Student users</label>
+              <Input
+                id="tour-org-student-limit"
+                type="number"
+                min={0}
+                disabled={!canConfigureLaunchPolicies || teacherOnlyMode || !studentLoginEnabled}
+                max={partnerLimitFor('studentUserLimit')}
+                {...register('studentUserLimit', { valueAsNumber: true })}
+              />
+              {errors.studentUserLimit && (
+                <p className="text-xs text-danger">{errors.studentUserLimit.message}</p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Parent users</label>
+              <Input
+                type="number"
+                min={0}
+                disabled={!canConfigureLaunchPolicies || teacherOnlyMode || !parentLoginEnabled}
+                max={partnerLimitFor('parentUserLimit')}
+                {...register('parentUserLimit', { valueAsNumber: true })}
+              />
+              {errors.parentUserLimit && (
+                <p className="text-xs text-danger">{errors.parentUserLimit.message}</p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Total users</label>
+              <Input type="number" value={totalUserLimit} disabled readOnly />
+              {errors.studentLoginEnabled && (
+                <p className="text-xs text-danger">{errors.studentLoginEnabled.message}</p>
+              )}
+            </div>
+          </div>
+          {isSuperAdmin && (
+            <div className="rounded-xl border border-line bg-gradient-to-r from-blue-50/60 via-white to-blue-50/30 p-5 shadow-2xs">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1 max-w-xl">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex h-2 w-2 rounded-full bg-brand-primary"></span>
+                    <h4 className="text-sm font-bold text-ink-900">Hardware & Activation Key Capacity</h4>
+                  </div>
+                  <p className="text-xs leading-5 text-ink-500">
+                    Defines the maximum number of interactive smart-board devices allowed (License Seat Max). Leave blank to automatically match teacher capacity + 1 admin seat.
+                  </p>
+                </div>
+                <div className="w-full sm:w-56 shrink-0">
+                  <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-ink-500">
+                    Seat Limit
+                  </label>
+                  <Input
+                    type="number"
+                    min={0}
+                    className="bg-white font-semibold text-ink-900"
+                    placeholder="Auto (Teacher seats + 1)"
+                    {...register('licenseSeatMax', { valueAsNumber: true })}
+                  />
+                  {errors.licenseSeatMax && (
+                    <p className="mt-1 text-xs text-danger">{errors.licenseSeatMax.message}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          {showPartnerGovernance && (
+            <div className="grid gap-4 rounded-lg border border-line bg-surface-variant px-4 py-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  Managed customer organizations
+                </label>
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="No limit"
+                  {...register('maxChildOrganizations', { valueAsNumber: true })}
+                />
+                <p className="text-xs text-ink-500">
+                  {maxChildOrganizations ?? 'Unlimited'} customer organizations managed by this partner.
+                </p>
+                {errors.maxChildOrganizations && (
+                  <p className="text-xs text-danger">{errors.maxChildOrganizations.message}</p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  Max partners
+                </label>
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="0 (no sub-partners)"
+                  {...register('maxChildPartners', { valueAsNumber: true })}
+                />
+                <p className="text-xs text-ink-500">
+                  {maxChildPartners ?? 0} sub-partner workspace(s) this partner may create.
+                </p>
+                {errors.maxChildPartners && (
+                  <p className="text-xs text-danger">{errors.maxChildPartners.message}</p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  Managed customer user capacity
+                </label>
+                <Input
+                  type="number"
+                  value={derivedMaxChildUsers ?? 0}
+                  disabled
+                  readOnly
+                />
+                <p className="text-xs text-ink-500">
+                  Derived from total users above and shared across managed customer organizations.
+                </p>
+                {errors.maxChildUsers && (
+                  <p className="text-xs text-danger">{errors.maxChildUsers.message}</p>
+                )}
+              </div>
+            </div>
+          )}
+          <div className="rounded-xl border border-line bg-gradient-to-r from-purple-50/50 via-white to-purple-50/30 p-5 shadow-2xs">
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex h-2 w-2 rounded-full bg-purple-600"></span>
+                <h4 className="text-sm font-bold text-ink-900">AI Credit Allocation & Wallet Balance</h4>
+              </div>
+              <AiCreditInfoButton />
+            </div>
+            <div className="mt-4 grid gap-5 lg:grid-cols-[1fr_320px] lg:items-center">
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-ink-500">
+                  Allocated AI Tokens
+                </label>
+                <div className="max-w-sm">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={assignableAiTokens}
+                    disabled={!canAssignOrgAiCredits}
+                    className="bg-white font-bold text-ink-900"
+                    placeholder="Enter token allocation"
+                    {...register('aiCreditTokens', { valueAsNumber: true })}
+                  />
+                </div>
+                <p className="text-xs text-ink-500">
+                  Total assignable pool: <span className="font-semibold text-ink-700">{assignableAiTokens.toLocaleString('en-IN')} tokens</span> ({sourceAvailableAiTokens.toLocaleString('en-IN')} available in source account).
+                </p>
+              </div>
+              <div className="rounded-lg border border-line bg-white p-3.5 shadow-2xs space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-ink-500">Current Assigned</span>
+                  <span className="font-bold text-ink-900">{currentAssignedAiTokens.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-ink-500">Net Change</span>
+                  <span className={`font-bold ${aiAllocationDelta > 0 ? 'text-success' : aiAllocationDelta < 0 ? 'text-warning' : 'text-ink-700'}`}>
+                    {aiAllocationDelta === 0 ? 'No change' : (aiAllocationDelta > 0 ? `+${aiAllocationDelta.toLocaleString('en-IN')}` : aiAllocationDelta.toLocaleString('en-IN'))}
+                  </span>
+                </div>
+                <div className="border-t border-line pt-2 flex items-center justify-between text-xs">
+                  <span className="font-semibold text-ink-700">Source After Save</span>
+                  <span className="font-extrabold text-brand-primary">{afterAiAllocation.toLocaleString('en-IN')} tokens</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="space-y-5 px-4 py-5 sm:px-6">
+          <div>
+            <h3 className="text-base font-bold text-ink-900">Launch Policies</h3>
+            <p className="text-sm text-ink-500">
+              {isSuperAdmin
+                ? 'Commercial login, branding, and storage controls for production.'
+                : 'Commercial login and storage controls for production.'}
+            </p>
+          </div>
+          <div className="grid gap-4">
+            {isSuperAdmin && (
+              <div className="space-y-1.5" id="tour-org-branding-mode">
+                <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Branding mode</label>
+                <Select
+                  value={brandingMode}
+                  onValueChange={(value) => setValue('brandingMode', value)}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SOFTLOGIC">SoftLogic</SelectItem>
+                    <SelectItem value="WHITE_LABEL">White-label</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {isSuperAdmin && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Brand logo</label>
+                <div className="flex items-center gap-3 rounded-lg border border-line bg-white px-3 py-2">
+                  {selectedLogoPreviewUrl || organization?.logoUrl ? (
+                    <img
+                      src={selectedLogoPreviewUrl ?? organization?.logoUrl ?? ''}
+                      alt="Organization logo"
+                      className="h-10 w-10 rounded object-contain"
+                    />
+                  ) : (
+                    <div className="flex h-10 w-10 items-center justify-center rounded bg-surface-variant text-ink-400">
+                      <ImageIcon className="h-5 w-5" />
+                    </div>
+                  )}
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) {
+                        if (isEdit) uploadLogoMutation.mutate(file);
+                        else setSelectedLogoFile(file);
+                      }
+                      event.target.value = '';
+                    }}
+                  />
+                  <div className="min-w-0 flex-1">
+                    {selectedLogoFile && !isEdit && (
+                      <p className="mb-1 truncate text-xs text-ink-500">{selectedLogoFile.name}</p>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => logoInputRef.current?.click()}
+                        disabled={uploadLogoMutation.isPending}
+                      >
+                        {uploadLogoMutation.isPending
+                          ? 'Uploading...'
+                          : organization?.logoUrl || selectedLogoFile
+                            ? 'Replace'
+                            : 'Upload'}
+                      </Button>
+                      {(organization?.logoUrl || selectedLogoFile) && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (isEdit && organization?.logoUrl) removeLogoMutation.mutate();
+                            else setSelectedLogoFile(null);
+                          }}
+                          disabled={removeLogoMutation.isPending}
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {isSuperAdmin && isWhiteLabel && (
+              <div className="space-y-4 rounded-lg border border-line bg-surface-variant p-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Brand name</label>
+                  <Input
+                    placeholder="Acme Learning"
+                    disabled={!isSuperAdmin}
+                    {...register('brandName')}
+                  />
+                  <p className="text-xs text-ink-500">Shown in place of “SoftLogic” for white-label workspaces.</p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2" id="tour-org-colors">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Primary color</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        disabled={!isSuperAdmin}
+                        value={brandPrimaryColor || '#1149b5'}
+                        onChange={(event) =>
+                          setValue('brandPrimaryColor', event.target.value, { shouldDirty: true })
+                        }
+                        className="h-9 w-10 shrink-0 cursor-pointer rounded border border-line bg-white p-0.5 disabled:cursor-not-allowed"
+                        aria-label="Primary brand color"
+                      />
+                      <Input placeholder="#1149B5" disabled={!isSuperAdmin} {...register('brandPrimaryColor')} />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Accent color</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        disabled={!isSuperAdmin}
+                        value={brandAccentColor || '#ff7a00'}
+                        onChange={(event) =>
+                          setValue('brandAccentColor', event.target.value, { shouldDirty: true })
+                        }
+                        className="h-9 w-10 shrink-0 cursor-pointer rounded border border-line bg-white p-0.5 disabled:cursor-not-allowed"
+                        aria-label="Accent brand color"
+                      />
+                      <Input placeholder="#FF7A00" disabled={!isSuperAdmin} {...register('brandAccentColor')} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Storage providers</label>
+              <div className="grid gap-2">
+                {STORAGE_PROVIDER_OPTIONS.map((provider) => (
+                  <label
+                    key={provider.value}
+                    className="flex items-center justify-between rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink-700"
+                  >
+                    <span>{provider.label}</span>
+                    <input
+                      type="checkbox"
+                      disabled={!canConfigureStorage}
+                      checked={storageProviders.includes(provider.value)}
+                      onChange={() => toggleStorageProvider(provider.value)}
+                      className="h-4 w-4 rounded border-line text-brand-primary"
+                    />
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Default provider</label>
+              <Select
+                disabled={!canConfigureStorage || storageProviders.length === 0}
+                value={defaultStorageProvider}
+                onValueChange={(value) => setValue('defaultStorageProvider', value)}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NONE">Not configured</SelectItem>
+                  {STORAGE_PROVIDER_OPTIONS.filter((provider) =>
+                    storageProviders.includes(provider.value),
+                  ).map((provider) => (
+                    <SelectItem key={provider.value} value={provider.value}>
+                      {provider.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-500">Storage status</label>
+              <Select
+                disabled={!canConfigureStorage || storageProviders.length === 0}
+                value={storageStatus}
+                onValueChange={(value) => setValue('storageStatus', value)}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(STORAGE_STATUS_LABEL).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2 rounded-lg border border-line bg-surface-variant p-2 sm:col-span-2">
+              {[
+                ['studentLoginEnabled', 'Student dashboard login', studentLoginEnabled],
+                ['parentLoginEnabled', 'Parent dashboard login', parentLoginEnabled],
+                ['teacherOnlyMode', 'Teacher-only customer mode', teacherOnlyMode],
+              ].map(([name, label, checked]) => (
+                <label
+                  key={name as string}
+                  className="flex min-h-10 items-center gap-2 rounded-md bg-white px-3 text-sm font-medium text-ink-700 shadow-sm ring-1 ring-line/80"
+                >
+                  <input
+                    type="checkbox"
+                    disabled={
+                      !canConfigureLaunchPolicies ||
+                      (actor?.role === 'PARTNER_ADMIN' &&
+                        name === 'studentLoginEnabled' &&
+                        !partnerWorkspace?.studentLoginEnabled) ||
+                      (actor?.role === 'PARTNER_ADMIN' &&
+                        name === 'parentLoginEnabled' &&
+                        !partnerWorkspace?.parentLoginEnabled) ||
+                      (teacherOnlyMode &&
+                        (name === 'studentLoginEnabled' ||
+                          name === 'parentLoginEnabled'))
+                    }
+                    checked={Boolean(checked)}
+                    onChange={(event) =>
+                      setValue(name as keyof FormValues, event.target.checked, {
+                        shouldDirty: true,
+                      })
+                    }
+                    className="h-4 w-4 shrink-0 rounded border-line text-brand-primary"
+                  />
+                  <span className="whitespace-nowrap">{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </Card>
+
+        <Card className="space-y-4 px-4 py-5 sm:px-6">
+          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-brand-orange/10 text-brand-orange">
+            <Building2 className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="font-bold text-ink-900">Hierarchy rules</h3>
+            <p className="mt-1 text-sm leading-6 text-ink-500">
+              Partner workspaces are top-level. Customer organizations can be managed directly by SoftLogic or assigned under a partner workspace.
+            </p>
+          </div>
+        </Card>
+      </div>
+
+      <ConfirmSubmitDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title={isEdit ? 'Save organization changes?' : 'Create this organization?'}
+        description="Review the details below before saving."
+        rows={pendingValues ? buildRows(pendingValues) : []}
+        confirmLabel={isEdit ? 'Save changes' : 'Create organization'}
+        loading={submitting}
+        onConfirm={runSubmit}
+      />
+    </form>
+  );
+}
